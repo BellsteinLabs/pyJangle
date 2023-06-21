@@ -1,0 +1,29 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "run coverage",
+            "type": "shell",
+            "command": "coverage",
+            "args": ["run", "-m", "unittest", "discover", "-v", "-s", "./pyjangle", "-p", "*_test.py"],
+        },
+        {
+            "label": "generate lcov",
+            "type": "shell",
+            "command": "coverage",
+            "args": ["lcov", "-o", "coverage.xml"]
+        },
+        {
+            "label": "coverage_",
+            "type": "shell",
+            "command": "coverage_.bat"
+        },
+        // {
+        //     "label": "coverage_",
+        //     "type": "shell",
+        //     "command": "coverage run -m unittest discover -v -s \"./pyjangle\" -p \"*_test.py\"; coverage lcov -o coverage.xml"
+        // },
+    ]
+}
