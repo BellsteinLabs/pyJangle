@@ -25,5 +25,5 @@ class AccountCreationAggregate(Aggregate):
 
     @reconstitute_aggregate_state(AccountIdProvisioned)
     def handle_account_created_event(self, event: AccountIdProvisioned):
-        self.increment_version()
+        pass
 

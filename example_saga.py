@@ -11,7 +11,7 @@ from pyjangle.saga.saga import Saga, reconstitute_saga_state
 
 RETRY_TIMEOUT_LENGTH = timedelta(seconds=15)
 
-EVENT_RECEIVE_FUNDS_TRANSFER_REQUESTED = 1
+EVENT_RECEIVE_FUNDS_REQUESTED = 1
 EVENT_RECEIVE_FUNDS_APPROVED = 4
 EVENT_RECEIVE_FUNDS_REJECTED = 8
 
@@ -56,7 +56,7 @@ class RequestFundsFromAnotherAccount(Saga):
             
 
     def evaluate_hook(self):
-        if not EVENT_RECEIVE_FUNDS_TRANSFER_REQUESTED in self.flags:
+        if not EVENT_RECEIVE_FUNDS_REQUESTED in self.flags:
             return 
         if not COMMAND_TRY_OBTAIN_RECEIVE_FUNDS_APPROVAL in self.flags:
             request_transfer_approval_on_funding_account_command_response = None
@@ -126,7 +126,7 @@ class RequestFundsFromAnotherAccount(Saga):
 
     @reconstitute_saga_state(ReceiveFundsRequested)                
     def handle_receive_funds_transfer_requested(self, event: ReceiveFundsRequested):
-        self.flags.add(EVENT_RECEIVE_FUNDS_TRANSFER_REQUESTED)
+        self.flags.add(EVENT_RECEIVE_FUNDS_REQUESTED)
         setattr(self, FIELD_TRANSACTION_ID, event.transaction_id)
         setattr(self, FIELD_FUNDING_ACCOUNT_ID, event.funding_account_id)
         setattr(self, FIELD_FUNDED_ACCOUNT_ID, event.funded_account_id)

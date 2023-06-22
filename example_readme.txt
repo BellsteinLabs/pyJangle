@@ -1,0 +1,155 @@
+This example of a make-believe banking system is intended to help you gain an understanding of the pyJangle framework and what it can offer you.  If you haven't previously dealt with an event-based system before, some of the patterns used in pyJangle might feel really odd at first, but if you keep reading, you'll have that aHA! moment.  
+
+Sidenotes about about this architecture/framework:  Many of us have 'used' architectures in the past as in someone lectures us about it, we look at some UML diagrams that no one actually understands, and it's more used as a general guideline, and people just write whatever code they wanted to write anyway.  That's a bit of a generalization, but I'm sure that many can relate to some extent.  Really, an architecture can be thought of as a strict set of rules and principles for how to do a thing.  The reason we adopt them is that they facilitate certain benefits.  Imagine if there was no standard for how big roads and cargo containers should be.  Shipping across country would be an expensive NIGHTMARE in planning and logistics.  But if we instead choose to adopt rigorous guidelines on what we can and can't do, or rules for how big the roads and cargo containers should be, you get your Amazon package the same day.  pyJangle and the patterns and practices it embodies, has some REALLY cool benefits, but we'll take the show-don't-tell approach.  Okay, continue on...
+
+JANGLE BANKING SCENARIO
+
+Jangle banking is a simple banking imlementation where account holders can withdraw funds, make deposits, and transfer funds between accounts.  The first characteristic of this particular framework that you're about to experience first-hand is a centralized and obvious list of all the things you can do in this particular application.  If it's not on this list, you can't do it... period. (That was your first architectural constraint: if it ain't on the list, you can't do it!)
+
+COMMANDS
+
+Take a look at example_commands.py.  This file contains what are called 'Commands' which represent a users intent to change the state of the system in some way.  It could be to CreateAccount, WithdrawFunds, SendFunds, etc.  Have you ever been new to a codebase and just wanted to understand what the system does so that you can start working?  Emplyees are expensive, so we want them to get to work as quickly as possible, right?  Well, there's the list!  
+
+Note that commands are immutable (these architectural constraints just keep coming!).  Seriously, just leave them be once they are instantiated.  This makes sense though, if you think about it--if I tell you that I want to make an account with a $20 initial deposit, there's no reason to modify that request.  Making commands immutable reduces the likelihood or errors.  
+
+It should also be the case that commands are always in a valid and consistent state upon instantiation.  If the account name has to be a minimum of 5 unicode characters, and the initial deposit must be a positive decimal number, enforce those constraints on command instantiation so that it's never the case that a command is 'wrong' or inconsistent.  
+
+EVENTS
+
+It's important to never confuse commands and events.  A command is an intent to change something, but a command can be rejected.  If you attempt to withdraw $1,000,000 and your balance is $0.42, that command is rejected, and no state change occurred in the system.  But let's say that you successfully withdrew $0.20.  Cool!  This is a state change that has occurred in the system which we call an Event.  In fact, ANY state change in the system should have a corresponding event.  ONLY events can change the application state... period.  (<--- Architectural constraint)  In this case, look at example_events.py and note the FundsWithdrawn event.  If you review this file further, you'll notice that this list represents EVERYTHING that can happen in this system, without exception (pun-intended).  Again, we're helping new employees as well as seasoned employees get caught up to speed on the system VERY quickly here.
+
+Events are immutable.  Once they're created and persisted, they're law.  You can't argue with a persisted event stream, the only thing you can do is commit an event that undid the previous event that you didn't like.  We also keep our events in one place called an Event Store which you can find in the pyJangle module called event_repository.
+
+Events should be granualar and only contain what they need.  It's generally better to have several granular events rather than big beefy ones.  Let's say I was interested in reporting on transaction volume.  I could subscribe to this apps event stream and get only the data I need: FundsWithdrawn, FundsDeposited, etc.  If the events are large, I'd get things I don't need such as account names or the DOB of the account holder.  It also starts to become a privacy nightmare at that point, and I'd also be duplicating data across events, and it generally becomes a pain to deal with.
+
+Another note is that you'll notice that the account name isn't used in the events.  The name can change, but the account ID is not going to change.  If you have a FundsWithdrawn event, it might seem cool to throw in the account name, but that's not only going to waste bandwidth and confuse everyone, it's also not going to automatically update if the account name changes which means the information in the event is now WRONG.  That's bad, but the fix is simple--just create a granular event called AccountNameChanged.  It's not actually implemented here, but once you're done reading this document, give it a try!  Now, if I want to know updated account names because I'm reporting on the occurrence of certain names for some paper I'm writing, I can just subscribe to AccountNameChanged!  As a bonus, it's not associated to my account balance.  I couldn't piece that together unless I had permissions to multiple event streams.  You get the idea...
+
+QUERIES
+
+The last of the trifecta of immutable data objects are queries.  If you look at example_queries.py, that's a list of all the questions you can ask the system.  How much money is in my account?  Can I see a list of all the accounts?  Where's my transaction ledger?  You get the idea.  Queries are immutable objects just like events and commands.
+
+----------
+
+So with COMMANDS, EVENTS, and QUERIES explained, you can see how it's easy to get up to speed on the system.  Next, we'll start to discuss how all these things fit together.  First up, aggregates...
+
+AGGREGATE
+
+Martin Fowler's Domain Driven Design is a pretty cool and pretty misunderstood thing.  Regardless, we're going to steal the idea of an aggregate.  Don't click this until you've understood what we're about to discuss https://martinfowler.com/bliki/DDD_Aggregate.html.  For our purposes, an aggregate is a class that validates commands.  Once it validates that a command is valid, it generates events that need to then be committed to storage.  An aggregates state contains ONLY what is necessary to validate commands and it is a mistake to put anything additional therein (architectural constraints are still comin' at ya!).  Making aggregates not too big, but just large enough to validate related events is part of what makes this architecture arbitrarily scalable.  That topic is beyond our current scope, but it's an interesting one.  
+
+Anyway, this scenario of Jangle banking really only needs two aggregates.  The first one is an Account aggregate that you can find in example_account_aggregate.py.  You'll notice that an aggregate is just a class that extends Aggregate with a capital A.  The class is decorated with a @RegisterCommand decorator which lets the framework know that yeap, this is an aggregate, alright!  There's also a handy list of commands that this aggregate can handle.  Commands have a one-to-one relationship to aggregates (architectural constraint).  This helps with the whole arbitrary scaling deal.  We'll get more into that later when we talk about sagas...
+
+Inside the init method, you can see the entirety of the aggregates state when it's freshly initialized.  You'll notice that the rest of the aggregate is methods decorated with @validate_command, and @reconstitute_aggregate_state.  So we've already discussed how an aggregate's sole purpose is to validate commands, so the former of those decorators is pretty obvious, but the second one is interesting... what is @reconstitute_aggregate_state?  Well, and aggregate has two parts: the code you see in that py file, and the corresponding events in the event store.  Here's our first leap in thinking...
+
+In order to validate a command such as whether or not I can withdraw funds, I need to know everything that's happened on this account in the past so that I can rebuild its history one event at a time (the events are processed by the methods decorated with @reconstitute_aggregate_state) to figure out what the current balance is.  What's happening behind the scenes in pyJangle is that this event is instantiated, then all historical events are queried from the event store and are used to rebuild the aggregate's state to match the current reality (that I spent too much on sushi).  Once the state is reconstituted, I can now validate the command!  
+
+The reason this is neat is that all of my business logic is in the @command_validator methods.  Just looing through this file, you can see that the account balance is allowed to go below 0, all the way down to -100 (see 'def withdraw_funds(*)').  You can also see that twice during the lifetime of the account, the accountholder can ask for forgiveness on their balance.  Jangle Banking is pretty great, right?  Some events don't really require validation--take a look at receive_funds to see what I mean.  Technically, there's a decorator there that fails the command if the account is deleted, but you get the point.
+
+Another noteworthy thing here is that modifying the state never happens in the command_validators.  Just because I've validated that the withdrawal can occur doesn't mean I just decrement the number here.  Remember our architectural constraint that says that "any state change in the system must have a corresponding event or it DIDN'T HAPPEN!"  So instead of changing the balance, we're going to create and post an event!  In this case, a FundsWithdrawn event. 
+
+AGGREGATE VERSION
+
+So a very important concept that gets its own section header is that of an aggregate 'version' also commonly referred to as a sequence number.  An aggregate is the sum of all of its events, and events happen in order.  Each subsequent event has a 'version' number one higher than the previous.  (CRUCIAL Architectural constraint!!!)  This seemingly unimportant detail unlocks stateless horizontal scalability and optimistic concurrency!!!  YEAAASSSS!!!  Sorry, I get excited.  So here's the deal, when the command is validated, and the new events are posted via _post_new_event(), let's assume that my spouse who also has my debit card is making a withdrawal at the same time to buy a new climbing gym for the backyard and there's only enough cash to satisfy one of our withdrawals.  So approximately simultaneously, we're going to, on separate threads/processes get all events up to version 42 which alludes to the current balance at the time the events were retrieved.  We'll both come to the conclusion that there's enough cash for the withdrawal, and BOTH commands will be validated in parallel.  The events will be posted and... OMG... that's a problem!??  Nope... an opportunity for awesomeness...
+
+So these events are going to be stored in the event store (aka: event repository).  The repository has a uniqueness constraint on the combination of the aggregate_id and version.  So both my spouse and I have validated commands and we have both created FundsWithdrawn events with version number 43.  Next, we'll both attempt to post these events to the event store (Constraint: Events haven't 'happened' until they're persisted!!!)  Because of the constraint, one of us will randomly get a DuplicateKeyError.  For the person who won, enjoy your cash!  For the other person, something interesting happens...
+
+The framework will basically start the command request over at this point.  It's going to retrieve all the latest events from the events store, instantiate a blank aggregate, replay the events through it to build its state, but now, the events go to version 43, not 42... see where this is going?  This time, the aggregate's state shows that the command is unable to be satisfied, so the CommandResponse that I get from the aggregate will be a rejection.  If any of that was not clear, PLEASE go back and reread this section because this is the magic sauce.  This is the optimistic concurrecy mechanism.  No locks were obtained, we're just using a uniqueness constraint on a database (which can be partitioned).  Anyways, hopefully, the 'next_version' field in the command validators makes a lot more sense now.  Sometimes, a command can result in the creation of more than one event (see example account_creation_aggregate) in which case you just add one to each new event.
+
+CREATION AGGREGATES
+
+The AccountCreationAggregate in example_account_creation_aggregate is a very short... and often confusing code file for people to grasp, but once you REALLY understand why it exists, you level up.  So that AccountAggregate was all the stuff that you can do on an already existing account, but what if the account doens't exist yet?  AND let's assume that I have an arbitrary requirement that account numbers each increment by one.  This implies that I need some state to ensure that I don't miss or duplicate any numbers.  So it follows that when I have a CreateAccount command, it will always be valid as long as there's a next number, but I need to know what numbers have been used so far.  Also, my command needs to be mapped to one and only one aggregate, but the account doesn't exist yet, so where do I map the command to?  Well, you map it to a 'static' aggregate with a known aggregate ID that just pumps out incrementing AccountCreated events.  In fact, since the account numbers are incrementing, I don't even need any state (notice the missing init method).  I can just repurpose the aggregate's version as the account number!
+
+Now the next weird thing about this is that when an account is created, and let's assume there's an initial deposit, I need to update the state of TWO different aggregates.  First, the AccountCreationAggregate needs to know that a new account number has been provisioned, and that's reflected in the AccountIdProvisioned event.  Noticed that the event ID corresponds to the AccountCreationAggregate.  The next time the aggregate is instantiated and reconstituted, this event will be one of those events that rebuilds the current state of reality.  And then there are the other two events...
+
+These next two events, AccountCreated, and FundsDeposited both correspond to an account that doesn't exist just yet.  So what aggregate_id and version number should the events have?  Well, we'll just generate a guid that uniquely identifies this account that we're creating, and because it's being created before our eyes, we can figure out that these will be events number 1 and 2, so set the version numbers to one and two.  The next time a command comes in to do anything on the new account, these two events cause the AccountAggregate for the new account to "exist."  Remember, [the meat of] an aggregate is just the events that make it up!  
+
+If it's a busy day and lots of accounts are being created around the world at the same time, occasionally, we might get a DulpicateKeyException, but the aggregate will likely succeed on the next go-round.  If you needed more performance that that for account creation (I promise you won't) you could have one creation aggregate that does even numbers and another that does odd, or something to that effect.  Just randomly route users to one or the other.  That's one of many possible solutions that I promise you won't actually need.
+
+Note: @reconstitute_aggregate_state automatically increments the version number, so the handle_account_created_event on the AccountCreationAggregate doesn't need to do anything since the state IS the version number.  The best code is no code!
+
+SNAPSHOTTING
+
+The eagle-eyed among you have noticed that we have a HUGE problem right now.  What about when we have 456,234,098 accounts in the system.  The creation aggregate is goign to pull that many events from storage just to let me know what the next number is?!  This architecture is stupid!  Not really, you just need a snapshot... no camera required.  The aggregate simply needs to implement the Snapshottable interface in the snaphottable module.  The general idea is that a snapshot is taken of the aggregate's internal state at a regular interval of versions (maybe every 20 events/version numbers).  Instead of pulling all the events from the event store, just get the latest versioned snapshot which puts you at 456,234,080, and now you just need to grab 18 events.  Easy, right?
+
+------------------------------------
+
+Feel free to check out that URL from earlier if you haven't already: https://martinfowler.com/bliki/DDD_Aggregate.html.  If you're interested in looking at how most of the things we just discussed happen behind the scenes, look at the command_handler module (handle_command() specifically) which should make a LOT of sense assuming you've understood everything up to this point.  Next, we need to understand what happens to events after they've been persisted to storage
+
+EVENT BUSSES
+
+The event store is a purposefully vague concept.  It's the place where you store events in a durable fashion.  It could be a text_file, RabbitMQ, Kafka, MongoDB, SQL Server.  The implementation you choose matters.  There are two requirements that we need to understand.  The first is that we have to store the events in a way that they can be queried to rebuild aggregate states.  The simple notion of storing them in a table with the uniquness constraint is the obvious once since we know that's really fast and durable.  The other concern is one of dispatching these committed events to relevant parties.  One such party is to dispatch the events to ourselves in order to create tables that QUIERIES can then read so that the application can have a UI.  It could also be that another department needs the events for reporting.  Sometimes, the storage does this dispatching for us.  SQL Server has a nifty feature where not only can you store events in a table, you can also stream them to an application to be processed.  If you're using RabbitMQ, it is only concerned with routing the messages, not storing them long-term, so you'd need to use it in concert with a database.
+
+In our example, when we call handle_command in example_main.py, the optional parameter dispatch_new_events_locally is set to true.  What this means is that once events are committed to the event store, they will subsequently be dispatched locally for processing to update views to support queries and sagas, or event to post them to RMQ for further dispatching.  It's meant to be a very robust mechanism to suit all requirements.  The event_dispatcher module contains the decorator required to register such a dispatcher.  The dispatcher can be a simple method that puts the events on RMQ, or it could just call handle_event in the event_handler module to forward all events to a method decorated with @register_event_handler in the event_handler module.  
+
+FAILED EVENTS
+
+Becaues handling an event can fail because of things out of our control such as a network outage, regardless of where the events are dispatched from, they need to be marked as 'handled' once they've been handled so that we know not to revisit them.  @register_event_handler functions that return without exception will automatically mark these events as handled.  The framework provides a daemon (event_daemon module) entry point to facilitate a regular cron job or long running thread that periodically retries failed events that haven't been marked as handled.
+
+-----------------------
+
+This has been great so far, but there's an outstanding issue that we've conveniently ignored up to this point.  What if the command needs to cross aggregate boundaries?  That seems to violate this whole notion of a command only being tied to a single aggregate?!  It does, but we have tried and tested patterns for that.
+
+-----------------------
+
+SCENARIO CONTINUED...
+
+Our bank supports account to acocunt transfers.  An account holder can request funds from another account, called 'Receive Funds' (building our ubiquitous language for you DDDers out there), or an account holder can send funds to another account which we'll call 'Send Funds.'  Those names mean something in the code.  We'll call the account the funds are coming from the 'Funding' account and the account receiveing the funds will be the 'Funded' account.  We'll start with the simple case of sending funds...
+
+SEND FUNDS
+
+To send funds, an account holder makes the request which updates the funding account state so that the funds are deducted.  But now something has to request that the funds be added to the receiving account.  We could have done this in the aggregate, but what if we successfully received the command response and the process unexpectedly terminates before the events were published in the funding account that the transfer succeeded?  In that case, the funded account would show the deduction and the funding account would not (because the events were never published).  Another constraint I'll throw at you is that Aggregates should NOT call external services.  They interact with commands and their own events.  Some would say, "Well how likely is that to actually happen?"  In general, (and from our own experience) once you've been doing this for a while, it WILL happen.  There are a lot of transactions that happend everyday in a bank, and even if only one of them going bonkers in a week, it could be the one that involved $145,904.  Ouch.
+
+The solution is to have this process mediated.  Those of you in the know might think I'm about to suggest a saga, but I'm not.  If you haven't noticed, the architecture that has been described in this document so far looks a lot like CQRS/ES (Command Query Responsiblity Segregation with Event Sourcing).  I've been hesitant to use that term because that architecture is a subset of what pyJangle offers, and it's often implemented incorrectly and is the source of much PTSD.  Let's just say that I've seen some things and leave it at that...
+
+In this case, you can protect this transaction with an event handler as follows.  Once the FundingAccount's SendFundsDebited event shows up, the event handlers code will then issue the command on the funded account which might fail at which point the event handler can send a rollback command (RollbackSendFundsDebit).  If it succeeds, that's it.  Done.  Now if the power goes out, the event handler which is decorated with @register_event_handler never marked the event as handled in the event store, so when the process reinitializes, our daemon will retry the event.  The implication here is that our event handlers all need to be idempotent.  In fact, message queues generally don't guarantee that you won't receive an event more than once (seriously, read the docs on ANY of them), so you should be doing this anyway.  That command that went to the funded account has a transaction_id that the account can use to disambiguate.  In the case that the funds have already been sent, the funding account should send a 'success' message back to the event handler so that the debit isn't rolled back on the funding account.
+
+RECEIVE FUNDS
+
+In this case Bob (funded account) makes a request from Sally (finding account) for $20 to buy some twinkies and toilet paper for an impending hurricane.  Bob makes the request and when Sally logs in the next day (she knew to login because an event handler sent her a text message.  The code doesn't actually do this, but it's an example of how arbitrary an event handler can be), it's waiting for her to approve.  She can reject it which would have to be forwarded to Bob so that he knows he'll have to sell his soap collection on ebay.  Or, she can accept the transfer, and now the funds must be deducted from Bob's account.  If Bob closed his account because he moved to Budapest where they have no hurricanes, the credit will fail, and we'll have to credit Sally the funds that we deducted for Bob.  The point here is that this seemingly simple task is actually pretty complicated if done *correctly*.  Correctly meaning done in a way that accounts for all real-world possibilities.
+
+SAGAS
+
+To fix Bob and Sally's problem in our system, we'll use what's called a Saga.  You know that an aggregate takes in commands and produces events.  A Saga is an aggregate on its head!  It receives events and reacts to them by issuing commands!  Cool idea, right?  The saga pattern can also be called a distributed transaction.  Bob and Sally's accounts might be on different servers, but that doesn't matter so long as we capture the logic in a centralized saga!  Saga's are composed of their events which are stored in a separate saga store or saga repository if you prefer.  Our saga is in example_saga.py, and the evaluate_hook method identifies the actual steps involved with handling this transaction.  The docstrings in the saga module, especially on the evaluate_hook method do a great job of explaining how the saga works, so refer to that for a detailed explanation.
+
+IDEMOPOTENT EVENT HANDLERS
+
+Something that's been glossed over so far is the resilience this architecture has to utter chaos.  For example, let's say that the tables updated by your event handlers to display information derived from the events to your users accidentally get deleted.  Well, that's just a matter of running all the events throught the event handlers again which generally happens VERY quickly depending on runtimes and asynchronisity.  In our experience, using .Net and MySql in one case, millions of events could be processed in a few minutes.  That was years of historical data being processed on a single instance of a containerized app.  
+
+It may not be obvious that we CANNOT assume that events will be dispatched in order.  On a distributed system, this literally makes no sense to assume, so we bake in accomodations from the beginning.  This primarily happens in the event handlers which must be resilient to both out of order and duplicated events.  My favorite example involves an application that was running in production.  A new feature was added that necessitated a new UI for the web application.  While the appication was running, we swapped in the updated instances and replayed the events on a live server.  This processed all the historical events through the event handlers (one of which was new to accomodate the new views that we added) and in a few minutes the new screen was up and running.  All the while, the app was handling new requests.  As a test, we once replayed all historical data in random order times three to verify that the application state was exactly the same as when we started.
+
+A good question is 'how exactly do you do this?'  The simple answer is what we call atomic versioned table updates.  Here's an example of one written in a style of SQL that should worked with maybe minor tweaks on postgres and sqllite:
+
+Assume a table called accounts with
+
+accounts:
+    id      name    name_version    amount      amount_version
+    0001    Bob     3               42.0        5
+
+We'll assume there's an atomic update that needs to happen from some event that needs to update the name and amount.  Typically, you'd do this using two separate events because we LOVE granualar events, but this illustrates the general query pattern well.  This new event has a version of 4, and so we'll only update fields that have a version that is not greater than 4.  THE PK is id, and a PK violation would trigger the "ON CONFLICT" clause in the following.  That single SQL statement looks like this...
+
+"INSERT INTO accounts (id, name, name_version, amount, amount_version) VALUES (0001, 'sally', 4, 84, 4) ON CONFLICT DO UPDATE SET 
+    name            = CASE WHEN name_version < 4 OR name_version IS NULL THEN 'Sally' ELSE name END
+    name_version    = CASE WHEN name_version < 4 OR name_version IS NULL THEN 4 ELSE name_version END
+    amount          = CASE WHEN amount_version < 4 OR amount_version IS NULL THEN 84 ELSE amount END
+    amount_version  = CASE WHEN amount_version < 4 OR amount_version IS NULL THEN 4 ELSE amount_version END"
+
+That query will only update each field if its corresponding version suggests that the information is out of date.  This way, if events are played out of order or duplicated, the table will still be accurate.  There's more to it than this, but this is enough to get you started in understanding the general pattern.  See if you can figure out why a soft delete event might be the first event, and would CREATE a new entry in a table with a delete flag set.
+
+It's also worth mentioning that you never have to write this query.  In the SQLLite module, the code would look like this...
+
+tuple_query_and_params = SqlLite3QueryBuilder("accounts")\
+    .at(column_name="id", value="0001")\
+    .at(column_name="id2", value="352")\
+    .upsert(column_name="name", value="Tiffany", version_column_name="name_version",version_column_value=4)\
+    .upsert(column_name="amount", value=42, version_column_name="amount_version", version_column_value=5)\
+    .done()
+
+There's a library in this package that will generate the SQL for you so that no one has to typo any of it.
+
+QUERIES
+
+Queries in example_queries are pretty straightforward.  The one thing that's tought to wrap ones head around is that normally, you'd want to normalize all of the data in your database tables.  In this case you mostly DON'T want to do that.  If you have a view that would normally require joining three tables and doing some weird SQL, just create a single table that looks EXACTLY the way the UI expects the data in an ideal world, and use your event handlers to populate it accordingly.  The table might look completelyt denormalized and specific, but that's fine.  query tables are both critical and completely throw-away in this architecture.  Don't worry about having a specific table with duplicated data for each screen in your app.  This eliminates the need to write an complicated SQL.  In practice, this DRASTICALLY speeds up development.
+
+
+EVENTUAL CONSISTENCY
+
+//TODO: Explain the CAP theorm, read-your-writes pattern, and the use of etags to solve the eventual consistency problem.

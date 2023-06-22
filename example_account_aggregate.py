@@ -81,6 +81,8 @@ class AccountAggregate(Aggregate):
     @validate_command(DeleteAccount)
     @fail_if_account_deleted
     def delete_account(self, command: DeleteAccount, next_version: int) -> CommandResponse:
+        if (self.is_deleted):
+            return
         self._post_new_event(AccountDeleted(version=next_version, account_id=command.account_id))
 
     @validate_command(TryObtainReceiveFundsApproval)
