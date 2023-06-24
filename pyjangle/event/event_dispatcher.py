@@ -1,16 +1,20 @@
 import functools
 import inspect
+import logging
 from typing import Callable, List
 
-from pyjangle.error.error import SquirmError
+from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
+from pyjangle.log_tools.log_tools import Toggles
+
+logger = logging.getLogger(__name__)
 
 #holds the registered singleton event dispatcher.
 #access this via event_dispatcher_instance()
 __event_dispatcher = None
 
 
-class EventDispatcherError(SquirmError):
+class EventDispatcherError(JangleError):
     pass
 
 
@@ -36,6 +40,10 @@ def RegisterEventDispatcher(wrapped):
     of a temporary network outage will not be 
     marked and can be retried later.
 
+    SIGNATURE
+    ---------
+    def event_dispatcher(event: Event, event_handled_callback: Callable[[Event], None])
+
     THROWS
     ------
     EventDispatcherError when multiple event 
@@ -48,6 +56,8 @@ def RegisterEventDispatcher(wrapped):
         raise EventDispatcherError(
             "Cannot register multiple event dispatchers: " + str(type(__event_dispatcher)) + ", " + str(wrapped))
     __event_dispatcher = wrapped
+    if Toggles.Info.log_event_dispatcher_registration:
+        logger.info("Event dispatcher registered", {"event_dispatcher_type": str(type(wrapped))})
     @functools.wraps(wrapped)
     def wrapper(*args, **kwargs):
         return wrapped(*args, **kwargs)

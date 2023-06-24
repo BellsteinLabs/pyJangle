@@ -5,7 +5,7 @@ import logging
 import functools
 from pyjangle.command.command import Command
 from pyjangle.command.command_response import CommandResponse
-
+from pyjangle.log_tools.log_tools import Toggles
 from pyjangle.event.event import Event
 from pyjangle.registration.utility import find_decorated_method_names, register_methods
 
@@ -19,6 +19,8 @@ COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP = "__command_type_to_command_validator_map
 #registration.
 STATE_RECONSTITUTOR_TYPE = "__state_reconstitutor_type"
 COMMAND_VALIDATOR_TYPE = "__command_validator_type"
+
+logger = logging.getLogger(__name__)
 
 def _method_is_command_validator(method: Callable) -> bool:
     """Looks for decorated methods with an attribute named COMMAND_VALIDATOR_TYPE."""
@@ -73,7 +75,8 @@ class Aggregate:
     #so they're cached
     _aggregate_type_to_state_reconstitutor_method_names = dict()
 
-    def __init__(self):
+    def __init__(self, id: any):
+        self.id = id
         self._register_command_validators_and_state_reconstitutors()
 
     def _register_command_validators_and_state_reconstitutors(self):
@@ -83,8 +86,12 @@ class Aggregate:
         #Cache method names for CommandValidators and StateReconstitutors for each aggregate type on the first instantiation.
         if aggregate_type not in Aggregate._aggregate_type_to_command_validator_method_names:
             Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type] = find_decorated_method_names(self, _method_is_command_validator)
+            if Toggles.Info.log_command_validator_method_name_caching:
+                logger.info("Command Validator Method Names Cached", {"aggregate_type": str(aggregate_type), "method_names": Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type]})
         if aggregate_type not in Aggregate._aggregate_type_to_state_reconstitutor_method_names:
             Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type] = find_decorated_method_names(self, _method_is_state_reconstitutor)
+            if Toggles.Info.log_state_reconstitutor_method_name_caching:
+                logger.info("State Reconstitutor Method Names Cached", {"aggregate_type": str(aggregate_type), "method_names": Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type]})
 
         register_methods(self, COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP, COMMAND_VALIDATOR_TYPE, Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type])
         register_methods(self, EVENT_TO_STATE_RECONSTITUTOR_MAP, STATE_RECONSTITUTOR_TYPE, Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type])
@@ -105,6 +112,8 @@ class Aggregate:
         if not hasattr(self, "_new_events"):
             setattr(self, "_new_events", list())
         self._new_events.append(event)
+        if Toggles.Debug.log_post_new_event:
+            logger.debug("Posted New Event", {"aggregate_id": self.id, "event": event.__dict__})
 
     @property
     def version(self):
@@ -154,6 +163,8 @@ def reconstitute_aggregate_state(type: type):
         def wrapper(self: Aggregate, event: Event, *args, **kwargs):
             #update the aggregate version if it is lower than the event version
             self.version = event.version if event.version > self.version else self.version
+            if Toggles.Debug.log_event_applied_to_aggregate:
+                logger.debug("Reconstituting aggregate state", {"aggregate_id": self.id, "event": event.__dict__})
             return wrapped(self, event, *args, **kwargs)
         return wrapper
     return decorator
@@ -170,10 +181,14 @@ def validate_command(type: type):
             #the command validator provides the next version number to implementors
             #to facilitate creating new events
             next_aggregate_version = self.version + 1
-            retVal = wrapped(self, args[0], next_aggregate_version)
+            command = args[0]
+            retVal = wrapped(self, command, next_aggregate_version)
             #if the command validator returns nothing, assume success.  It's a convenience feature.
-            if retVal == None:
-                return CommandResponse(True)
-            return retVal
+            response = CommandResponse(True) if retVal == None else retVal
+            if not response.is_success and Toggles.Info.log_command_validation_failed:
+                logger.info("Command validation failed", {"aggregate_id": self.id, "command": command.__dict__})
+            if response.is_success and Toggles.Info.log_command_validation_succeeded:
+                logger.info("Command validation succeeded", {"aggregate_id": self.id, "command": command.__dict__})
+            return response
         return wrapper
     return decorator

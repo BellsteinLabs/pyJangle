@@ -3,6 +3,7 @@ import unittest
 from pyjangle.aggregate.aggregate import Aggregate, AggregateError, reconstitute_aggregate_state, validate_command
 from pyjangle.command.command_response import CommandResponse
 from pyjangle.event.event import Event
+from pyjangle.log_tools.log_tools import initialize_jangle_logging
 from pyjangle.test.test_types import CommandA, CommandB, EventA
 from datetime import datetime
 
@@ -19,7 +20,7 @@ class TestAggregate(unittest.TestCase):
             def validateB(self, command: CommandB, next_version: int):
                 self.b_called = True
 
-        a = A()
+        a = A(1)
         a.validate(CommandA())
         a.validate(CommandB())
         self.assertTrue(a.a_called)
@@ -32,7 +33,7 @@ class TestAggregate(unittest.TestCase):
             def foo(self, event:EventA):
                 setattr(self, ATTR_NAME, True)
 
-        a = A()
+        a = A(1)
         self.assertFalse(hasattr(a, ATTR_NAME))
         a.apply_events([EventA(id="a", version=1, created_at=datetime.now)])
         self.assertTrue(hasattr(a, ATTR_NAME))
@@ -41,15 +42,15 @@ class TestAggregate(unittest.TestCase):
         ATTR_NAME = "x"
         class A(Aggregate):
 
-            def __init__(self):
-                super().__init__()
+            def __init__(self, id: any):
+                super().__init__(id)
                 setattr(self, ATTR_NAME, 0)
 
             @reconstitute_aggregate_state(EventA)
             def foo(self, event:EventA):
                 setattr(self, ATTR_NAME, getattr(self, ATTR_NAME) + 1)
 
-        a = A()
+        a = A(1)
         self.assertEqual(getattr(a, ATTR_NAME), 0)
         a.apply_events([EventA(id="a", version=1, created_at=datetime.now)])
         self.assertEqual(getattr(a, ATTR_NAME), 1)
@@ -68,7 +69,7 @@ class TestAggregate(unittest.TestCase):
             def validateA(self, command: CommandA, next_version: int):
                 self.updated_version = next_version
 
-        a = A()
+        a = A(1)
         self.assertEqual(0, a.version)
         a.validate(CommandA())
         self.assertEqual(1, a.updated_version)
@@ -81,7 +82,7 @@ class TestAggregate(unittest.TestCase):
                 self.updated_version = next_version
                 self._post_new_event(EventA(id=2, version=2, created_at=None))
 
-        a = A()
+        a = A(1)
         a.validate(CommandA())
         self.assertEqual(len(a.new_events), 1)
 
@@ -92,7 +93,7 @@ class TestAggregate(unittest.TestCase):
             def validateA(self, command: CommandA, next_version: int):
                 self.updated_version = next_version
 
-        a = A()
+        a = A(1)
         self.assertEqual(0, a.version)
         response = a.validate(CommandA())
         self.assertIsInstance(response, CommandResponse)
@@ -105,7 +106,7 @@ class TestAggregate(unittest.TestCase):
             def validateA(self, command: CommandA, next_version: int):
                 return CommandResponse(False, "Foo")
 
-        a = A()
+        a = A(1)
         response = a.validate(CommandA())
         self.assertIsInstance(response, CommandResponse)
         self.assertFalse(response.is_success)
@@ -119,7 +120,7 @@ class TestAggregate(unittest.TestCase):
                 def validateA(self, command: CommandA, next_version: int):
                     pass
 
-            a = A()
+            a = A(1)
             a.validate(CommandB())
 
     def test_missing_state_reconstitutor(self):
@@ -127,7 +128,7 @@ class TestAggregate(unittest.TestCase):
             class A(Aggregate):
                 pass
 
-            a = A()
+            a = A(1)
             a.apply_events([EventA(id="", version=1, created_at=None)])
 
     def test_version_accurate_when_events_applied_out_of_order(self):
@@ -137,14 +138,14 @@ class TestAggregate(unittest.TestCase):
 
         class A(Aggregate):
 
-            def __init__(self):
-                super().__init__()
+            def __init__(self, id: any):
+                super().__init__(id)
 
             @reconstitute_aggregate_state(EventA)
             def foo(self, event:EventA):
                 pass
 
-        a = A()
+        a = A(1)
         self.assertEqual(0, a.version)
         a.apply_events([version_2])
         self.assertEqual(2, a.version)

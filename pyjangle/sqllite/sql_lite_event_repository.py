@@ -31,6 +31,12 @@ class SqlLiteEventRepository(EventRepository):
     def commit_events(self, events: List[Event]):
         pass
 
+    def get_failed_events():
+        pass
+    
+    def mark_event_handled():
+        pass
+
 
 def adapt_event(event: Event):
     return f"{event.id};{event.version}"

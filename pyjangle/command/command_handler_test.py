@@ -131,8 +131,8 @@ class TestCommandHandler(unittest.TestCase):
         @RegisterCommand(CommandA)
         class A(Aggregate, Snapshottable):
 
-                def __init__(self):
-                    super().__init__()
+                def __init__(self, id: any):
+                    super().__init__(id)
                     self.count = 0
 
                 @validate_command(CommandA)
@@ -222,8 +222,9 @@ class TestCommandHandler(unittest.TestCase):
         @RegisterCommand(CommandA)
         class A(Aggregate, Snapshottable):
 
-                def __init__(self):
-                    super().__init__()
+                def __init__(self, id: any):
+
+                    super().__init__(id)
                     self.count = 0
 
                 @validate_command(CommandA)
@@ -323,8 +324,8 @@ class TestCommandHandler(unittest.TestCase):
         @RegisterCommand(CommandA)
         class A(Aggregate, Snapshottable):
 
-                def __init__(self):
-                    super().__init__()
+                def __init__(self, id: any):
+                    super().__init__(id)
                     self.count = 0
 
                 @validate_command(CommandA)

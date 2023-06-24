@@ -6,10 +6,10 @@ from typing import Callable, List
 import functools
 import uuid
 
-from pyjangle.error.error import SquirmError
+from pyjangle.error.error import JangleError
 
 
-class EventError(SquirmError):
+class EventError(JangleError):
     pass
 
 

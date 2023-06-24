@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import List
 import unittest
 from unittest.mock import patch
-from pyjangle.event.event import Event
+from pyjangle.event.event import Event, SagaEvent
 from pyjangle.saga.saga import Saga, reconstitute_saga_state
 from pyjangle.saga.saga_handler import handle_saga_event
 from pyjangle.saga.saga_metadata import SagaMetadata
@@ -30,9 +30,9 @@ class TestSagaHandler(unittest.TestCase):
         class Repo(SagaRepository):
             def __init__(self) -> None:
                 super().__init__()
-                self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=True), A(saga_id=1, events=[], is_complete=True))
+                self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=True), [])
 
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, Saga]:
+            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
                 return self.test
 
             def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
@@ -67,7 +67,7 @@ class TestSagaHandler(unittest.TestCase):
                 super().__init__()
                 self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=False), [])
 
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, Saga]:
+            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
                 return self.test
 
             def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
@@ -77,7 +77,7 @@ class TestSagaHandler(unittest.TestCase):
             def get_retry_saga_metadata(max_count: int) -> list[SagaMetadata]:
                 pass
 
-        handle_saga_event(1, [EventA(id=1, version=1, created_at=datetime.now())], A)
+        handle_saga_event(1, EventA(id=1, version=1, created_at=datetime.now()), A)
 
         self.assertTrue(hasattr(saga_repository_instance(), "foo"))
 
@@ -102,7 +102,7 @@ class TestSagaHandler(unittest.TestCase):
                 super().__init__()
                 self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=False), [])
 
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, Saga]:
+            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
                 return self.test
 
             def commit_saga(self, metadata: SagaMetadata, events: list[Event]):

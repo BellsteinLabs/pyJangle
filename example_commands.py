@@ -6,17 +6,21 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 from dataclasses import dataclass
+from pyjangle.command.command import Command
 
 from pyjangle.command.register import RegisterCommand
 
 
-
 @dataclass(frozen=True, kw_only=True)
-class CreateAccount:
+class CreateAccount(Command):
     """Requests a new account to be created."""
     account_id: uuid.uuid4
     name: str
     initial_deposit: Decimal = 0
+    
+    def get_aggregate_id(self):
+        return self.account_id
+
 
 @dataclass(frozen=True, kw_only=True)
 class DepositFunds:

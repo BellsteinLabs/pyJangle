@@ -1,19 +1,27 @@
 import functools
+import logging
 from typing import Callable
-from error.error import SquirmError
 from pyjangle.command.command_response import CommandResponse
+from pyjangle.error.error import JangleError
+from pyjangle.log_tools.log_tools import Toggles
+
+logger = logging.getLogger(__name__)
 
 #This is where the command dispatcher is kept.
 #Access it via command_dispatcher_instance().
 _command_dispatcher = None
 
 
-class CommandDispatcherError(SquirmError):
+class CommandDispatcherError(JangleError):
     pass
 
 
 def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
     """Decorates function that sends commands to wherever they're in a big hurry to get to.
+
+    SIGNATURE
+    ---------
+    def command_dispatcher_name(command: Command) -> CommandRepsonse
 
     This can mean a few things.  Let's say that you have a saga that 
     needs to dispatch events to progress its state.  It would use the 
@@ -35,9 +43,11 @@ def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
     CommandDispatcherError when multiple methods are registered."""
     global _command_dispatcher
     if _command_dispatcher != None:
-            raise CommandDispatcherError(
-                "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher)) + ", " + wrapped.__name__)
+        raise CommandDispatcherError(
+            "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher)) + ", " + wrapped.__name__)
     _command_dispatcher = wrapped
+    if Toggles.Info.log_command_dispatcher_registration:
+        logger.info("Registering command dispatcher", {"command_dispatcher_type": str(type(wrapped))})
     @functools.wraps(wrapped)
     def wrapper(*args, **kwargs):
         return wrapped(*args, **kwargs)

@@ -1,7 +1,7 @@
 import abc
-from pyjangle.error.error import SquirmError
+from pyjangle.error.error import JangleError
 
-class SnapshotError(SquirmError):
+class SnapshotError(JangleError):
     pass
 
 class Snapshottable(metaclass=abc.ABCMeta):

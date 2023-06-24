@@ -1,10 +1,10 @@
 from example_commands import CreditSendFunds, RollbackSendFundsDebit, SendFunds
 from example_events import SendFundsDebited
 from pyjangle.command.command_dispatcher import command_dispatcher_instance
-from pyjangle.error.error import SquirmError
+from pyjangle.error.error import JangleError
 from pyjangle.event.event_handler import register_event_handler
 
-class SendFundsRollbackError(SquirmError):
+class SendFundsRollbackError(JangleError):
     pass
 
 @register_event_handler

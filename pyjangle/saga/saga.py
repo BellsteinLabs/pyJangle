@@ -3,7 +3,7 @@ from datetime import datetime
 import functools
 import inspect
 from typing import Callable, List
-from error.error import SquirmError
+from error.error import JangleError
 from pyjangle.command.command_dispatcher import command_dispatcher_instance
 from pyjangle.event.event import Event
 from pyjangle.registration.utility import find_decorated_method_names, register_methods

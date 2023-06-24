@@ -1,15 +1,18 @@
 import abc
 import functools
+import logging
 
-from pyjangle.error.error import SquirmError
+from pyjangle.error.error import JangleError
+from pyjangle.log_tools.log_tools import Toggles
 from pyjangle.snapshot.snapshottable import Snapshottable
 
 #Singleton instance of snapshot repositry
 #Access via snapshot_repository_instance()
 __registered_snapshot_repository = None
 
+logger = logging.getLogger(__name__)
 
-class SnapshotRepositoryError(SquirmError):
+class SnapshotRepositoryError(JangleError):
     pass
 
 
@@ -23,8 +26,10 @@ def RegisterSnapshotRepository(cls):
     global __registered_snapshot_repository
     if __registered_snapshot_repository != None:
         raise SnapshotRepositoryError(
-            "Cannot register multiple snapshot repositories: " + str(type(__registered_snapshot_repository)) + ", " + str(cls))
+            "Cannot register multiple snapshot repositories: " + str(type(__registered_snapshot_repository)) + ", " + str(cls))    
     __registered_snapshot_repository = cls()
+    if Toggles.Info.log_snapshot_repository_registration:
+        logger.info("Snapshot repository registered", {"snapshot_repository_type": str(type(cls))})
     @functools.wraps(cls)
     def wrapper(*args, **kwargs):
         return cls(*args, **kwargs)

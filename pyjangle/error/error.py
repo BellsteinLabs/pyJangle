@@ -1,2 +1,2 @@
-class SquirmError(Exception):
+class JangleError(Exception):
     pass

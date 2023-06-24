@@ -1,3 +1,4 @@
+#create hook for json dumps encoders
 #Example scenario
 #sql
 #asyncio

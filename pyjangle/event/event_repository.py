@@ -1,9 +1,13 @@
 import abc
 import functools
+import logging
 from typing import List
 
-from pyjangle.error.error import SquirmError
+from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
+from pyjangle.log_tools.log_tools import Toggles
+
+logger = logging.getLogger(__name__)
 
 #Holds a singleton instance of an event repository.
 #Access this via event_repository_instance.
@@ -24,6 +28,8 @@ def RegisterEventRepository(cls):
     if _event_repository_instance != None:
         raise EventRepositoryError("Cannot register multiple event repositories: " + str(type(_event_repository_instance)) + ", " + str(cls))
     _event_repository_instance = cls()
+    if Toggles.Info.log_event_repository_registration:
+        logger.info("Event repository registered", {"event_repository_type": str(type(cls))})
     @functools.wraps(cls)
     def wrapper(*args, **kwargs):
         return cls(*args, **kwargs)
@@ -125,7 +131,7 @@ def event_repository_instance() -> EventRepository:
         raise EventRepositoryError("Event repository not registered")
     return _event_repository_instance
 
-class EventRepositoryError(SquirmError):
+class EventRepositoryError(JangleError):
     pass
 
 class DuplicateKeyError(EventRepositoryError):

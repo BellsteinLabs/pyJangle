@@ -1,10 +1,18 @@
+import logging
 import uuid
+import example_account_aggregate 
+import example_account_creation_aggregate
 from example_commands import CreateAccount
 from example_events import DebtForgiven
+from pyjangle import log_tools
 from pyjangle.command.command_handler import handle_command
+from pyjangle.log_tools.log_tools import MESSAGE, initialize_jangle_logging
 from pyjangle.sqllite.event_handler_query_builder import SqlLite3QueryBuilder
 from pyjangle.sqllite.sql_lite_event_repository import SqlLiteEventRepository
+
 from json import dumps
+
+initialize_jangle_logging(MESSAGE)
 
 command_1 = CreateAccount(account_id=uuid.uuid4(), name="HSPBC")
 command_2 = CreateAccount(account_id=uuid.uuid4(), name="Natalie", initial_deposit=100)
