@@ -5,7 +5,7 @@ from typing import Callable, List
 
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -56,8 +56,7 @@ def RegisterEventDispatcher(wrapped):
         raise EventDispatcherError(
             "Cannot register multiple event dispatchers: " + str(type(__event_dispatcher)) + ", " + str(wrapped))
     __event_dispatcher = wrapped
-    if Toggles.Info.log_event_dispatcher_registration:
-        logger.info("Event dispatcher registered", {"event_dispatcher_type": str(type(wrapped))})
+    log(LogToggles.event_dispatcher_registration, "Event dispatcher registered", {"event_dispatcher_type": str(type(wrapped))})
     @functools.wraps(wrapped)
     def wrapper(*args, **kwargs):
         return wrapped(*args, **kwargs)

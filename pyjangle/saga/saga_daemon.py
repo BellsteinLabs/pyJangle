@@ -1,7 +1,7 @@
 import logging
 from pyjangle.event.event_repository import event_repository_instance
 from pyjangle.event.event_handler import handle_event
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 from pyjangle.saga.saga_handler import handle_saga_event
 from pyjangle.saga.saga_metadata import SagaMetadata
 from pyjangle.saga.saga_repository import saga_repository_instance
@@ -23,7 +23,6 @@ def retry_sagas(max_batch_size: int):
     a few at a time."""
     repo = saga_repository_instance()
     metadatas: list[SagaMetadata] = repo.get_retry_saga_metadata(max_batch_size)
-    if Toggles.Info.log_retrying_sagas:
-        logger.log(f"Retrying {max_batch_size} sagas.")
+    log(LogToggles.retrying_sagas, f"Retrying {max_batch_size} sagas.")
     for metadata in metadatas:
         handle_saga_event(saga_id=metadata.id, event=None, saga_type=metadata.type)

@@ -1,11 +1,14 @@
 from dataclasses import *
+import dataclasses
 from datetime import datetime
 from decimal import Decimal
+import json
+from typing import Mapping
 import uuid
 from json import dumps
 
 from pyjangle.event.event import Event
-
+from pyjangle.serialization.dumps_encoders import CustomEncoder
 
 @dataclass(frozen=True, kw_only=True)
 class AccountIdProvisioned(Event):
@@ -29,6 +32,15 @@ class FundsDeposited(Event):
     account_id: str
     amount: Decimal
     transaction_id: uuid.UUID
+
+    # @staticmethod
+    # def from_json(d: dict[str, any]):
+    #     return FundsDeposited(id=d["id"], 
+    #                             version=d["version"], 
+    #                             created_at=d["created_at"], 
+    #                             account_id=d["account_id"], 
+    #                             amount=d["amount"], 
+    #                             transaction_id=d["transaction_id"])
 
 @dataclass(frozen=True, kw_only=True)
 class FundsWithdrawn(Event):
@@ -120,4 +132,28 @@ class SendFundsDebitedRolledBack(Event):
     funding_account_id: str
     transaction_id: uuid.UUID
 
+#     @staticmethod
+#     def from_json(d: dict[str, any]):
+#         return SendFundsDebitedRolledBack(id=d["id"], 
+#                                           version=d["version"], 
+#                                           created_at=d["created_at"], 
+#                                           amount=d["amount"], 
+#                                           funding_account_id=d["funding_account_id"], 
+#                                           transaction_id=d["transaction_id"])
 
+
+# def _foo(type_name):
+#     type(type_name).from_json()
+
+
+# fd = FundsDeposited(version=42, account_id="4242", amount=420, transaction_id=uuid.uuid4())
+# serialized = json.dumps(dataclasses.asdict(fd), cls=CustomEncoder)
+# row = (str(FundsDeposited), serialized)
+# #deserialized = json.loads(row[1], object_hook=lambda d : type(row[0]).from_json(d))
+# deserialized_dict = json.loads(row[1])
+# print(deserialized_dict)
+# bar = FundsDeposited(**deserialized_dict)
+# print(bar)
+# print(fd)
+
+# #print(deserialized)

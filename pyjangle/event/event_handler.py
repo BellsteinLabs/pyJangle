@@ -4,7 +4,7 @@ from typing import Callable, List
 
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -67,8 +67,7 @@ def register_event_handler(event_type: any):
         if not event_type in __event_type_to_event_handler_handler_map:
             __event_type_to_event_handler_handler_map[event_type] = []
         __event_type_to_event_handler_handler_map[event_type].append(wrapper)
-        if Toggles.Info.log_event_handler_registration:
-            logger.info("Event handler registered", {"event_type": str(event_type), "event_handler_type": str(type(wrapped))})
+        log(LogToggles.event_handler_registration, "Event handler registered", {"event_type": str(event_type), "event_handler_type": str(type(wrapped))})
         return wrapper
     return decorator
 

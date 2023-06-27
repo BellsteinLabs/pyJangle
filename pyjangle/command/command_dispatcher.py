@@ -3,7 +3,7 @@ import logging
 from typing import Callable
 from pyjangle.command.command_response import CommandResponse
 from pyjangle.error.error import JangleError
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -46,8 +46,7 @@ def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
         raise CommandDispatcherError(
             "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher)) + ", " + wrapped.__name__)
     _command_dispatcher = wrapped
-    if Toggles.Info.log_command_dispatcher_registration:
-        logger.info("Registering command dispatcher", {"command_dispatcher_type": str(type(wrapped))})
+    log(LogToggles.command_dispatcher_registration, "Registering command dispatcher", {"command_dispatcher_type": str(type(wrapped))})
     @functools.wraps(wrapped)
     def wrapper(*args, **kwargs):
         return wrapped(*args, **kwargs)

@@ -13,7 +13,7 @@ class EventError(JangleError):
     pass
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
+@dataclasses.dataclass(frozen=True, kw_only=True,)
 class Event:
     """Represents an application's change in state.
     
@@ -25,9 +25,9 @@ class Event:
     down, unexpectedly or not, the only thing that 
     still exists are the events written to durable 
     storage."""
-    id: uuid.uuid4()
+    id: uuid = uuid.uuid4()
     version: int
-    created_at: datetime
+    created_at: datetime = datetime.now()
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class SagaEvent:

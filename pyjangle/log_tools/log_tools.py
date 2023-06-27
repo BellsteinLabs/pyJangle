@@ -3,7 +3,7 @@ from logging import Formatter, LogRecord
 import logging
 from typing import List, Mapping
 
-from pyjangle.serialization.dumps_encoders import UUIDEncoder
+from pyjangle.serialization.dumps_encoders import CustomEncoder
 
 NAME = 1
 LEVELNO = 2
@@ -97,7 +97,7 @@ class JangleJSONFormatter(Formatter):
         record.exc_text = None
         record.stack_info = None
 
-        return json.dumps(log_dict, indent=4, cls=UUIDEncoder)
+        return json.dumps(log_dict, indent=4, cls=CustomEncoder)
     
 
 
@@ -154,40 +154,46 @@ def initialize_jangle_logging(*included_fields: int, logging_module:str|None = N
     for handler in logger.handlers:
         handler.setFormatter(formatter)
 
-class Toggles:
-    class Debug:
-        log_post_new_event = True
-        log_event_applied_to_aggregate = True
-        log_saga_retrieved = True
-        log_saga_committed = True
-        log_apply_event_to_saga = True
-        log_is_snapshotting = True
-        log_is_snapshot_found = True
-        log_snapshot_applied = True
-        log_snapshot_not_needed = True
-        log_dispatched_event_locally = True
-        log_retrieved_aggregate_events = True
-        log_aggregate_created = True
-        
-    class Info:
-        log_command_validator_method_name_caching = True
-        log_state_reconstitutor_method_name_caching = True
-        log_command_dispatcher_registration = True
-        log_event_dispatcher_registration = True
-        log_event_handler_registration = True
-        log_event_repository_registration = True
-        log_query_handler_registration = True
-        log_snapshot_repository_registration = True
-        log_saga_repository_registration = True
-        log_command_validation_succeeded = True
-        log_command_validation_failed = True
-        log_command_registered_to_aggregate = True
-        log_retrying_sagas = True
-        log_retrying_failed_events = True
-        log_snapshot_deleted = True
-        log_snapshot_taken = True
-        log_committed_event = True
-        log_command_received = True
+DEBUG = "debug"
+INFO = "info"
+WARNING = "warning"
+ERROR = "error"
+FATAL = "fatal"
 
-    class Warning:
-        log_snapshot_application_failed = True
+def log(log_key, *args, **kwargs):
+    if log_key:
+        getattr(logging, log_key)(*args, **kwargs)
+
+class LogToggles:
+
+    post_new_event = DEBUG
+    event_applied_to_aggregate = DEBUG
+    saga_retrieved = DEBUG
+    saga_committed = DEBUG
+    apply_event_to_saga = DEBUG
+    is_snapshotting = DEBUG
+    is_snapshot_found = DEBUG
+    snapshot_applied = DEBUG
+    snapshot_not_needed = DEBUG
+    dispatched_event_locally = DEBUG
+    retrieved_aggregate_events = DEBUG
+    aggregate_created = DEBUG
+    command_validator_method_name_caching = INFO
+    state_reconstitutor_method_name_caching = INFO
+    command_dispatcher_registration = INFO
+    event_dispatcher_registration = INFO
+    event_handler_registration = INFO
+    event_repository_registration = INFO
+    query_handler_registration = INFO
+    snapshot_repository_registration = INFO
+    saga_repository_registration = INFO
+    command_validation_succeeded = INFO
+    command_validation_failed = INFO
+    command_registered_to_aggregate = INFO
+    retrying_sagas = INFO
+    retrying_failed_events = INFO
+    snapshot_deleted = INFO
+    snapshot_taken = INFO
+    committed_event = INFO
+    command_received = INFO
+    snapshot_application_failed = WARNING

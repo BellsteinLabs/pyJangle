@@ -5,7 +5,7 @@ from typing import List
 
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,7 @@ def RegisterEventRepository(cls):
     if _event_repository_instance != None:
         raise EventRepositoryError("Cannot register multiple event repositories: " + str(type(_event_repository_instance)) + ", " + str(cls))
     _event_repository_instance = cls()
-    if Toggles.Info.log_event_repository_registration:
-        logger.info("Event repository registered", {"event_repository_type": str(type(cls))})
+    log(LogToggles.event_repository_registration, "Event repository registered", {"event_repository_type": str(type(cls))})
     @functools.wraps(cls)
     def wrapper(*args, **kwargs):
         return cls(*args, **kwargs)

@@ -1,7 +1,7 @@
 import logging
 from pyjangle.event.event_repository import event_repository_instance
 from pyjangle.event.event_handler import handle_event
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -25,5 +25,4 @@ def retry_failed_events(count: int, raise_on_missing_event_handler = True):
     events = repo.get_failed_events(count)
     for event in events:
         handle_event(event, raise_on_missing_event_handler=True)
-    if Toggles.Info.log_retrying_failed_events:
-        logger.info(f"Retrying {len(events)} failed events...")
+    log(LogToggles.retrying_failed_events, f"Retrying {len(events)} failed events...")

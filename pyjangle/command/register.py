@@ -4,7 +4,7 @@ from typing import Any
 from pyjangle.aggregate.aggregate import Aggregate
 
 from pyjangle.error.error import JangleError
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,7 @@ def RegisterCommand(*command_types: type):
         #Make sure the decorated member is an aggregate.
         if not issubclass(cls, Aggregate):
             raise CommandRegistrationError("Decorated member is not an Aggregate")
-        if Toggles.Info.log_command_registered_to_aggregate:
-            logger.info("Commands registered to aggregate", {"aggregate_type": str(cls), "command_types": list(command_types)})
+        log(LogToggles.command_registered_to_aggregate, "Commands registered to aggregate", {"aggregate_type": str(cls), "command_types": list(command_types)})
         for current_command_type in command_types:
             if current_command_type in _command_to_aggregate_map:
                 raise CommandRegistrationError("Command type '" + str(command_types) + "' already registered")

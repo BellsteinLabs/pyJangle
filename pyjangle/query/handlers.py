@@ -2,7 +2,7 @@ import functools
 import logging
 
 from pyjangle.error.error import JangleError
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,7 @@ def register_query_handler(query_type: any):
         if query_type in _query_type_to_query_handler_map:
             raise QueryError("Query type '" + str(query_type) + "' is already registered to '" + str(_query_type_to_query_handler_map[query_type]) + "'")
         _query_type_to_query_handler_map[query_type] = wrapped
-        if Toggles.Info.log_query_handler_registration:
-            logger.info("Query handler registered", {"query_type": str(query_type), "query_handler_type": str(type(wrapped))})
+        log(LogToggles.query_handler_registration, "Query handler registered", {"query_type": str(query_type), "query_handler_type": str(type(wrapped))})
         @functools.wraps(wrapped)
         def wrapper(*args, **kwargs):
             return wrapped(*args, **kwargs)

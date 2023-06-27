@@ -4,7 +4,7 @@ import logging
 from typing import List
 from error.error import JangleError
 from pyjangle.event.event import Event, SagaEvent
-from pyjangle.log_tools.log_tools import Toggles
+from pyjangle.log_tools.log_tools import LogToggles, log
 from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_metadata import SagaMetadata
 
@@ -30,8 +30,7 @@ def RegisterSagaRepository(cls):
     if __registered_saga_repository != None:
         raise SagaRepositoryError("Cannot register multiple saga repositories: " + str(type(__registered_saga_repository)) + ", " + str(cls))
     __registered_saga_repository = cls()
-    if Toggles.Info.log_saga_repository_registration:
-        logger.info("Saga repository registered", {"saga_repository_type": str(type(cls))})
+    log(LogToggles.saga_repository_registration, "Saga repository registered", {"saga_repository_type": str(type(cls))})
     @functools.wraps(cls)
     def wrapper(*args, **kwargs):
         return cls(*args, **kwargs)
