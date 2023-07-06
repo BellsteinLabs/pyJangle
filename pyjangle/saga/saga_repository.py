@@ -53,7 +53,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
     
     Like an event store, it is critical that """
     @abc.abstractmethod
-    def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
+    def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent | SagaEvent]]:
         """Retrieve a saga's metadata and events.
         
         When a saga is instantiated, metadata 
@@ -65,7 +65,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
+    def commit_saga(self, metadata: SagaMetadata, events: list[Event | SagaEvent]):
         """Commits updated sagas to storage.
         
         THROWS

@@ -3,10 +3,61 @@ from typing import List
 import unittest
 from pyjangle.event.event import Event
 
-from pyjangle.saga.saga import Saga, SagaError, reconstitute_saga_state
+from pyjangle.saga.saga import Saga, SagaError, event_receiver, reconstitute_saga_state
 from pyjangle.test.test_types import EventA, EventB
 
 class TestSaga(unittest.TestCase):
+    def test_event_receiver(self):
+        class A(Saga):
+
+            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
+                self._foo = True
+
+            @reconstitute_saga_state(EventA)
+            def from_event_a(self, event: EventA):
+                pass
+                
+            def evaluate_hook(self):
+                pass
+
+        a = A(saga_id=1, events=[])
+        a.evaluate(EventA(version=1))
+        self.assertTrue(hasattr(a, "_foo") and getattr(a, "_foo"))
+
+    def test_exception_when_event_receiver_on_wrong_method_signature(self):
+        with self.assertRaises(SagaError):
+            class A(Saga):
+
+                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                    super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+
+                @event_receiver(EventA)
+                def from_event_a(self, event, next_version: int):
+                    self._foo = True
+                    
+                def evaluate_hook(self):
+                    pass
+
+    def test_exception_when_missing_event_receiver(self):
+        with self.assertRaises(SagaError):
+            class A(Saga):
+
+                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                    super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+                    
+                @reconstitute_saga_state(EventA)
+                def from_event_a(self, event: EventA):
+                    pass
+
+                def evaluate_hook(self):
+                    pass
+
+            A(saga_id=1, events=[]).evaluate(EventA(version=1))
+
     def test_register_state_reconstitutor(self):
         class A(Saga):
 
@@ -16,11 +67,15 @@ class TestSaga(unittest.TestCase):
             @reconstitute_saga_state(EventA)
             def from_event_a(self, event: EventA):
                 self._foo = True
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
+                pass
                 
             def evaluate_hook(self):
                 pass
 
-        a = A(saga_id=1, events=[EventA(id=1, version=1, created_at=datetime.now())])
+        a = A(saga_id=1, events=[EventA(id=1, version=1)])
         self.assertTrue(a._foo)
 
     def test_exception_when_register_state_reconstitutor_on_wrong_method_signature(self):
@@ -34,6 +89,10 @@ class TestSaga(unittest.TestCase):
                 def from_event_a(self):
                     self._foo = True
                     
+                @event_receiver(EventA)
+                def on_event_a(self, next_version: int):
+                    pass
+                    
                 def evaluate_hook(self):
                     pass
 
@@ -43,8 +102,9 @@ class TestSaga(unittest.TestCase):
 
                 def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
-                    
-                def evaluate_hook(self):
+
+                @event_receiver(EventA)
+                def on_event_a(self, next_version: int):
                     pass
 
             a = A(saga_id=1, events=[EventA(id=1, version=1, created_at=datetime.now())])
@@ -55,15 +115,16 @@ class TestSaga(unittest.TestCase):
             def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
-            def evaluate_hook(self):
-                self._post_new_event(EventB(id=1, version=1, created_at=datetime.now()))
-
-            @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
+            @event_receiver(EventA)
+            def event_receiver(self, next_version: int):
                 pass
 
-        a = A(saga_id=1, events=[EventA(id=1, version=1, created_at=datetime.now())])
-        a.evaluate()
+            @reconstitute_saga_state(EventA)
+            def from_event_a(self, event):
+                pass
+
+        a = A(saga_id=1, events=[])
+        a.evaluate(EventA(id=1, version=1))
         self.assertEqual(len(a.new_events), 1)
 
     def test_evaluate_short_circuits_on_timeout(self):
@@ -76,11 +137,15 @@ class TestSaga(unittest.TestCase):
                 self._post_new_event(EventB(id=1, version=1, created_at=datetime.now()))
 
             @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
+            def from_event_a(self, event):
                 pass
 
-        a = A(saga_id=1, events=[EventA(id=1, version=1, created_at=datetime.now())], timeout_at=datetime.min)
-        a.evaluate()
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
+                pass
+
+        a = A(saga_id=1, events=[], timeout_at=datetime.min)
+        a.evaluate(EventA(id=1, version=1, created_at=datetime.now()))
         self.assertEqual(len(a.new_events), 0)
 
     def test_init(self):
@@ -90,7 +155,11 @@ class TestSaga(unittest.TestCase):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
+            def from_event_a(self, event):
+                pass
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
                 pass
                 
             def evaluate_hook(self):
@@ -111,6 +180,10 @@ class TestSaga(unittest.TestCase):
             @reconstitute_saga_state(EventA)
             def from_event_a(self, event: EventA):
                 pass
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
+                pass
                 
             def evaluate_hook(self):
                 pass
@@ -127,6 +200,10 @@ class TestSaga(unittest.TestCase):
 
             @reconstitute_saga_state(EventA)
             def from_event_a(self, event: EventA):
+                pass
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
                 pass
                 
             def evaluate_hook(self):
@@ -145,11 +222,15 @@ class TestSaga(unittest.TestCase):
             @reconstitute_saga_state(EventA)
             def from_event_a(self, event: EventA):
                 pass
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
+                pass
                 
             def evaluate_hook(self):
                 pass
 
-        a = A(saga_id=1, events=[EventA(id=1, version=1, created_at=datetime.now())])
+        a = A(saga_id=1, events=[EventA(version = 1)])
         a.set_timeout(datetime.min)
         self.assertEqual(datetime.min, a.timeout_at)
 
@@ -161,6 +242,10 @@ class TestSaga(unittest.TestCase):
 
             @reconstitute_saga_state(EventA)
             def from_event_a(self, event: EventA):
+                pass
+
+            @event_receiver(EventA)
+            def on_event_a(self, next_version: int):
                 pass
                 
             def evaluate_hook(self):

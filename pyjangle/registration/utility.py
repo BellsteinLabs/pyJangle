@@ -9,7 +9,7 @@ def _find_methods(obj: any, predicate: Callable[[any], bool]) -> Iterator[tuple]
     for method in _find_user_defined_callable_methods(obj):
         if predicate(method): yield (method.__name__, method)
 
-def find_decorated_method_names(obj: any, method_predicate: Callable[[any], bool]) -> List[str]:
+def find_decorated_method_names(obj: any, method_predicate: Callable[[Callable], bool]) -> List[str]:
         """Returns the names of all methods on an object matching a criteria."""
         return [method[0] for method in _find_methods(obj, method_predicate)]
 

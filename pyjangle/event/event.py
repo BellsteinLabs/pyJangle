@@ -44,4 +44,5 @@ class SagaEvent:
     each of these events will have a corrsponding command."""
     id: uuid.uuid4()
     saga_id: any
+    version: int
     created_at: datetime.now()

@@ -169,7 +169,10 @@ class LogToggles:
     post_new_event = DEBUG
     event_applied_to_aggregate = DEBUG
     saga_retrieved = DEBUG
+    saga_empty = WARNING
     saga_committed = DEBUG
+    saga_nothing_happened = WARNING
+    saga_duplicate_key = WARNING
     apply_event_to_saga = DEBUG
     is_snapshotting = DEBUG
     is_snapshot_found = DEBUG
