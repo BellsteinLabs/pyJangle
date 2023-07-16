@@ -2,10 +2,9 @@ import abc
 import functools
 import logging
 from typing import List
-from error.error import JangleError
+from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event, SagaEvent
-from pyjangle.log_tools.log_tools import LogToggles, log
-from pyjangle.saga.saga import Saga
+from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga_metadata import SagaMetadata
 
 #Saga repository singleton.  Access this 
@@ -53,7 +52,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
     
     Like an event store, it is critical that """
     @abc.abstractmethod
-    def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent | SagaEvent]]:
+    async def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent | SagaEvent]]:
         """Retrieve a saga's metadata and events.
         
         When a saga is instantiated, metadata 
@@ -65,7 +64,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def commit_saga(self, metadata: SagaMetadata, events: list[Event | SagaEvent]):
+    async def commit_saga(self, metadata: SagaMetadata, events: list[Event | SagaEvent]):
         """Commits updated sagas to storage.
         
         THROWS
@@ -79,7 +78,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_retry_saga_metadata(max_count: int) -> list[SagaMetadata]:
+    async def get_retry_saga_metadata(self, max_count: int) -> list[SagaMetadata]:
         """Returns metadata for saga's that need to be retried.
         
         Sometimes, a saga will fail a state transition because

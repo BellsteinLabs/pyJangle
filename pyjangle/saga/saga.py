@@ -3,10 +3,10 @@ from datetime import datetime
 import functools
 import inspect
 from typing import Callable, Iterable, List
-from error.error import JangleError
 from pyjangle.command.command_dispatcher import command_dispatcher_instance
 from pyjangle.event.event import Event, SagaEvent
 from pyjangle.registration.utility import find_decorated_method_names, register_methods
+from pyjangle.saga.saga_metadata import SagaMetadata
 
 #Name of the attribute used to tag saga methods decorated with 
 #event_receiver. This attribute is used to register those 
@@ -26,7 +26,7 @@ EVENT_TO_STATE_RECONSTITUTORS_MAP = "__event_to_state_reconstitutors_map"
 class SagaError(Exception):
     pass
 
-def reconstitute_saga_state(type: type, add_event_type_to_flags: bool = True):
+def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = True):
     """Decorates saga methods that reconstitute state from events.
     
     PARAMETERS
@@ -255,8 +255,7 @@ class Saga:
 
     def set_complete(self):
         """Call from evaluate() to mark the saga as completed."""
-        if not self.is_complete:
-            self.is_dirty = True
+        self.is_dirty = True
         self.is_complete = True
 
     def set_timeout(self, timeout_at:datetime):
@@ -267,8 +266,7 @@ class Saga:
 
     def set_timed_out(self):
         """Call to decalare that the timeout has been reached."""
-        if not self.is_timed_out:
-            self.is_dirty = True
+        self.is_dirty = True
         self.is_timed_out = True
 
     def set_retry(self, retry_at: datetime):
@@ -298,6 +296,5 @@ class Saga:
         saga state are already committed by the 
         framework, so events that are posted using this method
          are generally to set flags when commands are sent. """
-        if event:
-            self.is_dirty = True
+        self.is_dirty = True
         self.new_events.append(event)

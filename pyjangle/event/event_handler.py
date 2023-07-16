@@ -1,10 +1,11 @@
 import functools
+import inspect
 import logging
 from typing import Callable, List
 
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import LogToggles, log
+from pyjangle.logging.logging import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -16,12 +17,19 @@ __event_type_to_event_handler_handler_map: dict[type, List[Callable[[Event], Non
 class EventHandlerError(JangleError):
     pass
 
+class EventHandlerRegistrationError(JangleError):
+    pass
+
 def register_event_handler(event_type: any):
     """Registers a function that handles an event.
     
     This could mean a lot of things, but the decorated
     function should answer the question, "Here's an event...
     now what?  
+
+    The signature for the wrapped function is:
+
+        def func_name(event: Event) -> None:
     
     A common case is that the event handler
     update database tables to reflect the information 
@@ -50,28 +58,16 @@ def register_event_handler(event_type: any):
     """
 
     def decorator(wrapped: Callable[[Event], None]):
-        @functools.wraps(wrapped)
-        def wrapper(*args, **kwargs):
-            event = args[0]
-            event_completion_marker = args[1]
-            try:
-                wrapped(args[0])
-                #Mark the event as completed if an exception wasn't thrown.
-                #If it's not marked as completed, it will be picked up
-                #by the retry daemon that you set up.  See the 
-                #event_daemon module for more info.
-                event_completion_marker(event)
-            except:
-                #log that the event wasn't handled properly
-                pass
+        if not callable(wrapped) or len(inspect.signature(wrapped).parameters) != 1 or not inspect.iscoroutinefunction(wrapped):
+            raise EventHandlerRegistrationError("@register_event_handler should decoratate a function with signature: async def func_name(event: Event) -> None")
         if not event_type in __event_type_to_event_handler_handler_map:
             __event_type_to_event_handler_handler_map[event_type] = []
-        __event_type_to_event_handler_handler_map[event_type].append(wrapper)
+        __event_type_to_event_handler_handler_map[event_type].append(wrapped)
         log(LogToggles.event_handler_registration, "Event handler registered", {"event_type": str(event_type), "event_handler_type": str(type(wrapped))})
-        return wrapper
+        return wrapped
     return decorator
 
-def handle_event(event: Event, event_handled_callback: Callable[[Event], None], raise_on_missing_event_handler: bool = True):
+async def handle_event(event: Event):
     """Finds the appropriate event handler for the specified event.
     
     Event handlers are decorated with @register_event_handler.
@@ -87,12 +83,10 @@ def handle_event(event: Event, event_handled_callback: Callable[[Event], None], 
 
     event_type = type(event)
     if not event_type in __event_type_to_event_handler_handler_map:
-        if raise_on_missing_event_handler: 
-            raise EventHandlerError("No event handler registered for " + str(event_type))
+        raise EventHandlerError("No event handler registered for " + str(event_type))
     try:
         for handler in __event_type_to_event_handler_handler_map[event_type]:
-            handler(event, event_handled_callback)
+            await handler(event)
     except:
-        #log that handling events failed
-        pass
+        log(LogToggles.event_handler_failed, "Event handler failed", {"event_type": str(event_type), "event_handler_type": str(type(handler)), "event": event.__dict__})
     return

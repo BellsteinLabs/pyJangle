@@ -14,7 +14,7 @@ class EventError(JangleError):
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True,)
-class Event:
+class Event(metaclass = abc.ABCMeta):
     """Represents an application's change in state.
     
     This could be anything: NameUpdated, AccountCreated,
@@ -25,9 +25,15 @@ class Event:
     down, unexpectedly or not, the only thing that 
     still exists are the events written to durable 
     storage."""
-    id: uuid = uuid.uuid4()
+    id: str = dataclasses.field(default_factory=lambda : str(uuid.uuid4()))
     version: int
-    created_at: datetime = datetime.now()
+    created_at: str = dataclasses.field(default_factory=lambda : datetime.now().isoformat())
+
+    @classmethod
+    @abc.abstractmethod
+    def deserialize(data: any) -> any:
+        """Converts serialized representation to an Event."""
+        pass
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class SagaEvent:
@@ -42,7 +48,6 @@ class SagaEvent:
     event that represents to the saga that it issued a 
     command to rollback the funds transfer.  Commonly,
     each of these events will have a corrsponding command."""
-    id: uuid.uuid4()
-    saga_id: any
+    id: str = dataclasses.field(default_factory=lambda : str(uuid.uuid4()))
     version: int
-    created_at: datetime.now()
+    created_at: str = dataclasses.field(default_factory=lambda : datetime.now().isoformat())

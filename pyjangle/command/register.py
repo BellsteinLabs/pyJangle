@@ -4,7 +4,7 @@ from typing import Any
 from pyjangle.aggregate.aggregate import Aggregate
 
 from pyjangle.error.error import JangleError
-from pyjangle.log_tools.log_tools import LogToggles, log
+from pyjangle.logging.logging import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,7 @@ def RegisterCommand(*command_types: type):
             if current_command_type in _command_to_aggregate_map:
                 raise CommandRegistrationError("Command type '" + str(command_types) + "' already registered")
             _command_to_aggregate_map[current_command_type] = cls
-        @functools.wraps(cls)
-        def wrapper(*args, **kwargs):
-            return cls
-        return wrapper
+        return cls
     return decorator
 
 def command_to_aggregate_map_instance():

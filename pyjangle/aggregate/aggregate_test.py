@@ -3,8 +3,7 @@ import unittest
 from pyjangle.aggregate.aggregate import Aggregate, AggregateError, reconstitute_aggregate_state, validate_command
 from pyjangle.command.command_response import CommandResponse
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import initialize_jangle_logging
-from pyjangle.test.test_types import CommandA, CommandB, EventA
+from pyjangle.test.test_types import CommandThatAlwaysSucceeds, CommandB, EventA
 from datetime import datetime
 
 class TestAggregate(unittest.TestCase):
@@ -12,8 +11,8 @@ class TestAggregate(unittest.TestCase):
     def test_register_command_validator(self):
         class A(Aggregate):
 
-            @validate_command(CommandA)
-            def validateA(self, command: CommandA, next_version: int):
+            @validate_command(CommandThatAlwaysSucceeds)
+            def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                 self.a_called = True
 
             @validate_command(CommandB)
@@ -21,7 +20,7 @@ class TestAggregate(unittest.TestCase):
                 self.b_called = True
 
         a = A(1)
-        a.validate(CommandA())
+        a.validate(CommandThatAlwaysSucceeds())
         a.validate(CommandB())
         self.assertTrue(a.a_called)
         self.assertTrue(a.b_called)
@@ -59,55 +58,55 @@ class TestAggregate(unittest.TestCase):
         with self.assertRaises(AggregateError):
             class A(Aggregate):
 
-                @validate_command(CommandA)
+                @validate_command(CommandThatAlwaysSucceeds)
                 def foo(self):
                     pass
     def test_command_validator_supplies_next_version(self):
         class A(Aggregate):
 
-            @validate_command(CommandA)
-            def validateA(self, command: CommandA, next_version: int):
+            @validate_command(CommandThatAlwaysSucceeds)
+            def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                 self.updated_version = next_version
 
         a = A(1)
         self.assertEqual(0, a.version)
-        a.validate(CommandA())
+        a.validate(CommandThatAlwaysSucceeds())
         self.assertEqual(1, a.updated_version)
 
     def test_command_validator_can_post_new_event(self):
         class A(Aggregate):
 
-            @validate_command(CommandA)
-            def validateA(self, command: CommandA, next_version: int):
+            @validate_command(CommandThatAlwaysSucceeds)
+            def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                 self.updated_version = next_version
                 self._post_new_event(EventA(id=2, version=2, created_at=None))
 
         a = A(1)
-        a.validate(CommandA())
+        a.validate(CommandThatAlwaysSucceeds())
         self.assertEqual(len(a.new_events), 1)
 
     def test_command_response_defaults_to_true(self):
         class A(Aggregate):
 
-            @validate_command(CommandA)
-            def validateA(self, command: CommandA, next_version: int):
+            @validate_command(CommandThatAlwaysSucceeds)
+            def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                 self.updated_version = next_version
 
         a = A(1)
         self.assertEqual(0, a.version)
-        response = a.validate(CommandA())
+        response = a.validate(CommandThatAlwaysSucceeds())
         self.assertIsInstance(response, CommandResponse)
         self.assertTrue(response.is_success)
 
     def test_explicit_command_response_returned(self):
         class A(Aggregate):
 
-            @validate_command(CommandA)
-            def validateA(self, command: CommandA, next_version: int):
+            @validate_command(CommandThatAlwaysSucceeds)
+            def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                 return CommandResponse(False, "Foo")
 
         a = A(1)
-        response = a.validate(CommandA())
+        response = a.validate(CommandThatAlwaysSucceeds())
         self.assertIsInstance(response, CommandResponse)
         self.assertFalse(response.is_success)
         self.assertEqual("Foo", response.data)
@@ -116,8 +115,8 @@ class TestAggregate(unittest.TestCase):
         with self.assertRaises(AggregateError):
             class A(Aggregate):
 
-                @validate_command(CommandA)
-                def validateA(self, command: CommandA, next_version: int):
+                @validate_command(CommandThatAlwaysSucceeds)
+                def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                     pass
 
             a = A(1)

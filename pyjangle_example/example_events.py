@@ -8,7 +8,6 @@ import uuid
 from json import dumps
 
 from pyjangle.event.event import Event
-from pyjangle.serialization.dumps_encoders import CustomEncoder
 
 @dataclass(frozen=True, kw_only=True)
 class AccountIdProvisioned(Event):

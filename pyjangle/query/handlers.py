@@ -1,15 +1,19 @@
 import functools
+import inspect
 import logging
 
 from pyjangle.error.error import JangleError
-from pyjangle.log_tools.log_tools import LogToggles, log
+from pyjangle.logging.logging import LogToggles, log
 
 logger = logging.getLogger(__name__)
 
 #Singleton dictionary mapping query types 
 #to their corresponding handlers.
 _query_type_to_query_handler_map = dict()
+_SIGNATURE = "async def func_name(query) -> None"
 
+class QueryRegistrationError(JangleError):
+    pass
 
 class QueryError(JangleError):
     pass
@@ -27,17 +31,21 @@ def register_query_handler(query_type: any):
     which will run the db query and return the data back
     to the caller."""
     def decorator(wrapped):
+        if not inspect.isfunction(wrapped):
+            raise QueryRegistrationError(f"Decorated member is not callable: {_SIGNATURE}")
+        if not inspect.iscoroutinefunction(wrapped):
+            raise QueryRegistrationError(f"Decorated function is not a coroutine (async): {_SIGNATURE}")
+        if len(inspect.signature(wrapped).parameters) != 1:
+            raise QueryRegistrationError(f"Decorated function must have one query parameter: {_SIGNATURE}")
+
         if query_type in _query_type_to_query_handler_map:
             raise QueryError("Query type '" + str(query_type) + "' is already registered to '" + str(_query_type_to_query_handler_map[query_type]) + "'")
         _query_type_to_query_handler_map[query_type] = wrapped
         log(LogToggles.query_handler_registration, "Query handler registered", {"query_type": str(query_type), "query_handler_type": str(type(wrapped))})
-        @functools.wraps(wrapped)
-        def wrapper(*args, **kwargs):
-            return wrapped(*args, **kwargs)
-        return wrapper
+        return wrapped
     return decorator
 
-def handle_query(query: any):
+async def handle_query(query: any):
     """Maps queries to a corresponding handler.
     
     This method is the glue between the query and
@@ -52,4 +60,4 @@ def handle_query(query: any):
     query_type = type(query)
     if not query_type in _query_type_to_query_handler_map:
         raise QueryError("No query handler registered for " + str(query_type))
-    return _query_type_to_query_handler_map[query_type]
+    return await _query_type_to_query_handler_map[query_type](query)

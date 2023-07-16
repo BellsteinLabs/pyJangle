@@ -5,7 +5,7 @@ import logging
 import functools
 from pyjangle.command.command import Command
 from pyjangle.command.command_response import CommandResponse
-from pyjangle.log_tools.log_tools import LogToggles, log
+from pyjangle.logging.logging import LogToggles, log
 from pyjangle.event.event import Event
 from pyjangle.registration.utility import find_decorated_method_names, register_methods
 
@@ -19,8 +19,6 @@ COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP = "__command_type_to_command_validator_map
 #registration.
 STATE_RECONSTITUTOR_TYPE = "__state_reconstitutor_type"
 COMMAND_VALIDATOR_TYPE = "__command_validator_type"
-
-logger = logging.getLogger(__name__)
 
 def _method_is_command_validator(method: Callable) -> bool:
     """Looks for decorated methods with an attribute named COMMAND_VALIDATOR_TYPE."""
@@ -77,6 +75,7 @@ class Aggregate:
 
     def __init__(self, id: any):
         self.id = id
+        self._new_events = []
         self._register_command_validators_and_state_reconstitutors()
 
     def _register_command_validators_and_state_reconstitutors(self):
@@ -103,12 +102,10 @@ class Aggregate:
         new_events will correspond to an empty list.  Once
         commands are validated, any events they create via
         _post_new_event will show up here."""
-        return self._new_events if hasattr(self, "_new_events") else []
+        return self._new_events
 
     def _post_new_event(self, event: Event):
         """Advertises new events that should be committed to the event store."""
-        if not hasattr(self, "_new_events"):
-            setattr(self, "_new_events", list())
         self._new_events.append(event)
         log(LogToggles.post_new_event, "Posted New Event", {"aggregate_id": self.id, "event": event.__dict__})
 

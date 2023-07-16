@@ -11,17 +11,13 @@ class TestEventRepository(unittest.TestCase):
     def test_can_register_event_repository(self):
         @RegisterEventRepository
         class A:
-            def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
-                pass
+            def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]: pass
 
-            def commit_events(self, events: List[Event]):
-                pass
+            def commit_events(self, events: List[Event]): pass
 
-            def mark_event_handled(self, event: Event):
-                pass
+            def mark_event_handled(self, event: Event): pass
 
-            def get_failed_events(self, batch_size: int):
-                pass
+            def get_failed_events(self, batch_size: int): pass
 
         self.assertIsNotNone(event_repository_instance())
 

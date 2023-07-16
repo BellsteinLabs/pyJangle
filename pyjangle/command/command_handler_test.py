@@ -1,355 +1,109 @@
-from  datetime import datetime
-from typing import List
+from asyncio import Queue
+import asyncio
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
+import pyjangle
 
-from pyjangle.aggregate.aggregate import Aggregate, reconstitute_aggregate_state, validate_command
 from pyjangle.command.command_handler import handle_command
-from pyjangle.command.register import RegisterCommand
-from pyjangle.event.event import Event
-from pyjangle.event.event_dispatcher import EventDispatcherError, RegisterEventDispatcher
-from pyjangle.event.event_repository import DuplicateKeyError, EventRepository, RegisterEventRepository, event_repository_instance
-from pyjangle.snapshot.snapshot_repository import RegisterSnapshotRepository, SnapshotRepository, snapshot_repository_instance
-from pyjangle.snapshot.snapshottable import Snapshottable
-from pyjangle.test.test_types import CommandA, EventA
+from pyjangle.event.event_repository import DuplicateKeyError, event_repository_instance
+from pyjangle.test.registration_paths import COMMAND_TO_AGGREGATE_MAP, COMMITTED_EVENT_QUEUE, EVENT_DISPATCHER, EVENT_REPO, SNAPSHOT_REPO
+from pyjangle.test.test_types import AnotherCommandThatAlwaysSucceeds, CommandThatAlwaysSucceeds, CommandThatFails, TransientSnapshotRepository
+from pyjangle.test.transient_event_repository import TransientEventRepository
+
+@patch(COMMITTED_EVENT_QUEUE, new_callable=lambda : Queue())
+@patch(EVENT_DISPATCHER, None)
+@patch(EVENT_REPO, new_callable=lambda : TransientEventRepository())
+@patch(SNAPSHOT_REPO, new_callable=lambda : TransientSnapshotRepository())
+@patch.dict(COMMAND_TO_AGGREGATE_MAP)
+class TestCommandHandler(unittest.IsolatedAsyncioTestCase):
+
+    async def test_command_handled_snapshottable_aggregate(self, *_):
+        command_response = await handle_command(CommandThatAlwaysSucceeds())
+        self.assertTrue(command_response.is_success)
+
+    async def test_command_handled_not_snapshottable_aggregate(self, *_):
+        command_response = await handle_command(AnotherCommandThatAlwaysSucceeds())
+        self.assertTrue(command_response.is_success)
+
+    async def test_command_failure(self, *_):
+        command_repsponse = await handle_command(CommandThatFails())
+        self.assertFalse(command_repsponse.is_success)
+
+    async def test_dispatch_locally_disabled(self, *_):
+        with patch(EVENT_DISPATCHER, None):
+            response = await handle_command(CommandThatAlwaysSucceeds())
+            self.assertTrue(response.is_success)
+
+    async def test_event_not_queued_for_dispatch_when_no_dispatcher_registered(self, *_):
+        await handle_command(CommandThatAlwaysSucceeds())
+        self.assertFalse(pyjangle.event.event_dispatcher._committed_event_queue.qsize())
+
+    async def test_when_same_command_executes_concurrently_then_only_one_wins(self, *_):
+        actual = event_repository_instance().commit_events
+        async def commit_events_with_delay(*args, **kwargs):
+            await asyncio.sleep(.2)
+            return await actual(*args, **kwargs)
+        with patch.object(event_repository_instance(), "commit_events") as mock_commit_events:
+            mock_commit_events.side_effect = commit_events_with_delay
+            await asyncio.gather(handle_command(CommandThatAlwaysSucceeds()), handle_command(CommandThatAlwaysSucceeds()))
+
+        self.assertEqual(mock_commit_events.call_count, 3)
 
 
-class TestCommandHandler(unittest.TestCase):
-    @patch("pyjangle.snapshot.snapshot_repository.__registered_snapshot_repository", None)
-    @patch("pyjangle.event.event_dispatcher.__event_dispatcher", None)
-    @patch("pyjangle.event.event_repository._event_repository_instance", None)
-    @patch("pyjangle.command.register._command_to_aggregate_map", dict())
-    def test_command_handled(self):
-        @RegisterEventRepository
-        class EventRepo(EventRepository):
+    async def test_snapshot_applied_when_aggregate_is_snapshottable(self, *_):
+        actual = pyjangle.snapshot.snapshot_repository._registered_snapshot_repository.store_snapshot
+        async def store_snapshots_real(*args, **kwargs): 
+            await actual(*args, **kwargs)
+        #mocking store_snapshots only to count method calls--call is forwarded to the actual method.
+        with patch.object(pyjangle.snapshot.snapshot_repository._registered_snapshot_repository, "store_snapshot") as store_snapshot_mock:
+            store_snapshot_mock.side_effect = store_snapshots_real
+            #snapshot created every 2 commands
+            await handle_command(CommandThatAlwaysSucceeds())
+            await handle_command(CommandThatAlwaysSucceeds())
+            await handle_command(CommandThatAlwaysSucceeds())
+            await handle_command(CommandThatAlwaysSucceeds())
+            await handle_command(CommandThatAlwaysSucceeds())
+            self.assertEqual(store_snapshot_mock.call_count, 2)
+            """when new snapshot is created for the same aggregate, 
+            it overwrites the previous one."""
+            self.assertEqual(len(pyjangle.snapshot.snapshot_repository._registered_snapshot_repository._snapshots), 1)
 
-            def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
-                return []
+    async def test_bad_snapshots_deleted(self, *_):
+        #Snapshot created every 2 commands/events
+        await handle_command(CommandThatAlwaysSucceeds())
+        await handle_command(CommandThatAlwaysSucceeds())
+        self.assertEqual(len(pyjangle.snapshot.snapshot_repository._registered_snapshot_repository._snapshots), 1)
+        #Throw exception when this snapshot is applied
+        with patch.object(pyjangle.command.register._command_to_aggregate_map[CommandThatAlwaysSucceeds], "apply_snapshot", MagicMock(side_effect=Exception)):
+            await handle_command(CommandThatAlwaysSucceeds())
+        self.assertEqual(len(pyjangle.snapshot.snapshot_repository._registered_snapshot_repository._snapshots), 0)
+                
+    async def test_snapshotting_reduces_events_retrieved_from_event_store(self, *_):
+        async def raise_error_if_too_many_events_returned_side_effect(real_method, event_count_threshold: int):
+            async def side_effect_method(*args, **kwargs):
+                returned_events = await real_method(*args, **kwargs)
+                if len(returned_events) > event_count_threshold: raise Exception() #pragma no cover
+                return returned_events
+            return side_effect_method
 
-            def commit_events(self, aggregate_id: any, events: List[Event]):
-                pass
+        get_events_real = pyjangle.event.event_repository._event_repository_instance.get_events
+        with patch.object(pyjangle.event.event_repository._event_repository_instance, "get_events") as get_events_mock:
+            get_events_mock.side_effect = await raise_error_if_too_many_events_returned_side_effect(get_events_real, 2)
+            for _ in range(100):
+                await handle_command(CommandThatAlwaysSucceeds())
 
-            def mark_event_handled(self, event: Event):
-                pass
+    async def test_retry_after_duplicate_key_exception(self, _, event_repo, __):
+        def dupliate_key_error_on_2nd_call_side_effect(real_function, *args):
+            dupliate_key_error_on_2nd_call_side_effect.counter = 0 if not hasattr(dupliate_key_error_on_2nd_call_side_effect, "counter") else dupliate_key_error_on_2nd_call_side_effect.counter
+            dupliate_key_error_on_2nd_call_side_effect.counter += 1 
+            if dupliate_key_error_on_2nd_call_side_effect.counter == 2: raise DuplicateKeyError()
+            else: return real_function(*args)
+        real_func = event_repo.commit_events
+        event_repo.commit_events = Mock(side_effect=lambda *args : dupliate_key_error_on_2nd_call_side_effect(real_func, *args))
 
-            def get_failed_events(self, batch_size: int) -> List[Event]:
-                pass
-
-        @RegisterEventDispatcher
-        def event_dispatcher(event, handled_callback):
-            pass
+        #first call
+        await handle_command(CommandThatAlwaysSucceeds())
+        #second call, raises exception and retries (3rd call)
+        await handle_command(CommandThatAlwaysSucceeds())
         
-        @RegisterCommand(CommandA)
-        class A(Aggregate):
-            @validate_command(CommandA)
-            def validateA(self, command: CommandA, next_version: int):
-                self._post_new_event(EventA(id=2, version=next_version, created_at=datetime.now()))
-
-        response = handle_command(CommandA())
-        self.assertTrue(response.is_success)
-
-    @patch("pyjangle.snapshot.snapshot_repository.__registered_snapshot_repository", None)
-    @patch("pyjangle.event.event_dispatcher.__event_dispatcher", None)
-    @patch("pyjangle.event.event_repository._event_repository_instance", None)
-    @patch("pyjangle.command.register._command_to_aggregate_map", dict())
-    def test_no_event_dispatcher_registered(self):
-        with self.assertRaises(EventDispatcherError):
-            @RegisterEventRepository
-            class EventRepo(EventRepository):
-
-                def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
-                    return []
-
-                def commit_events(self, aggregate_id: any, events: List[Event]):
-                    pass
-
-                def mark_event_handled(self, event: Event):
-                    pass
-
-                def get_failed_events(self, batch_size: int) -> List[Event]:
-                    pass
-
-            @RegisterCommand(CommandA)
-            class A(Aggregate):
-                @validate_command(CommandA)
-                def validateA(self, command: CommandA, next_version: int):
-                    self._post_new_event(EventA(id=2, version=next_version, created_at=datetime.now()))
-
-            response = handle_command(CommandA())
-
-    @patch("pyjangle.snapshot.snapshot_repository.__registered_snapshot_repository", None)
-    @patch("pyjangle.event.event_dispatcher.__event_dispatcher", None)
-    @patch("pyjangle.event.event_repository._event_repository_instance", None)
-    @patch("pyjangle.command.register._command_to_aggregate_map", dict())
-    def test_snapshot_applied_when_aggregate_is_snapshottable(self):
-        @RegisterEventRepository
-        class EventRepo(EventRepository):
-
-            def __init__(self) -> None:
-                super().__init__()
-                self._events = dict()#aggregate_id[dict[version, event_data]]
-                self._last_current_version = 0
-
-            def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
-                self._last_current_version = current_version
-                events_to_return = self._events[aggregate_id] if aggregate_id in self._events else dict()
-                return [v for k,v in events_to_return.items() if k > current_version]
-
-            def commit_events(self, aggregate_id: any, events: List[Event]):
-                if not aggregate_id in self._events:
-                    self._events[aggregate_id] = dict()
-                incoming_versions = [x.version for x in events]
-                existing_versions = [y.version for x,y in self._events[aggregate_id].items()]
-                if set(incoming_versions).intersection(existing_versions):
-                    raise DuplicateKeyError()
-                for x in events:
-                    self._events[aggregate_id][x.version] = x
-
-            def mark_event_handled(self, event: Event):
-                pass
-
-            def get_failed_events(self, batch_size: int) -> List[Event]:
-                pass
-
-        @RegisterSnapshotRepository
-        class SnapRepo(SnapshotRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self._snapshots = dict()
-
-            def get_snapshot(self, aggregate_id: str) -> tuple[int, any]:
-                value = self._snapshots[aggregate_id] if aggregate_id in self._snapshots else None
-                return value
-            
-            def store_snapshot(self, aggregate_id: any, version: int, snapshot: any):
-                self._snapshots[aggregate_id] = (version, snapshot)
-
-            def delete_snapshot(self, aggregate_id: str):
-                del self._snapshots[aggregate_id]
-
-            
-        @RegisterCommand(CommandA)
-        class A(Aggregate, Snapshottable):
-
-                def __init__(self, id: any):
-                    super().__init__(id)
-                    self.count = 0
-
-                @validate_command(CommandA)
-                def validateA(self, command: CommandA, next_version: int):
-                    self._post_new_event(EventA(id=next_version, version=next_version, created_at=datetime.now()))
-
-                @reconstitute_aggregate_state(EventA)
-                def from_event_a(self, event: EventA):
-                    self.count += 1
-
-                def apply_snapshot_hook(self, snapshot):
-                    self.count = snapshot
-
-                def get_snapshot(self) -> any:
-                    return self.count
-
-                def get_snapshot_frequency(self) -> int:
-                    return 2
-                
-        @RegisterEventDispatcher
-        def event_dispatcher(event, handled_callback):
-            pass
-
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 0)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        self.assertEqual(event_repository_instance()._last_current_version, 2)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        handle_command(CommandA())
-        self.assertEqual(event_repository_instance()._last_current_version, 4)
-
-    @patch("pyjangle.snapshot.snapshot_repository.__registered_snapshot_repository", None)  
-    @patch("pyjangle.event.event_dispatcher.__event_dispatcher", None)
-    @patch("pyjangle.event.event_repository._event_repository_instance", None)
-    @patch("pyjangle.command.register._command_to_aggregate_map", dict())
-    def test_bad_snapshots_deleted(self):
-        @RegisterEventRepository
-        class EventRepo(EventRepository):
-
-            def __init__(self) -> None:
-                super().__init__()
-                self._events = dict()#aggregate_id[dict[version, event_data]]
-                self._last_current_version = 0
-
-            def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
-                self._last_current_version = current_version
-                events_to_return = self._events[aggregate_id] if aggregate_id in self._events else dict()
-                return [v for k,v in events_to_return.items() if k > current_version]
-
-            def commit_events(self, aggregate_id: any, events: List[Event]):
-                if not aggregate_id in self._events:
-                    self._events[aggregate_id] = dict()
-                incoming_versions = [x.version for x in events]
-                existing_versions = [y.version for x,y in self._events[aggregate_id].items()]
-                if set(incoming_versions).intersection(existing_versions):
-                    raise DuplicateKeyError()
-                for x in events:
-                    self._events[aggregate_id][x.version] = x
-
-            def mark_event_handled(self, event: Event):
-                pass
-
-            def get_failed_events(self, batch_size: int) -> List[Event]:
-                pass
-
-        @RegisterSnapshotRepository
-        class SnapRepo(SnapshotRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self._snapshots = dict()
-
-            def get_snapshot(self, aggregate_id: str) -> tuple[int, any]:
-                value = self._snapshots[aggregate_id] if aggregate_id in self._snapshots else None
-                return value
-            
-            def store_snapshot(self, aggregate_id: any, version: int, snapshot: any):
-                self._snapshots[aggregate_id] = (version, snapshot)
-
-            def delete_snapshot(self, aggregate_id: str):
-                del self._snapshots[aggregate_id]
-
-            
-        @RegisterCommand(CommandA)
-        class A(Aggregate, Snapshottable):
-
-                def __init__(self, id: any):
-
-                    super().__init__(id)
-                    self.count = 0
-
-                @validate_command(CommandA)
-                def validateA(self, command: CommandA, next_version: int):
-                    self._post_new_event(EventA(id=next_version, version=next_version, created_at=datetime.now()))
-
-                @reconstitute_aggregate_state(EventA)
-                def from_event_a(self, event: EventA):
-                    self.count += 1
-
-                def apply_snapshot_hook(self, snapshot):
-                    if snapshot == 4:
-                        raise Exception
-                    self.count = snapshot
-
-                def get_snapshot(self) -> any:
-                    return self.count
-
-                def get_snapshot_frequency(self) -> int:
-                    return 2
-                
-        @RegisterEventDispatcher
-        def event_dispatcher(event, handled_callback):
-            pass
-
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 0)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        self.assertEqual(event_repository_instance()._last_current_version, 2)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        handle_command(CommandA())
-        self.assertEqual(event_repository_instance()._last_current_version, 0)
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 0)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
-        handle_command(CommandA())
-        self.assertEqual(event_repository_instance()._last_current_version, 6)
-                
-    @patch("pyjangle.snapshot.snapshot_repository.__registered_snapshot_repository", None)
-    @patch("pyjangle.event.event_dispatcher.__event_dispatcher", None)
-    @patch("pyjangle.event.event_repository._event_repository_instance", None)
-    @patch("pyjangle.command.register._command_to_aggregate_map", dict())
-    def test_retry_after_duplicate_key_exception(self):
-        @RegisterEventRepository
-        class EventRepo(EventRepository):
-
-            def __init__(self) -> None:
-                super().__init__()
-                self._events = dict()#aggregate_id[dict[version, event_data]]
-                self._last_current_version = 0
-
-            def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
-                self._last_current_version = current_version
-                events_to_return = self._events[aggregate_id] if aggregate_id in self._events else dict()
-                return [v for k,v in events_to_return.items() if k > current_version]
-
-            def commit_events(self, aggregate_id: any, events: List[Event]):
-                if not hasattr(self, "foo"):
-                    setattr(self, "foo", None)
-                    raise DuplicateKeyError()
-                if not aggregate_id in self._events:
-                    self._events[aggregate_id] = dict()
-                incoming_versions = [x.version for x in events]
-                existing_versions = [y.version for x,y in self._events[aggregate_id].items()]
-                if set(incoming_versions).intersection(existing_versions):
-                    raise DuplicateKeyError()
-                for x in events:
-                    self._events[aggregate_id][x.version] = x
-
-            def mark_event_handled(self, event: Event):
-                pass
-
-            def get_failed_events(self, batch_size: int) -> List[Event]:
-                pass
-
-        @RegisterSnapshotRepository
-        class SnapRepo(SnapshotRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self._snapshots = dict()
-
-            def get_snapshot(self, aggregate_id: str) -> tuple[int, any]:
-                value = self._snapshots[aggregate_id] if aggregate_id in self._snapshots else None
-                return value
-            
-            def store_snapshot(self, aggregate_id: any, version: int, snapshot: any):
-                self._snapshots[aggregate_id] = (version, snapshot)
-
-            def delete_snapshot(self, aggregate_id: str):
-                del self._snapshots[aggregate_id]
-
-            
-        @RegisterCommand(CommandA)
-        class A(Aggregate, Snapshottable):
-
-                def __init__(self, id: any):
-                    super().__init__(id)
-                    self.count = 0
-
-                @validate_command(CommandA)
-                def validateA(self, command: CommandA, next_version: int):
-                    self._post_new_event(EventA(id=next_version, version=next_version, created_at=datetime.now()))
-
-                @reconstitute_aggregate_state(EventA)
-                def from_event_a(self, event: EventA):
-                    self.count += 1
-
-                def apply_snapshot_hook(self, snapshot):
-                    self.count = snapshot
-
-                def get_snapshot(self) -> any:
-                    return self.count
-
-                def get_snapshot_frequency(self) -> int:
-                    return 2
-                
-        @RegisterEventDispatcher
-        def event_dispatcher(event, handled_callback):
-            pass
-
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 0)
-        handle_command(CommandA())
-        self.assertEqual(len(snapshot_repository_instance()._snapshots), 1)
+        self.assertEqual(event_repo.commit_events.call_count, 3)

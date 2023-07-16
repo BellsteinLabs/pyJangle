@@ -8,9 +8,6 @@ import uuid
 from dataclasses import dataclass
 from pyjangle.command.command import Command
 
-from pyjangle.command.register import RegisterCommand
-
-
 @dataclass(frozen=True, kw_only=True)
 class CreateAccount(Command):
     """Requests a new account to be created."""

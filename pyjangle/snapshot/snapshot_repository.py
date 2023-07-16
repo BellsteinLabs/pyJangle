@@ -3,12 +3,12 @@ import functools
 import logging
 
 from pyjangle.error.error import JangleError
-from pyjangle.log_tools.log_tools import LogToggles, log
+from pyjangle.logging.logging import LogToggles, log
 from pyjangle.snapshot.snapshottable import Snapshottable
 
 #Singleton instance of snapshot repositry
 #Access via snapshot_repository_instance()
-__registered_snapshot_repository = None
+_registered_snapshot_repository = None
 
 logger = logging.getLogger(__name__)
 
@@ -23,15 +23,13 @@ def RegisterSnapshotRepository(cls):
     ------
     SnapshotRepositoryError when multiple 
     repositories are registered."""
-    global __registered_snapshot_repository
-    if __registered_snapshot_repository != None:
+    global _registered_snapshot_repository
+    if _registered_snapshot_repository != None:
         raise SnapshotRepositoryError(
-            "Cannot register multiple snapshot repositories: " + str(type(__registered_snapshot_repository)) + ", " + str(cls))    
-    __registered_snapshot_repository = cls()
+            "Cannot register multiple snapshot repositories: " + str(type(_registered_snapshot_repository)) + ", " + str(cls))    
+    _registered_snapshot_repository = cls()
     log(LogToggles.snapshot_repository_registration, "Snapshot repository registered", {"snapshot_repository_type": str(type(cls))})
-    @functools.wraps(cls)
-    def wrapper(*args, **kwargs):
-        return cls(*args, **kwargs)
+    return cls
     return wrapper
 
 
@@ -46,7 +44,7 @@ class SnapshotRepository(metaclass=abc.ABCMeta):
     get those events that are newer than the 
     snapshot!"""
     @abc.abstractmethod
-    def get_snapshot(self, aggregate_id: str) -> tuple[int, any]:
+    async def get_snapshot(self, aggregate_id: str) -> tuple[int, any] | None:
         """Retrieve a snapshot for an aggregate_id.
         
         RETURNS
@@ -56,12 +54,12 @@ class SnapshotRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def store_snapshot(self, aggregate_id: any, version, int, snapshot: any):
+    async def store_snapshot(self, aggregate_id: any, version, int, snapshot: any):
         """Stores a snapshot for an aggregate."""
         pass
 
     @abc.abstractmethod
-    def delete_snapshot(self, aggregate_id: str):
+    async def delete_snapshot(self, aggregate_id: str):
         """Deletes a snapshot.
         
         Sometimes, code changes invalidate snapshots 
@@ -73,6 +71,6 @@ class SnapshotRepository(metaclass=abc.ABCMeta):
 
 def snapshot_repository_instance() -> SnapshotRepository:
     """Retrieve the singleton instance of the snapshot repository."""
-    if not __registered_snapshot_repository:
+    if not _registered_snapshot_repository:
         raise SnapshotRepositoryError("Snapshot repository not registered")
-    return __registered_snapshot_repository
+    return _registered_snapshot_repository

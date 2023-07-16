@@ -1,18 +1,42 @@
+from asyncio import Queue
+import asyncio
 import functools
 import inspect
 import logging
+import os
 from typing import Callable, List
 
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import LogToggles, log
+from pyjangle.event.event_repository import event_repository_instance
+from pyjangle.logging.logging import LogToggles, log
 
-logger = logging.getLogger(__name__)
+COMMITTED_EVENT_QUEUE_SIZE = int(os.getenv("JANGLE_COMMITTED_EVENT_QUEUE_SIZE", "200"))
+
+async def begin_processing_committed_events():
+    event_dispatcher = event_dispatcher_instance()
+    if not event_dispatcher:
+        raise EventDispatcherError("Unable to process committed events--no event dispatcher registered")
+    log(LogToggles.event_dispatcher_ready, "Event dispatcher ready to process events")
+    while True:
+        event = await _committed_event_queue.get()
+        await _dispatch_event(event)
+
+async def _dispatch_event(event: Event):
+    try:
+        event_repo = event_repository_instance()
+        await _event_dispatcher(event)
+        await event_repo.mark_event_handled(event.id)
+    except Exception as e:
+        log(LogToggles.event_dispatching_error, "Encountered an error while dispatching event", {"event": event.__dict__}, exc_info=e)
 
 #holds the registered singleton event dispatcher.
 #access this via event_dispatcher_instance()
-__event_dispatcher = None
+_event_dispatcher = None
+_committed_event_queue = Queue(maxsize=COMMITTED_EVENT_QUEUE_SIZE)
 
+async def enqueue_committed_event_for_dispatch(event: Event):
+    await _committed_event_queue.put(event)
 
 class EventDispatcherError(JangleError):
     pass
@@ -34,35 +58,27 @@ def RegisterEventDispatcher(wrapped):
     
     The decorated function's parameters are an 
     event - event to be handled
-    event_handled_callback - a callback that 
-    marks the event as "handled" on durable
-    storage.  Unhandled events (maybe) because
-    of a temporary network outage will not be 
-    marked and can be retried later.
 
     SIGNATURE
     ---------
-    def event_dispatcher(event: Event, event_handled_callback: Callable[[Event], None])
+    async def event_dispatcher(event: Event)
 
     THROWS
     ------
     EventDispatcherError when multiple event 
     dispatchers are registered.
     """
-    if len(inspect.signature(wrapped).parameters) != 2:
-            raise EventDispatcherError("@RegisterEventDispatcher must decorate a method with 2 parameters: event: Event, event_handled_callback: Callable[[Event], None]")
-    global __event_dispatcher
-    if __event_dispatcher != None:
+    if len(inspect.signature(wrapped).parameters) != 1:
+            raise EventDispatcherError("@RegisterEventDispatcher must decorate a method with 1 parameters: event: Event")
+    global _event_dispatcher
+    if _event_dispatcher != None:
         raise EventDispatcherError(
-            "Cannot register multiple event dispatchers: " + str(type(__event_dispatcher)) + ", " + str(wrapped))
-    __event_dispatcher = wrapped
+            "Cannot register multiple event dispatchers: " + str(type(_event_dispatcher)) + ", " + str(wrapped))
+    _event_dispatcher = wrapped
     log(LogToggles.event_dispatcher_registration, "Event dispatcher registered", {"event_dispatcher_type": str(type(wrapped))})
-    @functools.wraps(wrapped)
-    def wrapper(*args, **kwargs):
-        return wrapped(*args, **kwargs)
-    return wrapper
+    return wrapped
 
 
 def event_dispatcher_instance() -> Callable[[List[Event], Callable[[Event], None]], None]:
     """Returns the registered singleton event dispatcher."""
-    return __event_dispatcher
+    return _event_dispatcher

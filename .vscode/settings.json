@@ -12,7 +12,7 @@
     "python.testing.unittestArgs": [
         "-v",
         "-s",
-        "./pyjangle",
+        "./",
         "-p",
         "*_test.py"
     ],

@@ -1,13 +1,12 @@
 import abc
+from datetime import datetime
 import functools
 import logging
-from typing import List
+from typing import Iterator, List
 
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
-from pyjangle.log_tools.log_tools import LogToggles, log
-
-logger = logging.getLogger(__name__)
+from pyjangle.logging.logging import LogToggles, log
 
 #Holds a singleton instance of an event repository.
 #Access this via event_repository_instance.
@@ -29,10 +28,7 @@ def RegisterEventRepository(cls):
         raise EventRepositoryError("Cannot register multiple event repositories: " + str(type(_event_repository_instance)) + ", " + str(cls))
     _event_repository_instance = cls()
     log(LogToggles.event_repository_registration, "Event repository registered", {"event_repository_type": str(type(cls))})
-    @functools.wraps(cls)
-    def wrapper(*args, **kwargs):
-        return cls(*args, **kwargs)
-    return wrapper
+    return cls
 
 
 class EventRepository(metaclass = abc.ABCMeta):
@@ -61,7 +57,7 @@ class EventRepository(metaclass = abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    def get_events(self, aggregate_id: any, current_version = 0) -> List[Event]:
+    async def get_events(self, aggregate_id: any, current_version = 0, batch_size: int = 100) -> Iterator[Event]:
         """Returns events for a particular aggregate.
         
         RETURNS
@@ -82,7 +78,7 @@ class EventRepository(metaclass = abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def commit_events(self, aggregate_id: any, events: List[Event]):
+    async def commit_events(self, aggregate_id: any, events: List[Event]):
         """Persist events to the event store.
         
         The event store enforces a uniuquesness constraint 
@@ -96,7 +92,7 @@ class EventRepository(metaclass = abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def mark_event_handled(self, event: Event):
+    async def mark_event_handled(self, id: any):
         """Marks an event as handled
         
         If an event is not marked as handled, it will
@@ -104,8 +100,8 @@ class EventRepository(metaclass = abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    def get_failed_events(self, batch_size: int) -> List[Event]:
-        """Returns failed events.
+    async def get_unhandled_events(self, batch_size: int, time_delta: datetime) -> Iterator[Event]:
+        """Returns unhandled events.
         
         RETURNS
         -------
@@ -120,13 +116,15 @@ class EventRepository(metaclass = abc.ABCMeta):
         """
         pass
 
-def event_repository_instance() -> EventRepository:
+def event_repository_instance(raise_exception_if_not_registered: bool = True) -> EventRepository:
     """Returns the singleton instance of the registered event repository.
     
     THROWS
     ------
     EventRepositoryError when there is no event repository registered."""
-    if not _event_repository_instance:
+
+    global _event_repository_instance
+    if not _event_repository_instance and raise_exception_if_not_registered:
         raise EventRepositoryError("Event repository not registered")
     return _event_repository_instance
 

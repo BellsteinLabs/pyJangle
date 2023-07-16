@@ -4,148 +4,112 @@ import unittest
 from unittest.mock import patch
 from pyjangle.event.event import Event, SagaEvent
 from pyjangle.saga.saga import Saga, event_receiver, reconstitute_saga_state
-from pyjangle.saga.saga_handler import handle_saga_event
+from pyjangle.saga.saga_handler import SagaHandlerError, handle_saga_event
 from pyjangle.saga.saga_metadata import SagaMetadata
 
 from pyjangle.saga.saga_repository import RegisterSagaRepository, SagaRepository, saga_repository_instance
-from pyjangle.test.test_types import EventA
+from pyjangle.test.events import EventThatCausesDuplicateKeyError, EventThatCausesSagaToRetry, EventThatCompletesSaga, EventThatSetsSagaToTimedOut, EventThatTimesOutSaga
+from pyjangle.test.test_types import EventThatContinuesSaga, SagaForTesting
+from pyjangle.test.transient_saga_repository import TransientSagaRepository
 
-class TestSagaHandler(unittest.TestCase):
-    @patch("pyjangle.saga.saga_repository.__registered_saga_repository", None)
-    def test_handle_short_circuited_on_completed_saga(self):
+SAGA_ID = 42
 
-        class A(Saga):
+@patch("pyjangle.saga.saga_repository.__registered_saga_repository", new_callable=lambda : TransientSagaRepository())
+class TestSagaHandler(unittest.IsolatedAsyncioTestCase):
+    async def test_when_event_handled_saga_created(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatCompletesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 1)
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+    
 
-            @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
-                pass
-                
-            def evaluate_hook(self):
-                self.foo = True
+    async def test_when_saga_reconstituted_without_new_event_nothing_happens(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 2)
+        await handle_saga_event(SAGA_ID, None, SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 2)
 
-        @RegisterSagaRepository
-        class Repo(SagaRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=True), [])
+    async def test_when_saga_completed_then_nothing_happens(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatCompletesSaga(version=1), SagaForTesting)
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 1)
 
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
-                return self.test
+    async def test_when_saga_set_to_retry_then_saga_returned_when_query_retryable_sagas(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatCausesSagaToRetry(version=1), SagaForTesting)
+        retry_metadata = await saga_repository_instance().get_retry_saga_metadata(100)
+        self.assertEqual(len(retry_metadata), 1)
+        self.assertEqual(retry_metadata[0].id, SAGA_ID)
 
-            def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
-                pass
+    async def test_when_saga_not_set_to_retry_then_saga__not_returned_when_query_retryable_sagas(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        retry_metadata = await saga_repository_instance().get_retry_saga_metadata(100)
+        self.assertEqual(len(retry_metadata), 0)
 
-            def get_retry_saga_metadata(max_count: int) -> list[SagaMetadata]:
-                pass
+    async def test_when_saga_timed_out_then_nothing_happens(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatTimesOutSaga(version=1), SagaForTesting)
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 1)
 
-        handle_saga_event(1, None, A)
+    async def test_when_saga_set_to_timed_out_then_nothing_happens(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatSetsSagaToTimedOut(version=1), SagaForTesting)
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 1)
 
-        self.assertFalse(hasattr(saga_repository_instance().get_saga(1)[1], "foo"))
+    async def test_when_reconstituted_with_duplicate_external_event_nothing_happens(self, *_):
+        event = EventThatContinuesSaga(version=1)
+        await handle_saga_event(SAGA_ID, event, SagaForTesting)
+        await handle_saga_event(SAGA_ID, event, SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 2)
 
-    @patch("pyjangle.saga.saga_repository.__registered_saga_repository", None)
-    def test_incomplete_saga_not_short_circuited(self):
+    async def test_when_saga_has_concurrent_duplicate_instance_nothing_happens(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        events = result[1]
+        self.assertEqual(len(events), 2)
+        await handle_saga_event(SAGA_ID, EventThatCausesDuplicateKeyError(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertEqual(len(events), 2)
 
-        class A(Saga):
+    async def test_when_saga_reconstituted_with_new_event_saga_updated(self, *_):
+        await handle_saga_event(SAGA_ID, EventThatContinuesSaga(version=1), SagaForTesting)
+        await handle_saga_event(SAGA_ID, EventThatCompletesSaga(version=1), SagaForTesting)
+        result = await saga_repository_instance().get_saga(SAGA_ID)
+        metadata = result[0]
+        events = result[1]
+        self.assertEqual(metadata.id, SAGA_ID)
+        self.assertTrue(metadata.is_complete)
+        self.assertEqual(len(events), 3)
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
-
-            @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
-                pass
-
-            @event_receiver(EventA)
-            def event_a_received(self, next_version: int):
-                self.set_complete()
-
-        @RegisterSagaRepository
-        class Repo(SagaRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=False), [])
-
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
-                return self.test
-
-            def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
-                if metadata.is_complete and len(events) == 1:
-                    self.foo = True
-
-            def get_retry_saga_metadata(max_count: int) -> list[SagaMetadata]:
-                pass
-
-        handle_saga_event(1, EventA(id=1, version=1, created_at=datetime.now()), A)
-
-        self.assertTrue(hasattr(saga_repository_instance(), "foo"))
-
-    @patch("pyjangle.saga.saga_repository.__registered_saga_repository", None)
-    def test_handle_saga_event_with_empty_event(self):
-
-        class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
-
-            @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
-                pass
-
-            @event_receiver(EventA)
-            def on_event_a(self, next_version: int):
-                self.set_complete()
-
-        @RegisterSagaRepository
-        class Repo(SagaRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=False), [EventA(version=1)])
-
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
-                return self.test
-
-            def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
-                if metadata.is_complete and len(events) == 0:
-                    self.foo = True
-
-            def get_retry_saga_metadata(max_count: int) -> list[SagaMetadata]:
-                pass
-
-        handle_saga_event(1, [], A)
-
-        self.assertTrue(hasattr(saga_repository_instance(), "foo"))
-
-    @patch("pyjangle.saga.saga_repository.__registered_saga_repository", None)
-    def test_saga_error_if_no_events(self):
-        class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
-
-            @reconstitute_saga_state(EventA)
-            def from_event_a(self, event: EventA):
-                pass
-
-            @event_receiver(EventA)
-            def on_event_a(self, next_version: int):
-                self.set_complete()
-
-        @RegisterSagaRepository
-        class Repo(SagaRepository):
-            def __init__(self) -> None:
-                super().__init__()
-                self.test = (SagaMetadata(id=1,type=A, retry_at=None, timeout_at=None, is_complete=False), [])
-
-            def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent]]:
-                return self.test
-
-            def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
-                if metadata.is_complete and len(events) == 0:
-                    self.foo = True
-
-            def get_retry_saga_metadata(max_count: int) -> list[SagaMetadata]:
-                pass
-
-        handle_saga_event(1, [], A)
+    async def test_saga_error_if_no_events_and_saga_not_exist(self, *_):
+        with self.assertRaises(SagaHandlerError):
+            await handle_saga_event(1, [], SagaForTesting)

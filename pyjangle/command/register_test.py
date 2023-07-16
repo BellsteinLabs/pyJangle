@@ -51,7 +51,4 @@ class TestRegisterCommand(unittest.TestCase):
             pass
 
         
-        self.assertEqual(A().__name__, A.__name__)
-
-if __name__ == '__main__':
-    unittest.main()
+        self.assertDictEqual(A(id=42).__dict__, A(id=42).__dict__)
