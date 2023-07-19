@@ -36,8 +36,10 @@ class LogToggles:
     saga_new = DEBUG
     saga_retrieved = DEBUG
     saga_committed = DEBUG
+    saga_registered = INFO
     saga_nothing_happened = WARNING
     saga_duplicate_key = WARNING
+    saga_duplicate_event = INFO
     apply_event_to_saga = DEBUG
     is_snapshotting = DEBUG
     is_snapshot_found = DEBUG

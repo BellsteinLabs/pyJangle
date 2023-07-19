@@ -17,19 +17,19 @@ FIELD_FUNDED_ACCOUNT_ID = "funded_account_id"
 FIELD_AMOUNT = "amount"
 FIELD_TIMEOUT_AT = "timeout_at"
 
-class TryObtainReceiveFundsApprovalCommandSucceeded(SagaEvent):
+class TryObtainReceiveFundsApprovalCommandSucceeded(Event):
     pass
 
-class NotifyReceiveFundsRejectedCommandSucceeded(SagaEvent):
+class NotifyReceiveFundsRejectedCommandSucceeded(Event):
     pass
 
-class DebitReceiveFundsCommandSucceeded(SagaEvent):
+class DebitReceiveFundsCommandSucceeded(Event):
     pass
 
-class CreditReceiveFundsCommandSucceeded(SagaEvent):
+class CreditReceiveFundsCommandSucceeded(Event):
     pass
 
-class RollbackReceiveFundsDebitCommandSucceeded(SagaEvent):
+class RollbackReceiveFundsDebitCommandSucceeded(Event):
     pass
 
 class RequestFundsFromAnotherAccount(Saga):

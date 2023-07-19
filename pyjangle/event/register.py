@@ -106,4 +106,4 @@ def get_event_name(event_type: type) -> str:
     try:
         return __event_type_to_name_map[event_type]
     except KeyError:
-        raise KeyError(f"{str(type)} is not registered as an event.  Ensure the event is decorated with @RegisterEvent.")
+        raise KeyError(f"{str(event_type)} is not registered as an event.  Ensure the event is decorated with @RegisterEvent.")

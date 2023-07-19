@@ -6,53 +6,25 @@ import unittest
 from unittest.mock import patch
 from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
-from pyjangle.event.register import get_event_name, get_event_type
-from pyjangle.serialization.register import register_event_deserializer, register_event_serializer
 from pyjangle.test.events import EventA
-from pyjangle.test.registration_paths import EVENT_REPO
+from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_REPO, EVENT_SERIALIZER, SAGA_DESERIALIZER, SAGA_SERIALIZER
+from pyjangle.test.serialization import deserialize_event, deserialize_saga_event, serialize_event, serialize_saga_event
+from pyjangle_sqllite3.sql_lite_event_repository import SqlLiteEventRepository
+from pyjangle_sqllite3.symbols import DB_EVENT_STORE_PATH
 
-from pyjangle_sqllite3.sql_lite_event_repository import AGGREGATE_ID, AGGREGATE_VERSION, CREATED_AT, DATA, DB_PATH, EVENT_ID, TYPE, SqlLiteEventRepository
-
-@register_event_serializer
-def serialize(event: Event) -> any:
-    as_dict = dataclasses.asdict(event)
-    event_id = as_dict.pop("id")    
-    aggregate_version = as_dict.pop("version")
-    created_at = as_dict.pop("created_at")
-    data = json.dumps(as_dict)
-    return {
-        EVENT_ID: event_id,
-        AGGREGATE_VERSION: aggregate_version,
-        DATA: data,
-        CREATED_AT: created_at,
-        TYPE: get_event_name(type(event))
-    }
-
-@register_event_deserializer
-def deserialize(fields: dict) -> Event:
-    event_id = fields[EVENT_ID]
-    aggregave_version = fields[AGGREGATE_VERSION]
-    data = fields[DATA]
-    created_at = fields[CREATED_AT]
-    event_type = fields[TYPE]
-    event_class_instance: type[Event] = get_event_type(event_type)
-    data_dict = json.loads(data)
-    data_dict["id"] = event_id
-    data_dict["created_at"] = created_at
-    data_dict["version"] = aggregave_version
-    return event_class_instance.deserialize(data_dict)
-
+@patch(EVENT_DESERIALIZER, new_callable=lambda : deserialize_event)
+@patch(EVENT_SERIALIZER, new_callable=lambda : serialize_event)
 @patch(EVENT_REPO, new_callable=lambda : SqlLiteEventRepository())
 class TestSqlLiteEventRepository(unittest.IsolatedAsyncioTestCase):
     
     def setUp(self) -> None:
-        if os.path.exists(DB_PATH):#pragma no cover
-            os.remove(DB_PATH) #pragma no cover
+        if os.path.exists(DB_EVENT_STORE_PATH):#pragma no cover
+            os.remove(DB_EVENT_STORE_PATH) #pragma no cover
         self.sql_lite_event_repo = SqlLiteEventRepository()
     
     def tearDown(self) -> None:
-        if os.path.exists(DB_PATH):#pragma no cover
-            os.remove(DB_PATH)
+        if os.path.exists(DB_EVENT_STORE_PATH):#pragma no cover
+            os.remove(DB_EVENT_STORE_PATH)
 
     async def test_committed_events_can_be_retrieved(self, *_):
         events = [EventA(version=1), EventA(version=2), EventA(version=3), EventA(version=4)]

@@ -1,12 +1,11 @@
 from datetime import datetime
 from typing import List
 import unittest
-from unittest.mock import patch
 from pyjangle.event.event import Event
 
 from pyjangle.saga.saga import Saga, SagaError, event_receiver, reconstitute_saga_state
 from pyjangle.test.events import EventThatContinuesSaga, EventThatCompletesSaga
-from pyjangle.test.test_types import SagaForTesting
+from pyjangle.test.sagas import SagaForTesting
 
 class TestSaga(unittest.TestCase):
     def test_event_receiver(self):
@@ -111,7 +110,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self, next_version: int):
+            def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -134,7 +133,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self, next_version: int):
+            def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -155,7 +154,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self, next_version: int):
+            def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -176,7 +175,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self, next_version: int):
+            def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -197,7 +196,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self, next_version: int):
+            def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):

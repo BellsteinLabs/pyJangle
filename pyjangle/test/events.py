@@ -68,3 +68,10 @@ class EventThatCausesSagaToRetry(Event):
         data["created_at"] = data["created_at"]#pragma no cover
         return EventThatCausesSagaToRetry(**data)#pragma no cover
     
+@RegisterEvent
+@dataclass(frozen=True, kw_only=True)
+class TestSagaEvent(Event):
+    version: int = 0
+    def deserialize(data: any) -> any:
+        return TestSagaEvent(**data)
+    

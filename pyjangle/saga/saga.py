@@ -4,9 +4,8 @@ import functools
 import inspect
 from typing import Callable, Iterable, List
 from pyjangle.command.command_dispatcher import command_dispatcher_instance
-from pyjangle.event.event import Event, SagaEvent
+from pyjangle.event.event import Event
 from pyjangle.registration.utility import find_decorated_method_names, register_methods
-from pyjangle.saga.saga_metadata import SagaMetadata
 
 #Name of the attribute used to tag saga methods decorated with 
 #event_receiver. This attribute is used to register those 
@@ -56,8 +55,6 @@ def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = T
         def wrapper(self: Saga, *args, **kwargs):
             if add_event_type_to_flags:
                 self.flags.add(type)
-            if isinstance(args[0], SagaEvent) and self.version < args[0].version:
-                self.version = args[0].version
             return wrapped(self, *args, **kwargs)
         return wrapper
     return decorator
@@ -107,14 +104,14 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
     """
     def decorator(wrapped):
         setattr(wrapped, EXTERNAL_RECEIVER_TYPE, type)
-        if len(inspect.signature(wrapped).parameters) != 2:
-            raise SagaError("@event_receiver must decorate a method with 2 parameters: self, next_version: int")
+        if len(inspect.signature(wrapped).parameters) != 1:
+            raise SagaError("@event_receiver must decorate a method with 1 parameters: self")
         @functools.wraps(wrapped)
         def wrapper(self: Saga, *args, **kwargs):
             if require_event_type_in_flags and not type in self.flags:
                 return
             if self.flags.issuperset(required_flags) and not self.flags.intersection(skip_if_any_flags_set):
-                return wrapped(self, self.version + 1)
+                return wrapped(self)
         return wrapper
     return decorator
 
@@ -220,7 +217,6 @@ class Saga:
         register_methods(self, EVENT_TO_EXTERNAL_RECEIVED_MAP, EXTERNAL_RECEIVER_TYPE, Saga._saga_type_to_event_receiver_method_names[saga_type])
 
         self.saga_id = saga_id
-        self.version = 0
         self.flags = set()
         self.retry_at = retry_at
         self.timeout_at = timeout_at

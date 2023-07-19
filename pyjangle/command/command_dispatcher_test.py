@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from pyjangle.command.command_dispatcher import CommandDispatcherError, RegisterCommandDispatcher, command_dispatcher_instance, _command_dispatcher
+from pyjangle.command.command_dispatcher import CommandDispatcherError, RegisterCommandDispatcher, command_dispatcher_instance
 from pyjangle.command.command_response import CommandResponse
 
 @patch("pyjangle.command.command_dispatcher._command_dispatcher", None)

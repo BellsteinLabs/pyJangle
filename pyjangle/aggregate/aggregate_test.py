@@ -2,9 +2,10 @@ import unittest
 
 from pyjangle.aggregate.aggregate import Aggregate, AggregateError, reconstitute_aggregate_state, validate_command
 from pyjangle.command.command_response import CommandResponse
-from pyjangle.event.event import Event
-from pyjangle.test.test_types import CommandThatAlwaysSucceeds, CommandB, EventA
+from pyjangle.test.commands import CommandB, CommandThatAlwaysSucceeds
 from datetime import datetime
+
+from pyjangle.test.events import EventA
 
 class TestAggregate(unittest.TestCase):
 

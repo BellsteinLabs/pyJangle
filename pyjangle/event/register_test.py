@@ -1,4 +1,4 @@
-from unittest import IsolatedAsyncioTestCase, TestCase
+from unittest import TestCase
 from unittest.mock import patch
 from pyjangle.event.event import Event
 from pyjangle.event.register import EventRegistrationError, RegisterEvent, get_event_name, get_event_type

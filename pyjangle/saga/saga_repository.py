@@ -3,15 +3,13 @@ import functools
 import logging
 from typing import List
 from pyjangle.error.error import JangleError
-from pyjangle.event.event import Event, SagaEvent
+from pyjangle.event.event import Event
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga_metadata import SagaMetadata
 
 #Saga repository singleton.  Access this 
 #via saga_repository_instance()
 __registered_saga_repository = None
-
-logger = logging.getLogger(__name__)
 
 class SagaRepositoryError(JangleError):
     pass
@@ -52,7 +50,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
     
     Like an event store, it is critical that """
     @abc.abstractmethod
-    async def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[SagaEvent | SagaEvent]]:
+    async def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[Event]]:
         """Retrieve a saga's metadata and events.
         
         When a saga is instantiated, metadata 
@@ -64,7 +62,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def commit_saga(self, metadata: SagaMetadata, events: list[Event | SagaEvent]):
+    async def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
         """Commits updated sagas to storage.
         
         THROWS
@@ -86,7 +84,6 @@ class SagaRepository(metaclass=abc.ABCMeta):
         saga_daemon module for an entrypoint that a daemon
         can use to periodically reexecute a failed saga."""
         pass
-        
 
 def saga_repository_instance() -> SagaRepository:
     """Retrieve singleton instance of saga repository."""

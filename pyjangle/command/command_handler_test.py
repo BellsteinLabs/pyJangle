@@ -6,9 +6,10 @@ import pyjangle
 
 from pyjangle.command.command_handler import handle_command
 from pyjangle.event.event_repository import DuplicateKeyError, event_repository_instance
+from pyjangle.test.commands import AnotherCommandThatAlwaysSucceeds, CommandThatAlwaysSucceeds, CommandThatFails
 from pyjangle.test.registration_paths import COMMAND_TO_AGGREGATE_MAP, COMMITTED_EVENT_QUEUE, EVENT_DISPATCHER, EVENT_REPO, SNAPSHOT_REPO
-from pyjangle.test.test_types import AnotherCommandThatAlwaysSucceeds, CommandThatAlwaysSucceeds, CommandThatFails, TransientSnapshotRepository
 from pyjangle.test.transient_event_repository import TransientEventRepository
+from pyjangle.test.transient_snapshot_repository import TransientSnapshotRepository
 
 @patch(COMMITTED_EVENT_QUEUE, new_callable=lambda : Queue())
 @patch(EVENT_DISPATCHER, None)

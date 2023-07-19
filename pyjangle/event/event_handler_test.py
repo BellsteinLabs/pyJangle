@@ -3,7 +3,7 @@ from unittest.mock import patch
 from pyjangle.event.event import Event
 
 from pyjangle.event.event_handler import EventHandlerError, EventHandlerRegistrationError, handle_event, register_event_handler
-from pyjangle.test.test_types import EventA
+from pyjangle.test.events import EventA
 
 @patch.dict("pyjangle.event.event_handler.__event_type_to_event_handler_handler_map")
 class TestEventHandler(IsolatedAsyncioTestCase):

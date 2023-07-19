@@ -1,4 +1,4 @@
-from asyncio import Queue, create_task, wait_for, Task
+from asyncio import Queue, create_task, wait_for
 from datetime import timedelta
 import unittest
 from unittest.mock import patch
@@ -8,9 +8,10 @@ from pyjangle.event.event import Event
 
 from pyjangle.event.event_dispatcher import EventDispatcherError, RegisterEventDispatcher, begin_processing_committed_events, event_dispatcher_instance
 from pyjangle.event.event_repository import event_repository_instance
+from pyjangle.test.commands import CommandThatAlwaysSucceeds
 from pyjangle.test.registration_paths import COMMITTED_EVENT_QUEUE, EVENT_DISPATCHER, EVENT_REPO
-from pyjangle.test.test_types import CommandThatAlwaysSucceeds
 from pyjangle.test.transient_event_repository import TransientEventRepository
+import pyjangle.test.aggregates
 
 @patch(COMMITTED_EVENT_QUEUE, new_callable=lambda : Queue())
 @patch(EVENT_REPO, new_callable=lambda : TransientEventRepository())

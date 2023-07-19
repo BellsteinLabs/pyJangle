@@ -10,8 +10,8 @@ from pyjangle.event.event_daemon import begin_retry_failed_events_loop
 
 from pyjangle.event.event_dispatcher import EventDispatcherError, RegisterEventDispatcher, begin_processing_committed_events
 from pyjangle.event.event_repository import EventRepositoryError, event_repository_instance
+from pyjangle.test.commands import CommandThatAlwaysSucceeds
 from pyjangle.test.registration_paths import COMMITTED_EVENT_QUEUE, EVENT_DISPATCHER, EVENT_REPO
-from pyjangle.test.test_types import CommandThatAlwaysSucceeds
 from pyjangle.test.transient_event_repository import TransientEventRepository
 
 @patch(EVENT_DISPATCHER, None)

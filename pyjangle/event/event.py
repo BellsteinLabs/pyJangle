@@ -35,19 +35,24 @@ class Event(metaclass = abc.ABCMeta):
         """Converts serialized representation to an Event."""
         pass
 
-@dataclasses.dataclass(frozen=True, kw_only=True)
-class SagaEvent:
-    """Represents an event specific to a saga state change.
+# @dataclasses.dataclass(frozen=True, kw_only=True)
+# class ReversionedEvent:
+#     version: int
+#     event: Event
+
+# @dataclasses.dataclass(frozen=True, kw_only=True)
+# class SagaEvent:
+#     """Represents an event specific to a saga state change.
     
-    Sagas are state machines that handle distributed 
-    transactions.  Because they go to sleep when waiting 
-    for more data, they need to know where they left off.
-    These state changes are represented by saga events.
+#     Sagas are state machines that handle distributed 
+#     transactions.  Because they go to sleep when waiting 
+#     for more data, they need to know where they left off.
+#     These state changes are represented by saga events.
     
-    For example, there might be a RolledBackFundsTransfer
-    event that represents to the saga that it issued a 
-    command to rollback the funds transfer.  Commonly,
-    each of these events will have a corrsponding command."""
-    id: str = dataclasses.field(default_factory=lambda : str(uuid.uuid4()))
-    version: int
-    created_at: str = dataclasses.field(default_factory=lambda : datetime.now().isoformat())
+#     For example, there might be a RolledBackFundsTransfer
+#     event that represents to the saga that it issued a 
+#     command to rollback the funds transfer.  Commonly,
+#     each of these events will have a corrsponding command."""
+#     id: str = dataclasses.field(default_factory=lambda : str(uuid.uuid4()))
+#     version: int
+#     created_at: str = dataclasses.field(default_factory=lambda : datetime.now().isoformat())
