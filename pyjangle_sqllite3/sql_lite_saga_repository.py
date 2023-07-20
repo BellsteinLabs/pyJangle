@@ -1,3 +1,4 @@
+from datetime import datetime
 import sqlite3
 from typing import Any, Coroutine, List
 from pyjangle.event.event import Event
@@ -82,7 +83,7 @@ class SqlLiteSagaRepository(SagaRepository):
                     {FIELDS.SAGA_EVENTS.TYPE}
                 ) VALUES (?,?,?,?,?)
         """
-        data_metadata = (metadata.id, metadata.type, metadata.retry_at, metadata.timeout_at, metadata.is_complete, metadata.is_timed_out, metadata.retry_at, metadata.timeout_at, metadata.is_complete, metadata.is_timed_out)
+        data_metadata = (metadata.id, metadata.type, metadata.retry_at.isoformat() if metadata.retry_at else None, metadata.timeout_at.isoformat() if metadata.timeout_at else None, metadata.is_complete, metadata.is_timed_out, metadata.retry_at, metadata.timeout_at, metadata.is_complete, metadata.is_timed_out)
         data_events = [(metadata.id, event.id, get_saga_serializer()(event)[FIELDS.SAGA_EVENTS.DATA], event.created_at, get_event_name(type(event))) for event in events]
         try:
             with sqlite3.connect(DB_SAGA_STORE_PATH) as conn:
@@ -102,7 +103,7 @@ class SqlLiteSagaRepository(SagaRepository):
                 {FIELDS.SAGA_METADATA.RETRY_AT}, 
                 {FIELDS.SAGA_METADATA.TIMEOUT_AT}, 
                 {FIELDS.SAGA_METADATA.IS_COMPLETE},
-                {FIELDS.SAGA_METADATA.IS_TIMED_OUT},
+                {FIELDS.SAGA_METADATA.IS_TIMED_OUT}
             FROM 
                 {TABLES.SAGA_METADATA}
             WHERE 
@@ -115,4 +116,8 @@ class SqlLiteSagaRepository(SagaRepository):
         return yield_results(DB_SAGA_STORE_PATH, batch_size=100, query=q_metadata, params=None, deserializer=saga_metadata_from_row)
 
 def saga_metadata_from_row(row: dict) -> SagaMetadata:
-    return SagaMetadata(id=row[FIELDS.SAGA_METADATA.SAGA_ID], type=row[FIELDS.SAGA_METADATA.SAGA_TYPE], retry_at=row[FIELDS.SAGA_METADATA.RETRY_AT], timeout_at=row[FIELDS.SAGA_METADATA.TIMEOUT_AT], is_complete=bool(row[FIELDS.SAGA_METADATA.IS_COMPLETE]), is_timed_out=bool(row[FIELDS.SAGA_METADATA.IS_TIMED_OUT]))
+    retry_at = row[FIELDS.SAGA_METADATA.RETRY_AT]
+    timeout_at = row[FIELDS.SAGA_METADATA.TIMEOUT_AT]
+    retry_at = datetime.fromisoformat(retry_at) if retry_at else None
+    timeout_at = datetime.fromisoformat(timeout_at) if timeout_at else None
+    return SagaMetadata(id=row[FIELDS.SAGA_METADATA.SAGA_ID], type=row[FIELDS.SAGA_METADATA.SAGA_TYPE], retry_at=retry_at, timeout_at=timeout_at, is_complete=bool(row[FIELDS.SAGA_METADATA.IS_COMPLETE]), is_timed_out=bool(row[FIELDS.SAGA_METADATA.IS_TIMED_OUT]))

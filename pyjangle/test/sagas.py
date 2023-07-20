@@ -1,9 +1,25 @@
 from datetime import datetime
 from typing import List
+from pyjangle.command.command_dispatcher import command_dispatcher_instance
 from pyjangle.event.event import Event
 from pyjangle.saga.register_saga import RegisterSaga
 from pyjangle.saga.saga import Saga, event_receiver, reconstitute_saga_state
+from pyjangle.test.commands import CommandThatFailsTheFirstTime
 from pyjangle.test.events import EventThatCausesDuplicateKeyError, EventThatCausesSagaToRetry, EventThatCompletesSaga, EventThatContinuesSaga, EventThatSetsSagaToTimedOut, EventThatTimesOutSaga, TestSagaEvent
+
+@RegisterSaga
+class SagaForTestingRetryLogic(Saga):
+    def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+        super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+
+    @event_receiver(EventThatContinuesSaga, skip_if_any_flags_set=[])
+    def on_event_that_continues_saga(self):
+        #await command_dispatcher_instance()(CommandThatFailsTheFirstTime())
+        pass
+
+    @reconstitute_saga_state(EventThatContinuesSaga)
+    def from_event_that_continues_saga(self, event):
+        pass
 
 @RegisterSaga
 class SagaForTesting(Saga):

@@ -9,6 +9,7 @@ class TABLES:
     PENDING_EVENTS = "pending_events"
     SAGA_EVENTS = "saga_events"
     SAGA_METADATA = "saga_metadata"
+    SNAPSHOTS = "snapshots"
 
 class FIELDS:
     class EVENT_STORE:
@@ -34,3 +35,7 @@ class FIELDS:
         TIMEOUT_AT = "timeout_at"
         IS_COMPLETE = "is_complete"
         IS_TIMED_OUT = "is_timed_out"
+    class SNAPSHOTS:
+        AGGREGATE_ID = "aggregate_id"
+        VERSION = "version"
+        DATA = "data"

@@ -15,10 +15,10 @@ class SagaMetadata:
     the saga."""
     id: any
     type: str
-    retry_at: str
-    timeout_at: str
+    retry_at: datetime
+    timeout_at: datetime
     is_complete: bool
     is_timed_out: bool
 
 def from_saga(saga: Saga) -> SagaMetadata:
-    return SagaMetadata(saga.saga_id, get_saga_name(saga), saga.retry_at.isoformat(), saga.timeout_at.isoformat(), saga.is_complete)
+    return SagaMetadata(saga.saga_id, get_saga_name(saga), saga.retry_at, saga.timeout_at, saga.is_complete)

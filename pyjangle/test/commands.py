@@ -16,3 +16,7 @@ class AnotherCommandThatAlwaysSucceeds(Command):
 class CommandB(Command):
     def get_aggregate_id(self):
         pass
+
+class CommandThatFailsTheFirstTime(Command):
+    def get_aggregate_id(self):
+        return 1

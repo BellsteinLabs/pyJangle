@@ -54,7 +54,7 @@ class SnapshotRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def store_snapshot(self, aggregate_id: any, version, int, snapshot: any):
+    async def store_snapshot(self, aggregate_id: any, version: int, snapshot: any):
         """Stores a snapshot for an aggregate."""
         pass
 
