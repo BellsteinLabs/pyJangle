@@ -46,6 +46,14 @@ class EventThatTimesOutSaga(Event):
     
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
+class EventThatCompletesACommand(Event):
+    def deserialize(data: any) -> any:
+        data["id"] = data["id"]#pragma no cover
+        data["created_at"] = data["created_at"]#pragma no cover
+        return EventThatTimesOutSaga(**data)#pragma no cover
+    
+@RegisterEvent
+@dataclass(frozen=True, kw_only=True)
 class EventThatSetsSagaToTimedOut(Event):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]#pragma no cover

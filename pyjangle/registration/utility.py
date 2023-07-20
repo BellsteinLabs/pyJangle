@@ -1,8 +1,9 @@
+import inspect
 from typing import Callable, Iterator, List
 
 def _find_user_defined_callable_methods(obj: any) -> List:
     """Finds user-defined methods on an object."""
-    return [getattr(obj, method_name) for method_name in dir(obj) if not method_name.startswith("__") and callable(getattr(obj, method_name))]
+    return [getattr(obj, method_name) for method_name in dir(obj) if not method_name.startswith("__") and inspect.ismethod(getattr(obj, method_name))]
 
 def _find_methods(obj: any, predicate: Callable[[any], bool]) -> Iterator[tuple]:
     """Finds user-defined methods on an object matching a specific criteria."""

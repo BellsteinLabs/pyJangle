@@ -7,10 +7,10 @@ from pyjangle.saga.saga import Saga, SagaError, event_receiver, reconstitute_sag
 from pyjangle.test.events import EventThatContinuesSaga, EventThatCompletesSaga
 from pyjangle.test.sagas import SagaForTesting
 
-class TestSaga(unittest.TestCase):
-    def test_event_receiver(self):
+class TestSaga(unittest.IsolatedAsyncioTestCase):
+    async def test_event_receiver(self):
         foo: Saga = SagaForTesting(saga_id=1, events=[])
-        foo.evaluate(EventThatContinuesSaga(id=42, version=1))
+        await foo.evaluate(EventThatContinuesSaga(id=42, version=1))
         self.assertEqual(foo.calls["on_event_that_continues_saga"], 1)
 
     def test_exception_when_event_receiver_on_wrong_method_signature(self):
@@ -21,13 +21,27 @@ class TestSaga(unittest.TestCase):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete) #pragma no cover
 
                 @event_receiver(EventThatContinuesSaga)
-                def from_event_that_continues_saga(self, event, next_version: int):
+                async def from_event_that_continues_saga(self, event, next_version: int):
                     pass
                     
                 def evaluate_hook(self):#pragma no cover
                     pass
 
-    def test_exception_when_missing_event_receiver(self):
+    def test_exception_when_event_receiver_not_coroutine(self):
+        with self.assertRaises(SagaError):
+            class A(Saga):
+
+                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                    super().__init__(saga_id, events, retry_at, timeout_at, is_complete) #pragma no cover
+
+                @event_receiver(EventThatContinuesSaga)
+                def from_event_that_continues_saga(self, event):
+                    pass
+                    
+                def evaluate_hook(self):#pragma no cover
+                    pass
+
+    async def test_exception_when_missing_event_receiver(self):
         with self.assertRaises(SagaError):
             class A(Saga):
 
@@ -41,11 +55,11 @@ class TestSaga(unittest.TestCase):
                 def evaluate_hook(self):
                     pass
 
-            A(saga_id=1, events=[]).evaluate(EventThatContinuesSaga(id=42, version=1))
+            await A(saga_id=1, events=[]).evaluate(EventThatContinuesSaga(id=42, version=1))
 
-    def test_register_state_reconstitutor(self):
+    async def test_register_state_reconstitutor(self):
         foo: Saga = SagaForTesting(saga_id=1, events=[EventThatContinuesSaga(id=1, version=1)])
-        foo.evaluate()
+        await foo.evaluate()
         self.assertEqual(foo.calls["from_event_that_continues_saga"], 1)
 
     def test_exception_when_register_state_reconstitutor_on_wrong_method_signature(self):
@@ -60,7 +74,7 @@ class TestSaga(unittest.TestCase):
                     self._foo = True #pragma no cover
                     
                 @event_receiver(EventThatContinuesSaga) #pragma no cover
-                def on_event_that_continues_saga(self, next_version: int): #pragma no cover
+                async def on_event_that_continues_saga(self, next_version: int): #pragma no cover
                     pass
                     
                 def evaluate_hook(self): #pragma no cover
@@ -74,7 +88,7 @@ class TestSaga(unittest.TestCase):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
                 @event_receiver(EventThatContinuesSaga)
-                def on_event_that_continues_saga(self, next_version: int):
+                async def on_event_that_continues_saga(self, next_version: int):
                     pass
 
             a = A(saga_id=1, events=[EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())])
@@ -84,9 +98,9 @@ class TestSaga(unittest.TestCase):
         self.assertTrue(EventThatContinuesSaga in a.flags)
         self.assertFalse(EventThatCompletesSaga in a.flags)
 
-    def test_post_new_events(self):
+    async def test_post_new_events(self):
         a = SagaForTesting(saga_id=1, events=[])
-        a.evaluate(EventThatContinuesSaga(id=1, version=1))
+        await a.evaluate(EventThatContinuesSaga(id=1, version=1))
         self.assertEqual(len(a.new_events), 2)
 
     def test_when_set_retry_set_to_same_value_then_saga_not_dirty(self, *_):
@@ -94,9 +108,9 @@ class TestSaga(unittest.TestCase):
         a.set_retry(a.retry_at)
         self.assertFalse(a.is_dirty)
 
-    def test_evaluate_short_circuits_on_timeout(self):
+    async def test_evaluate_short_circuits_on_timeout(self):
         a = SagaForTesting(saga_id=1, events=[], timeout_at=datetime.min)
-        a.evaluate(EventThatContinuesSaga(id=1, version=1, created_at=datetime.now()))
+        await a.evaluate(EventThatContinuesSaga(id=1, version=1, created_at=datetime.now()))
         self.assertEqual(len(a.new_events), 0)
 
     def test_init(self):
@@ -110,7 +124,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self):
+            async def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -133,7 +147,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self):
+            async def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -154,7 +168,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self):
+            async def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -175,7 +189,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self):
+            async def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):
@@ -196,7 +210,7 @@ class TestSaga(unittest.TestCase):
                 pass
 
             @event_receiver(EventThatContinuesSaga)
-            def on_event_that_continues_saga(self):
+            async def on_event_that_continues_saga(self):
                 pass
                 
             def evaluate_hook(self):

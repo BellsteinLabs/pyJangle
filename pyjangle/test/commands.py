@@ -17,6 +17,6 @@ class CommandB(Command):
     def get_aggregate_id(self):
         pass
 
-class CommandThatFailsTheFirstTime(Command):
+class CommandThatErrorsTheFirstTime(Command):
     def get_aggregate_id(self):
         return 1

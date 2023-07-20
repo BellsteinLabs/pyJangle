@@ -1,6 +1,7 @@
 SNAPSHOT_REPO = "pyjangle.snapshot.snapshot_repository._registered_snapshot_repository"
 EVENT_REPO = "pyjangle.event.event_repository._event_repository_instance"
 EVENT_DISPATCHER = "pyjangle.event.event_dispatcher._event_dispatcher"
+COMMAND_DISPATCHER = "pyjangle.command.command_dispatcher._command_dispatcher"
 COMMAND_TO_AGGREGATE_MAP = "pyjangle.command.register._command_to_aggregate_map"
 COMMITTED_EVENT_QUEUE = "pyjangle.event.event_dispatcher._committed_event_queue"
 NAME_TO_EVENT_TYPE_MAP = "pyjangle.event.register.__name_to_event_type_map"

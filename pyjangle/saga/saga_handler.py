@@ -1,4 +1,3 @@
-import logging
 from pyjangle.error.error import JangleError
 from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
@@ -6,8 +5,6 @@ from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_metadata import SagaMetadata
 from pyjangle.saga.saga_repository import saga_repository_instance
-
-logger = logging.getLogger(__name__)
 
 class SagaHandlerError(JangleError):
     pass
@@ -44,10 +41,10 @@ async def handle_saga_event(saga_id: any, event: Event, saga_type: type[Saga]):
         return
     saga = saga_type(saga_id, saga_events, saga_metadata.retry_at, saga_metadata.timeout_at, saga_metadata.is_complete) if saga_metadata else saga_type(saga_id=saga_id, events=[])
     if event: 
-        saga.evaluate(event)
+        await saga.evaluate(event)
         log(LogToggles.apply_event_to_saga, "Applied event to saga", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__,"event": event.__dict__})
     else:
-        saga.evaluate()
+        await saga.evaluate()
     if saga.is_dirty:
         try:
             await saga_repository.commit_saga(SagaMetadata(id=saga_id,type=saga_type, retry_at=saga.retry_at.isoformat() if saga.retry_at else None, timeout_at=saga.timeout_at.isoformat() if saga.timeout_at else None, is_complete=saga.is_complete, is_timed_out=saga.is_timed_out), saga.new_events)

@@ -103,15 +103,17 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
     @event_receiver(event).
     """
     def decorator(wrapped):
-        setattr(wrapped, EXTERNAL_RECEIVER_TYPE, type)
+        if not inspect.iscoroutinefunction(wrapped):
+            raise SagaError("@event_receiver must be a couroutine (async).")
         if len(inspect.signature(wrapped).parameters) != 1:
             raise SagaError("@event_receiver must decorate a method with 1 parameters: self")
+        setattr(wrapped, EXTERNAL_RECEIVER_TYPE, type)
         @functools.wraps(wrapped)
-        def wrapper(self: Saga, *args, **kwargs):
+        async def wrapper(self: Saga, *args, **kwargs):
             if require_event_type_in_flags and not type in self.flags:
                 return
             if self.flags.issuperset(required_flags) and not self.flags.intersection(skip_if_any_flags_set):
-                return wrapped(self)
+                return await wrapped(self)
         return wrapper
     return decorator
 
@@ -226,7 +228,7 @@ class Saga:
         self.is_dirty = False
         self._apply_historical_events(events)
 
-    def evaluate(self, event: Event = None):
+    async def evaluate(self, event: Event = None):
         """Call to process add a new event to the saga.
         
         When this method is called, the assumption is 
@@ -242,12 +244,12 @@ class Saga:
             self._apply_historical_events([event])
             event_type = type(event)
             try:
-                return event_receiver_map[event_type](event)
+                return await event_receiver_map[event_type](event)
             except KeyError as ke:
                 raise SagaError("Missing event receiver (@event_receiver) for " + str(event_type) + "}", ke)
         else:
-            for receiver_methods in event_receiver_map.values():
-                receiver_methods()
+            for receiver_method in event_receiver_map.values():
+                await receiver_method()
 
     def set_complete(self):
         """Call from evaluate() to mark the saga as completed."""

@@ -1,4 +1,5 @@
 from asyncio import sleep
+import asyncio
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga_handler import handle_saga_event
 from pyjangle.saga.saga_metadata import SagaMetadata
@@ -25,6 +26,9 @@ async def retry_sagas(max_batch_size: int):
 
 
 async def begin_retry_sagas_loop(frequency_in_seconds: float, batch_size: int = 100):
-    while True:
-        await sleep(frequency_in_seconds)
-        await retry_sagas(batch_size)
+    try:
+        while True:
+            await sleep(frequency_in_seconds)
+            await retry_sagas(batch_size)
+    except asyncio.CancelledError as e:
+        log(LogToggles.cancel_retry_saga_loop, "Ended retry saga loop.")

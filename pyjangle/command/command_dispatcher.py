@@ -1,11 +1,11 @@
+import asyncio
 import functools
+import inspect
 import logging
 from typing import Callable
 from pyjangle.command.command_response import CommandResponse
 from pyjangle.error.error import JangleError
 from pyjangle.logging.logging import LogToggles, log
-
-logger = logging.getLogger(__name__)
 
 #This is where the command dispatcher is kept.
 #Access it via command_dispatcher_instance().
@@ -41,6 +41,10 @@ def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
     THROWS
     ------
     CommandDispatcherError when multiple methods are registered."""
+    if not asyncio.iscoroutinefunction(wrapped):
+        raise CommandDispatcherError("@RegisterCommandDispatcher must decorate a coroutine (async) method with signature: async def func_name(command: Command) -> CommandResponse")
+    if not len(inspect.signature(wrapped).parameters) == 1:
+        raise CommandDispatcherError("Command dispatcher function should only have one parameter: async def func_name(command: Command) -> CommandResponse")
     global _command_dispatcher
     if _command_dispatcher != None:
         raise CommandDispatcherError(

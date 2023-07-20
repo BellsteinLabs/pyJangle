@@ -30,4 +30,4 @@ class TransientSagaRepository(SagaRepository):
 
     async def get_retry_saga_metadata(self, max_count: int) -> list[SagaMetadata]:
         current_time = datetime.now()
-        return [metadata for metadata in self.metadata.values() if not metadata.is_complete and not metadata.is_timed_out and (not metadata.timeout_at or metadata.timeout_at > current_time) and (metadata.retry_at and datetime.fromisoformat(metadata.retry_at) < current_time)]
+        return [metadata for metadata in self.metadata.values() if not metadata.is_complete and not metadata.is_timed_out and (not metadata.timeout_at or datetime.fromisoformat(metadata.timeout_at) > current_time) and (metadata.retry_at and datetime.fromisoformat(metadata.retry_at) < current_time)]

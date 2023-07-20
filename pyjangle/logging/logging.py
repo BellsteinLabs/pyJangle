@@ -73,3 +73,5 @@ class LogToggles:
     snapshot_application_failed = WARNING
     serializer_registered = INFO
     deserializer_registered = INFO
+    cancel_retry_saga_loop = ERROR
+    cancel_retry_event_loop = ERROR
