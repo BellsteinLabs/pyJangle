@@ -2,22 +2,19 @@ from datetime import datetime
 import os
 import unittest
 from unittest.mock import patch
-from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
-from pyjangle.saga.register_saga import get_saga_name
 from pyjangle.saga.saga import Saga
-from pyjangle.saga.saga_metadata import SagaMetadata
-from pyjangle.test.events import EventThatContinuesSaga, TestSagaEvent
+from pyjangle.test.events import EventThatCausesDuplicateKeyError, EventThatContinuesSaga, TestSagaEvent
 from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_DISPATCHER, EVENT_SERIALIZER, SAGA_DESERIALIZER, SAGA_SERIALIZER
 from pyjangle.test.sagas import SagaForTesting
-from pyjangle.test.serialization import deserialize_event, deserialize_saga_event, serialize_event, serialize_saga_event
+from pyjangle.test.serialization import deserialize_event, deserialize_saga, serialize_event, serialize_saga
 from pyjangle_sqllite3.sql_lite_saga_repository import SqlLiteSagaRepository
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH
 
 SAGA_ID = "42"
 
-@patch(SAGA_DESERIALIZER, new_callable=lambda : deserialize_saga_event)
-@patch(SAGA_SERIALIZER, new_callable=lambda : serialize_saga_event)
+@patch(SAGA_DESERIALIZER, new_callable=lambda : deserialize_saga)
+@patch(SAGA_SERIALIZER, new_callable=lambda : serialize_saga)
 class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
     
     def setUp(self) -> None:
@@ -30,31 +27,37 @@ class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
             os.remove(DB_SAGA_STORE_PATH)
 
     async def test_when_saga_committed_then_can_be_retrieved(self, *_):
-        metadata = SagaMetadata(id=SAGA_ID, type=get_saga_name(SagaForTesting), retry_at=datetime.min, timeout_at=datetime.min, is_complete=True, is_timed_out=True)
-        await self.sql_lite_saga_repo.commit_saga(metadata, [EventThatContinuesSaga(version=1), TestSagaEvent(version=1)])
-        meta_data, saga_events = await self.sql_lite_saga_repo.get_saga(SAGA_ID)
-        self.assertDictEqual(meta_data.__dict__, metadata.__dict__)
-        self.assertEqual(len(list(saga_events)), 2)
+        saga = SagaForTesting(saga_id=SAGA_ID, retry_at=datetime.min, timeout_at=datetime.min, is_complete=True)
+        await self.sql_lite_saga_repo.commit_saga(saga)
+        retrieved_saga = await self.sql_lite_saga_repo.get_saga(SAGA_ID)
+        self.assertSetEqual(saga.flags, retrieved_saga.flags)
+        self.assertEqual(saga.saga_id, retrieved_saga.saga_id)
+        self.assertEqual(saga.timeout_at, retrieved_saga.timeout_at)
+        self.assertEqual(saga.is_timed_out, retrieved_saga.is_timed_out)
+        self.assertEqual(saga.retry_at, retrieved_saga.retry_at)
+        self.assertEqual(saga.is_complete, retrieved_saga.is_complete)
 
-    async def test_when_event_saga_id_and_saga_version_exists_duplicate_key_error(self, *_):
-        metadata = SagaMetadata(id=SAGA_ID, type=get_saga_name(SagaForTesting), retry_at=datetime.min, timeout_at=datetime.min, is_complete=True, is_timed_out=True)
-        await self.sql_lite_saga_repo.commit_saga(metadata, [EventThatContinuesSaga(id="42", version=1)])
-        meta_data, saga_events = await self.sql_lite_saga_repo.get_saga(SAGA_ID)
+    async def test_when_event_id_exists_then_duplicate_key_error(self, *_):
+        saga = SagaForTesting(saga_id=SAGA_ID)
+        await saga.evaluate(EventThatContinuesSaga(id="42", version=1))
+        await self.sql_lite_saga_repo.commit_saga(saga)
+        retrieved_saga = await self.sql_lite_saga_repo.get_saga(SAGA_ID)
+        await retrieved_saga.evaluate(EventThatCausesDuplicateKeyError(version=1))
         with self.assertRaises(DuplicateKeyError):
-            await self.sql_lite_saga_repo.commit_saga(metadata, [TestSagaEvent(id= "42", version=1)])
+            await self.sql_lite_saga_repo.commit_saga(retrieved_saga)
 
-    async def test_when_event_id_exists_nothing_happens(self, *_):
-        metadata = SagaMetadata(id=SAGA_ID, type=get_saga_name(SagaForTesting), retry_at=datetime.min, timeout_at=datetime.min, is_complete=True, is_timed_out=True)
-        await self.sql_lite_saga_repo.commit_saga(metadata, [EventThatContinuesSaga(id="42", version=1)])
-        meta_data, saga_events = await self.sql_lite_saga_repo.get_saga(SAGA_ID)
-        saga: Saga = SagaForTesting(meta_data.id, saga_events, meta_data.retry_at, meta_data.timeout_at, meta_data.is_complete)
-        saga.evaluate(EventThatContinuesSaga(id="42", version=2))
-        self.assertFalse(saga.new_events)
+    async def test_when_saga_not_found_then_return_none(self, *_):
+            self.assertIsNone(await self.sql_lite_saga_repo.get_saga(SAGA_ID))
 
     async def test_when_saga_needs_retry_then_is_returned_from_get_retry_saga_metadata_method(self, *_):
-        metadata = SagaMetadata(id=SAGA_ID, type=get_saga_name(SagaForTesting), retry_at=datetime.min, timeout_at=None, is_complete=False, is_timed_out=False)
-        await self.sql_lite_saga_repo.commit_saga(metadata, [EventThatContinuesSaga(id="42", version=1)])
-        meta_data = await self.sql_lite_saga_repo.get_retry_saga_metadata(max_count=100)
-        metadata_list = list(meta_data)
-        self.assertEqual(len(metadata_list), 1)
-        self.assertEqual(metadata.id, metadata_list[0].id)
+        saga_needs_retry = SagaForTesting(saga_id=SAGA_ID, retry_at=datetime.min, timeout_at=None, is_complete=False)
+        saga_completed = SagaForTesting(saga_id=SAGA_ID + "1", retry_at=datetime.min, timeout_at=None, is_complete=True)
+        saga_timed_out = SagaForTesting(saga_id=SAGA_ID + "2", retry_at=datetime.min, timeout_at=None, is_complete=False, is_timed_out=True)
+        saga_pre_timed_out = SagaForTesting(saga_id=SAGA_ID + "3", retry_at=datetime.min, timeout_at=datetime.min, is_complete=False)
+        await self.sql_lite_saga_repo.commit_saga(saga_needs_retry)
+        await self.sql_lite_saga_repo.commit_saga(saga_completed)
+        await self.sql_lite_saga_repo.commit_saga(saga_timed_out)
+        await self.sql_lite_saga_repo.commit_saga(saga_pre_timed_out)
+        saga_id_list = list(await self.sql_lite_saga_repo.get_retry_saga_metadata(max_count=100))
+        self.assertEqual(len(saga_id_list), 1)
+        self.assertEqual(saga_id_list[0], SAGA_ID)

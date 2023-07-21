@@ -8,7 +8,7 @@ from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
 from pyjangle.test.events import EventA
 from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_REPO, EVENT_SERIALIZER, SAGA_DESERIALIZER, SAGA_SERIALIZER
-from pyjangle.test.serialization import deserialize_event, deserialize_saga_event, serialize_event, serialize_saga_event
+from pyjangle.test.serialization import deserialize_event, deserialize_saga, serialize_event, serialize_saga
 from pyjangle_sqllite3.sql_lite_event_repository import SqlLiteEventRepository
 from pyjangle_sqllite3.symbols import DB_EVENT_STORE_PATH
 

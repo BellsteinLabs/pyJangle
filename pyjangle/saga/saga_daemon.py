@@ -1,8 +1,7 @@
 from asyncio import sleep
 import asyncio
 from pyjangle.logging.logging import LogToggles, log
-from pyjangle.saga.saga_handler import handle_saga_event
-from pyjangle.saga.saga_metadata import SagaMetadata
+from pyjangle.saga.saga_handler import handle_saga_event, retry_saga
 from pyjangle.saga.saga_repository import SagaRepositoryError, saga_repository_instance
 
 #TODO: Need a solution that can retry all sagas
@@ -19,10 +18,10 @@ async def retry_sagas(max_batch_size: int):
     use the max_batch_size parameter to process only 
     a few at a time."""
     repo = saga_repository_instance()
-    metadatas: list[SagaMetadata] = await repo.get_retry_saga_metadata(max_batch_size)
+    saga_ids: list[str] = await repo.get_retry_saga_metadata(max_batch_size)
     log(LogToggles.retrying_sagas, f"Retrying {max_batch_size} sagas.")
-    for metadata in metadatas:
-        await handle_saga_event(saga_id=metadata.id, event=None, saga_type=metadata.type)
+    for id in saga_ids:
+        await retry_saga(id)
 
 
 async def begin_retry_sagas_loop(frequency_in_seconds: float, batch_size: int = 100):

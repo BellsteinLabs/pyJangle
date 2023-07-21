@@ -9,7 +9,7 @@ from pyjangle.test.events import EventThatCausesDuplicateKeyError, EventThatCaus
 
 @RegisterSaga
 class SagaForTestingRetryLogic(Saga):
-    def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+    def __init__(self, saga_id: any, events: List[Event] = [], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
         super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
     @event_receiver(EventThatContinuesSaga, skip_if_any_flags_set=[EventThatCompletesACommand])
@@ -30,10 +30,10 @@ class SagaForTestingRetryLogic(Saga):
 
 @RegisterSaga
 class SagaForTesting(Saga):
-    def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+    def __init__(self, saga_id: any, events: List[Event] = [], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
         self.calls={"on_event_that_continues_saga": 0, "from_event_that_continues_saga": 0}
         self._used_event_ids = set()
-        super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+        super().__init__(saga_id, events, retry_at, timeout_at, is_complete, is_timed_out)
 
     @event_receiver(EventThatContinuesSaga, skip_if_any_flags_set=[TestSagaEvent])
     async def on_event_that_continues_saga(self):

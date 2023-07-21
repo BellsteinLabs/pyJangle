@@ -206,7 +206,7 @@ class Saga:
     #type.
     _saga_type_to_event_receiver_method_names = dict()
 
-    def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+    def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
         saga_type = type(self)
 
         #Update the cache with method names if needed.
@@ -222,9 +222,9 @@ class Saga:
         self.flags = set()
         self.retry_at = retry_at
         self.timeout_at = timeout_at
-        self.is_timed_out = False
+        self.is_timed_out = is_timed_out
         self.is_complete = is_complete
-        self.new_events = []
+        self.new_events: list[Event] = []
         self.is_dirty = False
         self._apply_historical_events(events)
 

@@ -3,13 +3,12 @@ from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga import Saga
-from pyjangle.saga.saga_metadata import SagaMetadata
 from pyjangle.saga.saga_repository import saga_repository_instance
 
 class SagaHandlerError(JangleError):
     pass
 
-async def handle_saga_event(saga_id: any, event: Event, saga_type: type[Saga]):
+async def handle_saga_event(saga_id: any, event: Event, saga_type: type[Saga] | None):
     """Connects events to their respective sagas.
     
     When an event handler for an event related
@@ -27,27 +26,24 @@ async def handle_saga_event(saga_id: any, event: Event, saga_type: type[Saga]):
     has no corresponding events.
     """
     saga_repository = saga_repository_instance()
-    saga_metadata, saga_events = await saga_repository.get_saga(saga_id=saga_id)
-    if _is_duplicate_event(event, saga_events=saga_events):
-        log(LogToggles.saga_duplicate_event, "Duplicate event receied for saga.", {"saga_id": saga_id, "metadata":  saga_metadata.__dict__, "event": event.__dict__})
-        return 
-    if not saga_events and not event:
+    saga = await saga_repository.get_saga(saga_id)
+    # if _is_duplicate_event(event, saga_events=saga_events):
+    #     log(LogToggles.saga_duplicate_event, "Duplicate event received for saga.", {"saga_id": saga_id, "metadata":  saga_metadata.__dict__, "event": event.__dict__})
+    #     return 
+    if not saga and not event:
         raise SagaHandlerError(f"Tried to restore non-existant saga with id '{saga_id}' and apply no events to it.")
-    if (saga_metadata):
-        log(LogToggles.saga_retrieved, "Retrieved saga", {"saga_id": saga_id, "metadata":  saga_metadata.__dict__, "events": [x.__dict__ for x in saga_events]})
+    if (saga):
+        log(LogToggles.saga_retrieved, "Retrieved saga", {"saga_id": saga_id, "saga":  saga.__dict__})
     else:
         log(LogToggles.saga_new, "Received first event in a new saga", {"saga_id": saga_id})
-    if saga_metadata and (saga_metadata.is_complete or saga_metadata.is_timed_out):
+        saga = saga_type(saga_id=saga_id)
+    if saga and (saga.is_complete or saga.is_timed_out):
         return
-    saga = saga_type(saga_id, saga_events, saga_metadata.retry_at, saga_metadata.timeout_at, saga_metadata.is_complete) if saga_metadata else saga_type(saga_id=saga_id, events=[])
-    if event: 
-        await saga.evaluate(event)
-        log(LogToggles.apply_event_to_saga, "Applied event to saga", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__,"event": event.__dict__})
-    else:
-        await saga.evaluate()
+    await saga.evaluate(event)
+    log(LogToggles.apply_event_to_saga, "Applied event to saga", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__,"event": event.__dict__})
     if saga.is_dirty:
         try:
-            await saga_repository.commit_saga(SagaMetadata(id=saga_id,type=saga_type, retry_at=saga.retry_at.isoformat() if saga.retry_at else None, timeout_at=saga.timeout_at.isoformat() if saga.timeout_at else None, is_complete=saga.is_complete, is_timed_out=saga.is_timed_out), saga.new_events)
+            await saga_repository.commit_saga(saga)
         except DuplicateKeyError as e:
             log(LogToggles.saga_duplicate_key, "Concurrent saga execution detected.  This is unlikely and could indicate an issue.", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__,"event": event.__dict__})
             return
@@ -55,5 +51,24 @@ async def handle_saga_event(saga_id: any, event: Event, saga_type: type[Saga]):
     else:
         log(LogToggles.saga_nothing_happened, "Saga state was not changed.", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
 
-def _is_duplicate_event(event: Event, saga_events: list[Event]) -> bool:
-    return event and saga_events and event.id in [event.id for event in saga_events]
+async def retry_saga(saga_id: any):
+    saga_repository = saga_repository_instance()
+    saga = await saga_repository.get_saga(saga_id)
+    # if _is_duplicate_event(event, saga_events=saga_events):
+    #     log(LogToggles.saga_duplicate_event, "Duplicate event received for saga.", {"saga_id": saga_id, "metadata":  saga_metadata.__dict__, "event": event.__dict__})
+    #     return 
+    if not saga:
+        raise SagaHandlerError(f"Attempted to retry non-existent saga with id '{saga_id}'.")
+    log(LogToggles.saga_retrieved, "Retrieved saga", {"saga_id": saga_id, "saga":  saga.__dict__})
+    if saga.is_complete or saga.is_timed_out:
+        return
+    await saga.evaluate()
+    if saga.is_dirty:
+        try:
+            await saga_repository.commit_saga(saga)
+        except DuplicateKeyError as e:
+            log(LogToggles.saga_duplicate_key, "Concurrent saga execution detected.  This is unlikely and could indicate an issue.", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+            return
+        log(LogToggles.saga_committed, "Committed saga to saga store.", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+    else:
+        log(LogToggles.saga_nothing_happened, "Saga state was not changed.", {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})

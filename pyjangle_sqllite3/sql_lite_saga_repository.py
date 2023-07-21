@@ -1,11 +1,8 @@
-from datetime import datetime
 import sqlite3
-from typing import Any, Coroutine, List
-from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
 from pyjangle.event.register import get_event_name
 from pyjangle.saga.register_saga import get_saga_name
-from pyjangle.saga.saga_metadata import SagaMetadata
+from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_repository import SagaRepository
 from pyjangle.serialization.register import get_event_deserializer, get_event_serializer, get_saga_deserializer, get_saga_serializer
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH, FIELDS, TABLES
@@ -19,7 +16,7 @@ class SqlLiteSagaRepository(SagaRepository):
             conn.executescript(script)
         conn.close()
 
-    async def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[Event]]:
+    async def get_saga(self, saga_id: any) -> Saga:
         q_metadata = f"""
             SELECT 
                 {FIELDS.SAGA_METADATA.SAGA_ID}, 
@@ -46,12 +43,26 @@ class SqlLiteSagaRepository(SagaRepository):
                 {FIELDS.SAGA_EVENTS.SAGA_ID} = ?
         """
         p = (saga_id,)
+        metadata_row = None
+        event_rows = None
+        try:
+            with sqlite3.connect(DB_SAGA_STORE_PATH) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
+                cursor.execute(q_metadata, p)
+                metadata_row = cursor.fetchone()
+                cursor.execute(q_events, p)
+                event_rows = cursor.fetchall()
+        finally:
+            conn.close()
 
-        saga_metadata = [metadata for metadata in yield_results(DB_SAGA_STORE_PATH, batch_size=100, query=q_metadata, params=p, deserializer=saga_metadata_from_row)][0]
-        saga_events = yield_results(DB_SAGA_STORE_PATH, batch_size=100, query=q_events, params=p, deserializer=get_saga_deserializer())
-        return (saga_metadata, saga_events)
+        if not metadata_row:
+            return None
+        serialized_saga = (metadata_row, event_rows)
+        return get_saga_deserializer()(serialized_saga)
 
-    async def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
+
+    async def commit_saga(self, saga: Saga):
         q_upsert_metadata = f"""
             INSERT INTO {TABLES.SAGA_METADATA} 
             (
@@ -83,8 +94,26 @@ class SqlLiteSagaRepository(SagaRepository):
                     {FIELDS.SAGA_EVENTS.TYPE}
                 ) VALUES (?,?,?,?,?)
         """
-        data_metadata = (metadata.id, metadata.type, metadata.retry_at.isoformat() if metadata.retry_at else None, metadata.timeout_at.isoformat() if metadata.timeout_at else None, metadata.is_complete, metadata.is_timed_out, metadata.retry_at, metadata.timeout_at, metadata.is_complete, metadata.is_timed_out)
-        data_events = [(metadata.id, event.id, get_saga_serializer()(event)[FIELDS.SAGA_EVENTS.DATA], event.created_at, get_event_name(type(event))) for event in events]
+        metadata_dict, event_dict_list = get_saga_serializer()(saga)
+
+        data_metadata = (
+            metadata_dict[FIELDS.SAGA_METADATA.SAGA_ID], 
+            metadata_dict[FIELDS.SAGA_METADATA.SAGA_TYPE],
+            metadata_dict[FIELDS.SAGA_METADATA.RETRY_AT],
+            metadata_dict[FIELDS.SAGA_METADATA.TIMEOUT_AT],
+            metadata_dict[FIELDS.SAGA_METADATA.IS_COMPLETE],
+            metadata_dict[FIELDS.SAGA_METADATA.IS_TIMED_OUT],
+            metadata_dict[FIELDS.SAGA_METADATA.RETRY_AT],
+            metadata_dict[FIELDS.SAGA_METADATA.TIMEOUT_AT],
+            metadata_dict[FIELDS.SAGA_METADATA.IS_COMPLETE],
+            metadata_dict[FIELDS.SAGA_METADATA.IS_TIMED_OUT])
+        data_events = [(
+            event_dict[FIELDS.SAGA_EVENTS.SAGA_ID],
+            event_dict[FIELDS.SAGA_EVENTS.EVENT_ID],
+            event_dict[FIELDS.SAGA_EVENTS.DATA],
+            event_dict[FIELDS.SAGA_EVENTS.CREATED_AT],
+            event_dict[FIELDS.SAGA_EVENTS.TYPE])for event_dict in event_dict_list]
+        
         try:
             with sqlite3.connect(DB_SAGA_STORE_PATH) as conn:
                 conn.execute(q_upsert_metadata, data_metadata)
@@ -94,16 +123,11 @@ class SqlLiteSagaRepository(SagaRepository):
         finally:
             conn.close()
     
-    async def get_retry_saga_metadata(self, max_count: int) -> list[SagaMetadata]:
+    async def get_retry_saga_metadata(self, max_count: int) -> list[any]:
         # get not complete, not timed_out, retry not null
         q_metadata = f"""
             SELECT 
-                {FIELDS.SAGA_METADATA.SAGA_ID}, 
-                {FIELDS.SAGA_METADATA.SAGA_TYPE}, 
-                {FIELDS.SAGA_METADATA.RETRY_AT}, 
-                {FIELDS.SAGA_METADATA.TIMEOUT_AT}, 
-                {FIELDS.SAGA_METADATA.IS_COMPLETE},
-                {FIELDS.SAGA_METADATA.IS_TIMED_OUT}
+                {FIELDS.SAGA_METADATA.SAGA_ID}
             FROM 
                 {TABLES.SAGA_METADATA}
             WHERE 
@@ -113,11 +137,5 @@ class SqlLiteSagaRepository(SagaRepository):
                 {FIELDS.SAGA_METADATA.RETRY_AT} IS NOT NULL AND
                 {FIELDS.SAGA_METADATA.RETRY_AT} < CURRENT_TIMESTAMP
         """
-        return yield_results(DB_SAGA_STORE_PATH, batch_size=100, query=q_metadata, params=None, deserializer=saga_metadata_from_row)
 
-def saga_metadata_from_row(row: dict) -> SagaMetadata:
-    retry_at = row[FIELDS.SAGA_METADATA.RETRY_AT]
-    timeout_at = row[FIELDS.SAGA_METADATA.TIMEOUT_AT]
-    retry_at = datetime.fromisoformat(retry_at) if retry_at else None
-    timeout_at = datetime.fromisoformat(timeout_at) if timeout_at else None
-    return SagaMetadata(id=row[FIELDS.SAGA_METADATA.SAGA_ID], type=row[FIELDS.SAGA_METADATA.SAGA_TYPE], retry_at=retry_at, timeout_at=timeout_at, is_complete=bool(row[FIELDS.SAGA_METADATA.IS_COMPLETE]), is_timed_out=bool(row[FIELDS.SAGA_METADATA.IS_TIMED_OUT]))
+        return yield_results(DB_SAGA_STORE_PATH, batch_size=100, query=q_metadata, params=None, deserializer=lambda x : x[FIELDS.SAGA_METADATA.SAGA_ID])

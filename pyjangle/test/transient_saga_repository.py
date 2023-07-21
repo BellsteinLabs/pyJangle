@@ -1,33 +1,34 @@
 from datetime import datetime
-from typing import List
 from pyjangle.event.event import Event
 from pyjangle.event.event_repository import DuplicateKeyError
-from pyjangle.saga.saga_metadata import SagaMetadata
+from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_repository import SagaRepository
 
 class TransientSagaRepository(SagaRepository):
 
     def __init__(self) -> None:
-        self.metadata = dict()
+        self.types = dict()
+        self.sagas = dict()
         self.events = dict()
 
-    async def get_saga(self, saga_id: any) -> tuple[SagaMetadata, List[Event]]:
-        return (self.metadata.get(saga_id, None), self.events.get(saga_id, None))
-    
-    def _has_duplicate_ids(self, events: list[Event]):
-        return len([event.id for event in events]) != len(set([event.id for event in events]))
+    async def get_saga(self, saga_id: any) -> Saga:
+        if saga_id not in self.types:
+            return None
+        return self.types[saga_id](saga_id, [self.events[saga_id][event_id] for event_id in self.events[saga_id]], self.sagas[saga_id].retry_at, self.sagas[saga_id].timeout_at,self.sagas[saga_id].is_complete)
 
-    async def commit_saga(self, metadata: SagaMetadata, events: list[Event]):
-        if not metadata.id in self.events:
-            self.events[metadata.id] = []
-        existing_events = self.events[metadata.id]
-        if set([event.id for event in events]).intersection(set([event.id for event in existing_events])):
+    async def commit_saga(self, saga: Saga):
+        if not saga.saga_id in self.events:
+            self.events[saga.saga_id] = dict()
+        if _has_duplicate_ids(saga.new_events + [self.events[saga.saga_id][key] for key in self.events[saga.saga_id].keys()]):
             raise DuplicateKeyError()
-        if self._has_duplicate_ids(events):
-            raise DuplicateKeyError()
-        self.metadata[metadata.id] = metadata
-        self.events[metadata.id] += events
-
-    async def get_retry_saga_metadata(self, max_count: int) -> list[SagaMetadata]:
+        self.sagas[saga.saga_id] = saga
+        self.types[saga.saga_id] = type(saga)
+        for event in saga.new_events:
+            self.events[saga.saga_id][event.id] = event
+        
+    async def get_retry_saga_metadata(self, max_count: int) -> list[any]:
         current_time = datetime.now()
-        return [metadata for metadata in self.metadata.values() if not metadata.is_complete and not metadata.is_timed_out and (not metadata.timeout_at or datetime.fromisoformat(metadata.timeout_at) > current_time) and (metadata.retry_at and datetime.fromisoformat(metadata.retry_at) < current_time)]
+        return [saga_id for saga_id in self.sagas if not self.sagas[saga_id].is_complete and not self.sagas[saga_id].is_timed_out and (not self.sagas[saga_id].timeout_at or self.sagas[saga_id].timeout_at > current_time) and (self.sagas[saga_id].retry_at and self.sagas[saga_id].retry_at < current_time)]
+    
+def _has_duplicate_ids(events: list[Event]):
+    return len([event.id for event in events]) != len(set([event.id for event in events]))
