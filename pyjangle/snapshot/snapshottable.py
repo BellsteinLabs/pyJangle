@@ -1,12 +1,14 @@
 import abc
-from pyjangle.error.error import JangleError
+from pyjangle import JangleError
+
 
 class SnapshotError(JangleError):
     pass
 
+
 class Snapshottable(metaclass=abc.ABCMeta):
     """Represents an aggregate that can be snapshotted.
-    
+
     Aggregates with long event histories can benefit 
     from this interface.  Events are used to build 
     aggregate state.  One could take a snapshot after
@@ -29,14 +31,14 @@ class Snapshottable(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_snapshot_frequency(self) -> int:
         """Represents often should snapshots be taken?
-        
+
         For a frequency of 10, a snapshot would be taken every 
         10 events."""
         pass
 
     def apply_snapshot(self, version: int, snapshot: any):
         """Applied a snapshot to an aggregate.
-        
+
         Use apply_snapshot_hook to customize this 
         method's behavior."""
         try:

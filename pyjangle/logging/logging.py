@@ -25,9 +25,11 @@ THREADNAME = 14
 PROCESS = 15
 MESSAGE = 16
 
+
 def log(log_key, *args, **kwargs):
     logger = getattr(logging, log_key)
     logger(*args, **kwargs)
+
 
 class LogToggles:
 
@@ -74,3 +76,29 @@ class LogToggles:
     deserializer_registered = INFO
     cancel_retry_saga_loop = ERROR
     cancel_retry_event_loop = ERROR
+
+
+__all__ = [
+    DEBUG,
+    INFO,
+    WARNING,
+    ERROR,
+    FATAL,
+    NAME,
+    LEVELNO,
+    LEVELNAME,
+    PATHNAME,
+    FILENAME,
+    MODULE,
+    LINENO,
+    FUNCNAME,
+    CREATED,
+    ASCTIME,
+    MSECS,
+    RELATIVE_CREATED,
+    THREAD,
+    THREADNAME,
+    PROCESS,
+    MESSAGE,
+    log.__name__,
+    LogToggles.__name__]

@@ -1,8 +1,9 @@
 import sqlite3
-from pyjangle.serialization.register import get_snapshot_deserializer, get_snapshot_serializer
+
+from pyjangle.serialization.register import (get_snapshot_deserializer,
+                                             get_snapshot_serializer)
 from pyjangle.snapshot.snapshot_repository import SnapshotRepository
 from pyjangle_sqllite3.symbols import DB_SNAPSHOTS_PATH, FIELDS, TABLES
-from pyjangle_sqllite3.yield_results import yield_results
 
 
 class SqliteSnapshotRepository(SnapshotRepository):
@@ -33,9 +34,9 @@ class SqliteSnapshotRepository(SnapshotRepository):
                 return get_snapshot_deserializer()(row)
         finally:
             conn.close()
-    
+
     async def store_snapshot(self, aggregate_id: any, version: int, snapshot: any):
-        q=f"""
+        q = f"""
             INSERT INTO {TABLES.SNAPSHOTS} (
                 {FIELDS.SNAPSHOTS.AGGREGATE_ID},
                 {FIELDS.SNAPSHOTS.VERSION},
@@ -47,16 +48,17 @@ class SqliteSnapshotRepository(SnapshotRepository):
                 {FIELDS.SNAPSHOTS.DATA} = CASE WHEN {FIELDS.SNAPSHOTS.VERSION} < ? THEN ? ELSE {FIELDS.SNAPSHOTS.DATA} END
         """
         serialized_snapshot = get_snapshot_serializer()(snapshot)
-        p=(aggregate_id, version, serialized_snapshot, version, aggregate_id, version, version, version, serialized_snapshot)
+        p = (aggregate_id, version, serialized_snapshot, version,
+             aggregate_id, version, version, version, serialized_snapshot)
         try:
             with sqlite3.connect(DB_SNAPSHOTS_PATH) as conn:
                 conn.execute(q, p)
         finally:
             conn.close()
-    
+
     async def delete_snapshot(self, aggregate_id: str):
-        q=f"DELETE FROM {TABLES.SNAPSHOTS} WHERE {FIELDS.SNAPSHOTS.AGGREGATE_ID} = ?"
-        p=(aggregate_id,)
+        q = f"DELETE FROM {TABLES.SNAPSHOTS} WHERE {FIELDS.SNAPSHOTS.AGGREGATE_ID} = ?"
+        p = (aggregate_id,)
         try:
             with sqlite3.connect(DB_SNAPSHOTS_PATH) as conn:
                 conn.execute(q, p)

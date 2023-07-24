@@ -2,14 +2,15 @@ import abc
 import functools
 import logging
 from typing import List
-from pyjangle.error.error import JangleError
+from pyjangle import JangleError
 from pyjangle.event.event import Event
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga import Saga
 
-#Saga repository singleton.  Access this 
-#via saga_repository_instance()
+# Saga repository singleton.  Access this
+# via saga_repository_instance()
 __registered_saga_repository = None
+
 
 class SagaRepositoryError(JangleError):
     pass
@@ -17,7 +18,7 @@ class SagaRepositoryError(JangleError):
 
 def RegisterSagaRepository(cls):
     """Registers a saga repository.
-    
+
     THROWS
     ------
     SagaRepositoryError when multiple saga repositories are registered.
@@ -25,18 +26,23 @@ def RegisterSagaRepository(cls):
 
     global __registered_saga_repository
     if __registered_saga_repository != None:
-        raise SagaRepositoryError("Cannot register multiple saga repositories: " + str(type(__registered_saga_repository)) + ", " + str(cls))
+        raise SagaRepositoryError("Cannot register multiple saga repositories: " + str(
+            type(__registered_saga_repository)) + ", " + str(cls))
     __registered_saga_repository = cls()
-    log(LogToggles.saga_repository_registration, "Saga repository registered", {"saga_repository_type": str(type(cls))})
+    log(LogToggles.saga_repository_registration,
+        "Saga repository registered", {"saga_repository_type": str(type(cls))})
+
     @functools.wraps(cls)
     def wrapper(*args, **kwargs):
         return cls(*args, **kwargs)
     return wrapper
 
-#TODO: Add uniquess constraints to saga store.
+# TODO: Add uniquess constraints to saga store.
+
+
 class SagaRepository(metaclass=abc.ABCMeta):
     """A repository for saga-specific events.
-    
+
     The saga repository is basically an event store 
     for sagas.  Some events in the "vanilla" event store 
     might be duplicated here.  This store may have 
@@ -47,12 +53,12 @@ class SagaRepository(metaclass=abc.ABCMeta):
     on new events, it's important that EVERY state
     change in a saga have a corresponding event.  Put 
     them in this repo.
-    
+
     Like an event store, it is critical that """
     @abc.abstractmethod
     async def get_saga(self, saga_id: any) -> Saga:
         """Retrieve a saga's metadata and events.
-        
+
         When a saga is instantiated, metadata 
         which includes timeouts, retry timers, 
         completed and timeout flags, along 
@@ -64,7 +70,7 @@ class SagaRepository(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def commit_saga(self, saga: Saga):
         """Commits updated sagas to storage.
-        
+
         THROWS
         ------
         DuplicateKeyError
@@ -78,12 +84,13 @@ class SagaRepository(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def get_retry_saga_metadata(self, max_count: int) -> list[any]:
         """Returns metadata for saga's that need to be retried.
-        
+
         Sometimes, a saga will fail a state transition because
         of a network outage or similar reasons.  See the 
         saga_daemon module for an entrypoint that a daemon
         can use to periodically reexecute a failed saga."""
         pass
+
 
 def saga_repository_instance() -> SagaRepository:
     """Retrieve singleton instance of saga repository."""

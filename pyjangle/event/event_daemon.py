@@ -1,4 +1,5 @@
 from asyncio import Queue, sleep
+import asyncio
 from datetime import timedelta
 from pyjangle.event.event_dispatcher import EventDispatcherError, enqueue_committed_event_for_dispatch, event_dispatcher_instance
 from pyjangle.event.event_repository import event_repository_instance
@@ -34,8 +35,10 @@ async def begin_retry_failed_events_loop(frequency_in_seconds: float, batch_size
     if not event_dispatcher_instance():
         raise EventDispatcherError("No event dispatcher registered.")
     event_repository_instance()
-    while True:
-        await sleep(frequency_in_seconds)
-        await retry_failed_events(batch_size=batch_size, max_age_in_seconds=max_age_in_seconds)
-
+    try:
+        while True:
+            await sleep(frequency_in_seconds)
+            await retry_failed_events(batch_size=batch_size, max_age_in_seconds=max_age_in_seconds)
+    except asyncio.CancelledError as e:
+        log(LogToggles.cancel_retry_event_loop, "Ended retry event loop.")
     

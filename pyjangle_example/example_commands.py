@@ -6,7 +6,7 @@ from datetime import datetime
 from decimal import Decimal
 import uuid
 from dataclasses import dataclass
-from pyjangle.command.command import Command
+from pyjangle import Command
 
 @dataclass(frozen=True, kw_only=True)
 class CreateAccount(Command):

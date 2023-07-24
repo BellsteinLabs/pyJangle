@@ -18,3 +18,5 @@ class Command(metaclass = abc.ABCMeta):
     def get_aggregate_id(self):
         """An id used to associate the command to an aggregate."""
         pass
+
+__all__ = [Command.__name__]

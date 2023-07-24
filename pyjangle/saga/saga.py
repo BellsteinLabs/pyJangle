@@ -3,31 +3,32 @@ from datetime import datetime
 import functools
 import inspect
 from typing import Callable, Iterable, List
-from pyjangle.command.command_dispatcher import command_dispatcher_instance
 from pyjangle.event.event import Event
 from pyjangle.registration.utility import find_decorated_method_names, register_methods
 
-#Name of the attribute used to tag saga methods decorated with 
-#event_receiver. This attribute is used to register those 
-#methods.
-EXTERNAL_RECEIVER_TYPE = "__external_event_types"
-#Name of the attribute that each saga instance uses to map events to 
-#methods decorated with @event_receiver
-EVENT_TO_EXTERNAL_RECEIVED_MAP = "__event_to_external_received_map"
-#Name of the attribute used to tag saga methods decorated with 
-#reconstitute_saga_state. This attribute is used to register those 
-#methods.
-STATE_RECONSTITUTOR_EVENT_TYPE = "__state_reconstitutor_event_type"
-#Name of the attribute that each saga instance uses to map events to 
-#methods decorated with @reconstitute_saga_state
-EVENT_TO_STATE_RECONSTITUTORS_MAP = "__event_to_state_reconstitutors_map"
+# Name of the attribute used to tag saga methods decorated with
+# event_receiver. This attribute is used to register those
+# methods.
+_EXTERNAL_RECEIVER_TYPE = "__external_event_types"
+# Name of the attribute that each saga instance uses to map events to
+# methods decorated with @event_receiver
+_EVENT_TO_EXTERNAL_RECEIVED_MAP = "__event_to_external_received_map"
+# Name of the attribute used to tag saga methods decorated with
+# reconstitute_saga_state. This attribute is used to register those
+# methods.
+_STATE_RECONSTITUTOR_EVENT_TYPE = "__state_reconstitutor_event_type"
+# Name of the attribute that each saga instance uses to map events to
+# methods decorated with @reconstitute_saga_state
+_EVENT_TO_STATE_RECONSTITUTORS_MAP = "__event_to_state_reconstitutors_map"
+
 
 class SagaError(Exception):
     pass
 
+
 def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = True):
     """Decorates saga methods that reconstitute state from events.
-    
+
     PARAMETERS
     ----------
     type - the type of the event this method handles
@@ -48,9 +49,11 @@ def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = T
     decorator to let the saga know HOW to update
     its state using the event."""
     def decorator(wrapped):
-        setattr(wrapped, STATE_RECONSTITUTOR_EVENT_TYPE, type)
+        setattr(wrapped, _STATE_RECONSTITUTOR_EVENT_TYPE, type)
         if len(inspect.signature(wrapped).parameters) != 2:
-            raise SagaError("@reconstitute_saga_state must decorate a method with 2 parameters: self, event: Event")
+            raise SagaError(
+                "@reconstitute_saga_state must decorate a method with 2 parameters: self, event: Event")
+
         @functools.wraps(wrapped)
         def wrapper(self: Saga, *args, **kwargs):
             if add_event_type_to_flags:
@@ -59,9 +62,10 @@ def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = T
         return wrapper
     return decorator
 
+
 def event_receiver(type: type, require_event_type_in_flags: bool = True, required_flags: Iterable = [], skip_if_any_flags_set: Iterable = []):
     """Decorates saga methods that receive events.
-    
+
     All but the first of the parameters are provided 
     as a convenience.  They are simply a shortcut to 
     manually accessing the self.flags set inside the 
@@ -72,7 +76,7 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
     be published, the saga can return from this method at 
     which point it will be committed to storage until the 
     next event arrives meaning it's time to wake back up.
-    
+
     When an action (such as sending a command) fails, use 
     the self.set_retry() method to specify when the saga 
     should wake up and try again.  After calling 
@@ -106,8 +110,10 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
         if not inspect.iscoroutinefunction(wrapped):
             raise SagaError("@event_receiver must be a couroutine (async).")
         if len(inspect.signature(wrapped).parameters) != 1:
-            raise SagaError("@event_receiver must decorate a method with 1 parameters: self")
-        setattr(wrapped, EXTERNAL_RECEIVER_TYPE, type)
+            raise SagaError(
+                "@event_receiver must decorate a method with 1 parameters: self")
+        setattr(wrapped, _EXTERNAL_RECEIVER_TYPE, type)
+
         @functools.wraps(wrapped)
         async def wrapper(self: Saga, *args, **kwargs):
             if require_event_type_in_flags and not type in self.flags:
@@ -117,9 +123,10 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
         return wrapper
     return decorator
 
+
 class Saga:
     """Represents a distributed transaction.
-    
+
     Sagas are critically important in distributed,
     event-driven systems.  An architectural constraint
     is that a command should be mapped to one and only
@@ -156,10 +163,10 @@ class Saga:
     @reconstitute_saga_state methods. To ensure the command 
     flag is set, create a new event like the following one 
     to set the flag: 
-    
+
         class CommandSent(SagaEvent):
             pass
-            
+
     The next time the saga is instantiated, the flag will 
     be set since the preceding event will be retrieved.  To 
     post the new event, similar to an aggregate, use the 
@@ -179,7 +186,7 @@ class Saga:
     timeout in whatever way makes sense.  They should NOT 
     rely on the saga to let them know when the timeout
     is reached since the saga notified them long before.
-    
+
     Once a saga is timed out or completed, its state 
     will not progress, even if new events arrive.  This 
     is a great way to ensure that a saga's actions (commands)
@@ -193,30 +200,34 @@ class Saga:
     Lastly, call super().__init__().
     """
 
-    #Cache containing a map of saga-type to the method names 
-    #on the saga that are decorated with 
-    #@reconstitute_saga_state.  Because looking these up
-    #can be expensive, the names are cached once for each saga
-    #type.
+    # Cache containing a map of saga-type to the method names
+    # on the saga that are decorated with
+    # @reconstitute_saga_state.  Because looking these up
+    # can be expensive, the names are cached once for each saga
+    # type.
     _saga_type_to_reconstitute_saga_state_method_names = dict()
-    #Cache containing a map of saga-type to the method names 
-    #on the saga that are decorated with 
-    #@event_receiver.  Because looking these up
-    #can be expensive, the names are cached once for each saga
-    #type.
+    # Cache containing a map of saga-type to the method names
+    # on the saga that are decorated with
+    # @event_receiver.  Because looking these up
+    # can be expensive, the names are cached once for each saga
+    # type.
     _saga_type_to_event_receiver_method_names = dict()
 
     def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
         saga_type = type(self)
 
-        #Update the cache with method names if needed.
+        # Update the cache with method names if needed.
         if saga_type not in Saga._saga_type_to_reconstitute_saga_state_method_names:
-            Saga._saga_type_to_reconstitute_saga_state_method_names[saga_type] = find_decorated_method_names(self, lambda method : hasattr(method, STATE_RECONSTITUTOR_EVENT_TYPE))
+            Saga._saga_type_to_reconstitute_saga_state_method_names[saga_type] = find_decorated_method_names(
+                self, lambda method: hasattr(method, _STATE_RECONSTITUTOR_EVENT_TYPE))
         if saga_type not in Saga._saga_type_to_event_receiver_method_names:
-            Saga._saga_type_to_event_receiver_method_names[saga_type] = find_decorated_method_names(self, lambda method : hasattr(method, EXTERNAL_RECEIVER_TYPE))
+            Saga._saga_type_to_event_receiver_method_names[saga_type] = find_decorated_method_names(
+                self, lambda method: hasattr(method, _EXTERNAL_RECEIVER_TYPE))
 
-        register_methods(self, EVENT_TO_STATE_RECONSTITUTORS_MAP, STATE_RECONSTITUTOR_EVENT_TYPE, Saga._saga_type_to_reconstitute_saga_state_method_names[saga_type])
-        register_methods(self, EVENT_TO_EXTERNAL_RECEIVED_MAP, EXTERNAL_RECEIVER_TYPE, Saga._saga_type_to_event_receiver_method_names[saga_type])
+        register_methods(self, _EVENT_TO_STATE_RECONSTITUTORS_MAP, _STATE_RECONSTITUTOR_EVENT_TYPE,
+                         Saga._saga_type_to_reconstitute_saga_state_method_names[saga_type])
+        register_methods(self, _EVENT_TO_EXTERNAL_RECEIVED_MAP, _EXTERNAL_RECEIVER_TYPE,
+                         Saga._saga_type_to_event_receiver_method_names[saga_type])
 
         self.saga_id = saga_id
         self.flags = set()
@@ -230,7 +241,7 @@ class Saga:
 
     async def evaluate(self, event: Event = None):
         """Call to process add a new event to the saga.
-        
+
         When this method is called, the assumption is 
         that all of the events leading up to this one
         have been reconstituted into the saga."""
@@ -238,7 +249,8 @@ class Saga:
             self.set_timed_out()
             return
         self.retry_at = None
-        event_receiver_map: dict[Event, Callable[[Event], None]] = getattr(self, EVENT_TO_EXTERNAL_RECEIVED_MAP)
+        event_receiver_map: dict[Event, Callable[[Event], None]] = getattr(
+            self, _EVENT_TO_EXTERNAL_RECEIVED_MAP)
         if event:
             self._post_new_event(event)
             self._apply_historical_events([event])
@@ -246,7 +258,8 @@ class Saga:
             try:
                 return await event_receiver_map[event_type](event)
             except KeyError as ke:
-                raise SagaError("Missing event receiver (@event_receiver) for " + str(event_type) + "}", ke)
+                raise SagaError(
+                    "Missing event receiver (@event_receiver) for " + str(event_type) + "}", ke)
         else:
             for receiver_method in event_receiver_map.values():
                 await receiver_method()
@@ -256,7 +269,7 @@ class Saga:
         self.is_dirty = True
         self.is_complete = True
 
-    def set_timeout(self, timeout_at:datetime):
+    def set_timeout(self, timeout_at: datetime):
         """Call from evaluate() to specify a timeout for the saga."""
         if not self.timeout_at != timeout_at:
             self.is_dirty = True
@@ -275,18 +288,20 @@ class Saga:
 
     def _apply_historical_events(self, events: List[Event]):
         """Applies events to rebuild aggregate state.
-        
+
         THROWS
         ------
         SagaError when @reconstitute_saga_state or 
         @event_receiver method is missing."""
-        event_to_state_reconstitutors_map = getattr(self, EVENT_TO_STATE_RECONSTITUTORS_MAP)
+        event_to_state_reconstitutors_map = getattr(
+            self, _EVENT_TO_STATE_RECONSTITUTORS_MAP)
         try:
             for e in events:
                 event_to_state_reconstitutors_map[type(e)](e)
         except KeyError as ke:
-            raise SagaError("Missing state reconstitutor (@reconstitute_saga_state) for " + str(type(e)) + "}", ke)
-        
+            raise SagaError(
+                "Missing state reconstitutor (@reconstitute_saga_state) for " + str(type(e)) + "}", ke)
+
     def _post_new_event(self, event: Event):
         """Call from evalute() to post new state change events.  
 

@@ -1,16 +1,13 @@
 import abc
-import functools
 import logging
 
-from pyjangle.error.error import JangleError
+from pyjangle import JangleError
 from pyjangle.logging.logging import LogToggles, log
-from pyjangle.snapshot.snapshottable import Snapshottable
 
-#Singleton instance of snapshot repositry
-#Access via snapshot_repository_instance()
+# Singleton instance of snapshot repositry
+# Access via snapshot_repository_instance()
 _registered_snapshot_repository = None
 
-logger = logging.getLogger(__name__)
 
 class SnapshotRepositoryError(JangleError):
     pass
@@ -18,7 +15,7 @@ class SnapshotRepositoryError(JangleError):
 
 def RegisterSnapshotRepository(cls):
     """Registers a snapshot repository.
-    
+
     THROWS
     ------
     SnapshotRepositoryError when multiple 
@@ -26,16 +23,16 @@ def RegisterSnapshotRepository(cls):
     global _registered_snapshot_repository
     if _registered_snapshot_repository != None:
         raise SnapshotRepositoryError(
-            "Cannot register multiple snapshot repositories: " + str(type(_registered_snapshot_repository)) + ", " + str(cls))    
+            "Cannot register multiple snapshot repositories: " + str(type(_registered_snapshot_repository)) + ", " + str(cls))
     _registered_snapshot_repository = cls()
-    log(LogToggles.snapshot_repository_registration, "Snapshot repository registered", {"snapshot_repository_type": str(type(cls))})
+    log(LogToggles.snapshot_repository_registration, "Snapshot repository registered", {
+        "snapshot_repository_type": str(type(cls))})
     return cls
-    return wrapper
 
 
 class SnapshotRepository(metaclass=abc.ABCMeta):
     """Contains aggregate snapshots.
-    
+
     Some aggregates have lengthy event histories
     which are used to rebuild state.  But what if 
     the state was 'snapshotted' every x events?
@@ -46,7 +43,7 @@ class SnapshotRepository(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def get_snapshot(self, aggregate_id: str) -> tuple[int, any] | None:
         """Retrieve a snapshot for an aggregate_id.
-        
+
         RETURNS
         -------
         None if there is no snapshot.  Returns a
@@ -61,7 +58,7 @@ class SnapshotRepository(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     async def delete_snapshot(self, aggregate_id: str):
         """Deletes a snapshot.
-        
+
         Sometimes, code changes invalidate snapshots 
         and cause exceptions to be thrown.  Those are
         deleted via this method, usually by the framework

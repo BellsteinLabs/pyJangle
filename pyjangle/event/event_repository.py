@@ -1,44 +1,45 @@
 import abc
 from datetime import datetime
-import functools
-import logging
 from typing import Iterator, List
 
-from pyjangle.error.error import JangleError
+from pyjangle import JangleError
 from pyjangle.event.event import Event
 from pyjangle.logging.logging import LogToggles, log
 
-#Holds a singleton instance of an event repository.
-#Access this via event_repository_instance.
+# Holds a singleton instance of an event repository.
+# Access this via event_repository_instance.
 _event_repository_instance = None
+
 
 def RegisterEventRepository(cls):
     """Registers a single class that implements EventRepository.
-    
+
     It's a singleton, so there can only be one of these registered
     at a time in a process.  Make sure there's a parameterless 
     constructor.
-    
+
     THROWS
     ------
     EventRepositoryError when multiple repositories are registered."""
 
     global _event_repository_instance
     if _event_repository_instance != None:
-        raise EventRepositoryError("Cannot register multiple event repositories: " + str(type(_event_repository_instance)) + ", " + str(cls))
+        raise EventRepositoryError("Cannot register multiple event repositories: " + str(
+            type(_event_repository_instance)) + ", " + str(cls))
     _event_repository_instance = cls()
-    log(LogToggles.event_repository_registration, "Event repository registered", {"event_repository_type": str(type(cls))})
+    log(LogToggles.event_repository_registration, "Event repository registered", {
+        "event_repository_type": str(type(cls))})
     return cls
 
 
-class EventRepository(metaclass = abc.ABCMeta):
+class EventRepository(metaclass=abc.ABCMeta):
     """A repository where events are stored.
-    
+
     When using this framework, nothing happens if there's no a 
     corresponding event for it.  The implication is that the 
     event store is the single point of truth, so care must be 
     taken to ensure that it is ALWAYS in a consistent state.
-    
+
     ***It is CRITICALLY important that whatever technology is 
     being used to persist events, there should be a
     uniqueness constraint on the combination of the 
@@ -57,9 +58,9 @@ class EventRepository(metaclass = abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    async def get_events(self, aggregate_id: any, current_version = 0, batch_size: int = 100) -> Iterator[Event]:
+    async def get_events(self, aggregate_id: any, current_version=0, batch_size: int = 100) -> Iterator[Event]:
         """Returns events for a particular aggregate.
-        
+
         RETURNS
         -------
         An empty list if there are no matching events.
@@ -80,10 +81,10 @@ class EventRepository(metaclass = abc.ABCMeta):
     @abc.abstractmethod
     async def commit_events(self, aggregate_id: any, events: List[Event]):
         """Persist events to the event store.
-        
+
         The event store enforces a uniuquesness constraint 
         on the combination of the aggregate_id and version.
-        
+
         THROWS
         ------
         DuplicateKeyError when (aggregate_id, version)
@@ -94,7 +95,7 @@ class EventRepository(metaclass = abc.ABCMeta):
     @abc.abstractmethod
     async def mark_event_handled(self, id: any):
         """Marks an event as handled
-        
+
         If an event is not marked as handled, it will
         potentially be retried at a later date."""
         pass
@@ -102,7 +103,7 @@ class EventRepository(metaclass = abc.ABCMeta):
     @abc.abstractmethod
     async def get_unhandled_events(self, batch_size: int, time_delta: datetime) -> Iterator[Event]:
         """Returns unhandled events.
-        
+
         RETURNS
         -------
         Empty list when there are no matching events.
@@ -116,9 +117,10 @@ class EventRepository(metaclass = abc.ABCMeta):
         """
         pass
 
+
 def event_repository_instance(raise_exception_if_not_registered: bool = True) -> EventRepository:
     """Returns the singleton instance of the registered event repository.
-    
+
     THROWS
     ------
     EventRepositoryError when there is no event repository registered."""
@@ -128,9 +130,10 @@ def event_repository_instance(raise_exception_if_not_registered: bool = True) ->
         raise EventRepositoryError("Event repository not registered")
     return _event_repository_instance
 
+
 class EventRepositoryError(JangleError):
     pass
 
+
 class DuplicateKeyError(EventRepositoryError):
     pass
-

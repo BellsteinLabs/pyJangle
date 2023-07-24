@@ -1,10 +1,13 @@
 import unittest
 from unittest.mock import patch
 
-from pyjangle.snapshot.snapshot_repository import RegisterSnapshotRepository, SnapshotRepositoryError, snapshot_repository_instance
+from pyjangle import (RegisterSnapshotRepository, SnapshotRepositoryError,
+                      snapshot_repository_instance)
+from pyjangle.test.registration_paths import SNAPSHOT_REPO
+
 
 class TestSnapshotRepository(unittest.TestCase):
-    @patch("pyjangle.snapshot.snapshot_repository._registered_snapshot_repository", None)
+    @patch(SNAPSHOT_REPO, None)
     def test_can_register_snapshot_repository(self):
         @RegisterSnapshotRepository
         class A:
@@ -12,12 +15,12 @@ class TestSnapshotRepository(unittest.TestCase):
 
         self.assertIsNotNone(snapshot_repository_instance())
 
-    @patch("pyjangle.snapshot.snapshot_repository._registered_snapshot_repository", None)
+    @patch(SNAPSHOT_REPO, None)
     def test_exception_when_none_registered(self):
         with self.assertRaises(SnapshotRepositoryError):
             snapshot_repository_instance()
 
-    @patch("pyjangle.snapshot.snapshot_repository._registered_snapshot_repository", None)
+    @patch(SNAPSHOT_REPO, None)
     def test_exception_when_multiple_registered(self):
         with self.assertRaises(SnapshotRepositoryError):
             @RegisterSnapshotRepository

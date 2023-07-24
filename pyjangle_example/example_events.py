@@ -7,12 +7,14 @@ from typing import Mapping
 import uuid
 from json import dumps
 
-from pyjangle.event.event import Event
+from pyjangle import Event
+
 
 @dataclass(frozen=True, kw_only=True)
 class AccountIdProvisioned(Event):
     """An id was provisioned for a new account on the AccountCreationAggregate."""
     pass
+
 
 @dataclass(frozen=True, kw_only=True)
 class AccountCreated(Event):
@@ -20,10 +22,12 @@ class AccountCreated(Event):
     account_id: str
     name: str
 
+
 @dataclass(frozen=True, kw_only=True)
 class AccountDeleted(Event):
     """Account was deleted."""
     account_id: str
+
 
 @dataclass(frozen=True, kw_only=True)
 class FundsDeposited(Event):
@@ -34,12 +38,13 @@ class FundsDeposited(Event):
 
     # @staticmethod
     # def from_json(d: dict[str, any]):
-    #     return FundsDeposited(id=d["id"], 
-    #                             version=d["version"], 
-    #                             created_at=d["created_at"], 
-    #                             account_id=d["account_id"], 
-    #                             amount=d["amount"], 
+    #     return FundsDeposited(id=d["id"],
+    #                             version=d["version"],
+    #                             created_at=d["created_at"],
+    #                             account_id=d["account_id"],
+    #                             amount=d["amount"],
     #                             transaction_id=d["transaction_id"])
+
 
 @dataclass(frozen=True, kw_only=True)
 class FundsWithdrawn(Event):
@@ -48,12 +53,14 @@ class FundsWithdrawn(Event):
     amount: Decimal
     transaction_id: uuid.UUID
 
+
 @dataclass(frozen=True, kw_only=True)
 class DebtForgiven(Event):
     """Debt up to $100 has been forgiven in an account."""
     account_id: str
     transaction_id: uuid.UUID
-        
+
+
 @dataclass(frozen=True, kw_only=True)
 class ReceiveFundsRequested(Event):
     """This account is requesting funds from another account."""
@@ -62,6 +69,7 @@ class ReceiveFundsRequested(Event):
     amount: Decimal
     transaction_id: uuid.UUID
     timeout_at: datetime
+
 
 @dataclass(frozen=True, kw_only=True)
 class NotifiedReceiveFundsRequested(Event):
@@ -72,17 +80,20 @@ class NotifiedReceiveFundsRequested(Event):
     transaction_id: uuid.UUID
     timeout_at: datetime
 
+
 @dataclass(frozen=True, kw_only=True)
 class ReceiveFundsApproved(Event):
     """Funding account has approved a transfer."""
     funding_account_id: str
     transaction_id: uuid.UUID
-        
+
+
 @dataclass(frozen=True, kw_only=True)
 class ReceiveFundsRejected(Event):
     """Funding account has denied a transfer."""
     funding_account_id: str
     transaction_id: uuid.UUID
+
 
 @dataclass(frozen=True, kw_only=True)
 class NotifiedReceivedFundsRejected(Event):
@@ -90,11 +101,13 @@ class NotifiedReceivedFundsRejected(Event):
     funded_account_id: str
     transaction_id: uuid.UUID
 
+
 @dataclass(frozen=True, kw_only=True)
 class ReceiveFundsDebited(Event):
     """Funds sent to the account that requested them."""
     funding_account_id: str
     transaction_id: uuid.UUID
+
 
 @dataclass(frozen=True, kw_only=True)
 class ReceiveFundsDebitedRolledBack(Event):
@@ -102,11 +115,13 @@ class ReceiveFundsDebitedRolledBack(Event):
     funding_account_id: str
     transaction_id: uuid.UUID
 
+
 @dataclass(frozen=True, kw_only=True)
 class ReceiveFundsCredited(Event):
     """Received requested funds."""
     funded_account_id: str
     transaction_id: uuid.UUID
+
 
 @dataclass(frozen=True, kw_only=True)
 class SendFundsCredited(Event):
@@ -116,6 +131,7 @@ class SendFundsCredited(Event):
     amount: Decimal
     transaction_id: uuid.UUID
 
+
 @dataclass(frozen=True, kw_only=True)
 class SendFundsDebited(Event):
     """Funds sent to another account."""
@@ -123,6 +139,7 @@ class SendFundsDebited(Event):
     funded_account_id: str
     amount: Decimal
     transaction_id: uuid.UUID
+
 
 @dataclass(frozen=True, kw_only=True)
 class SendFundsDebitedRolledBack(Event):
@@ -133,11 +150,11 @@ class SendFundsDebitedRolledBack(Event):
 
 #     @staticmethod
 #     def from_json(d: dict[str, any]):
-#         return SendFundsDebitedRolledBack(id=d["id"], 
-#                                           version=d["version"], 
-#                                           created_at=d["created_at"], 
-#                                           amount=d["amount"], 
-#                                           funding_account_id=d["funding_account_id"], 
+#         return SendFundsDebitedRolledBack(id=d["id"],
+#                                           version=d["version"],
+#                                           created_at=d["created_at"],
+#                                           amount=d["amount"],
+#                                           funding_account_id=d["funding_account_id"],
 #                                           transaction_id=d["transaction_id"])
 
 

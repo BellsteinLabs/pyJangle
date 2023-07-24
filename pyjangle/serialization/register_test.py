@@ -1,7 +1,26 @@
 from unittest import TestCase
 from unittest.mock import patch
-from pyjangle.serialization.register import EventDeserializerRegistrationError, EventSerializerRegistrationError, SagaDeserializerRegistrationError, SagaSerializerRegistrationError, SnapshotDeserializerRegistrationError, SnapshotSerializerRegistrationError, get_event_deserializer, get_event_serializer, get_saga_deserializer, get_saga_serializer, get_snapshot_deserializer, get_snapshot_serializer, register_event_deserializer, register_event_serializer, register_saga_deserializer, register_saga_serializer, register_snapshot_deserializer, register_snapshot_serializer
-from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_SERIALIZER, SAGA_DESERIALIZER, SAGA_SERIALIZER, SNAPSHOT_DESERIALIZER, SNAPSHOT_SERIALIZER
+
+from pyjangle import (EventDeserializerRegistrationError,
+                      EventSerializerRegistrationError,
+                      SagaDeserializerRegistrationError,
+                      SagaSerializerRegistrationError,
+                      SnapshotDeserializerRegistrationError,
+                      SnapshotSerializerRegistrationError,
+                      get_event_deserializer, get_event_serializer,
+                      get_saga_deserializer, get_saga_serializer,
+                      get_snapshot_deserializer, get_snapshot_serializer,
+                      register_event_deserializer, register_event_serializer,
+                      register_saga_deserializer, register_saga_serializer,
+                      register_snapshot_deserializer,
+                      register_snapshot_serializer)
+from pyjangle.test.registration_paths import (EVENT_DESERIALIZER,
+                                              EVENT_SERIALIZER,
+                                              SAGA_DESERIALIZER,
+                                              SAGA_SERIALIZER,
+                                              SNAPSHOT_DESERIALIZER,
+                                              SNAPSHOT_SERIALIZER)
+
 
 @patch(SAGA_SERIALIZER, None)
 @patch(SAGA_DESERIALIZER, None)
@@ -39,6 +58,7 @@ class TestRegisterSerializer(TestCase):
             def serializer(saga, _):
                 pass
 
+
 @patch(SAGA_SERIALIZER, None)
 @patch(SAGA_DESERIALIZER, None)
 class TestRegisterDeserializer(TestCase):
@@ -74,6 +94,7 @@ class TestRegisterDeserializer(TestCase):
             @register_saga_deserializer
             def deserializer(serialized_saga, _):
                 pass
+
 
 @patch(EVENT_SERIALIZER, None)
 @patch(EVENT_DESERIALIZER, None)
@@ -111,6 +132,7 @@ class TestRegisterSerializer(TestCase):
             def serializer(event, _):
                 pass
 
+
 @patch(EVENT_SERIALIZER, None)
 @patch(EVENT_DESERIALIZER, None)
 class TestRegisterDeserializer(TestCase):
@@ -147,6 +169,7 @@ class TestRegisterDeserializer(TestCase):
             def deserializer(serialized_event, _):
                 pass
 
+
 @patch(SNAPSHOT_SERIALIZER, None)
 @patch(SNAPSHOT_DESERIALIZER, None)
 class TestRegisterSerializer(TestCase):
@@ -182,6 +205,7 @@ class TestRegisterSerializer(TestCase):
             @register_snapshot_serializer
             def serializer(snapshot, _):
                 pass
+
 
 @patch(SNAPSHOT_SERIALIZER, None)
 @patch(SNAPSHOT_DESERIALIZER, None)

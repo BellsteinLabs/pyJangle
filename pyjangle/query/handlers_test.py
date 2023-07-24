@@ -1,8 +1,9 @@
 import unittest
 from unittest.mock import patch
 
-from pyjangle.query.handlers import QueryError, QueryRegistrationError, handle_query, register_query_handler
+from pyjangle import QueryError, QueryRegistrationError, handle_query, register_query_handler
 from pyjangle.test.registration_paths import QUERY_TYPE_TO_QUERY_HANDLER_MAP
+
 
 @patch.dict(QUERY_TYPE_TO_QUERY_HANDLER_MAP)
 class TestHandlers(unittest.IsolatedAsyncioTestCase):
@@ -33,15 +34,15 @@ class TestHandlers(unittest.IsolatedAsyncioTestCase):
             @register_query_handler(int)
             class Foo:
                 pass
-    
+
     async def test_handler_is_not_coroutine(self, *_):
         with self.assertRaises(QueryRegistrationError):
             @register_query_handler(int)
-            def foo(query): 
+            def foo(query):
                 pass
 
     async def test_handler_has_wrong_params_count(self, *_):
         with self.assertRaises(QueryRegistrationError):
             @register_query_handler(int)
-            async def foo(query, something_else): 
+            async def foo(query, something_else):
                 pass

@@ -1,9 +1,11 @@
 import unittest
 from unittest.mock import patch
 
-from pyjangle.saga.saga_repository import RegisterSagaRepository, SagaRepositoryError, saga_repository_instance
+from pyjangle import RegisterSagaRepository, SagaRepositoryError, saga_repository_instance
+from pyjangle.test.registration_paths import SAGA_REPO
 
-@patch("pyjangle.saga.saga_repository.__registered_saga_repository", None)
+
+@patch(SAGA_REPO, None)
 class TestSagaRepository(unittest.TestCase):
 
     def test_can_register_saga_repository(self):

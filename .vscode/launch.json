@@ -6,13 +6,6 @@
     "configurations": [
         
         {
-            "name": "Python: Module",
-            "type": "python",
-            "request": "launch",
-            "module": "pyjangle.command.register_test",
-            "justMyCode": true
-        },
-        {
             "name": "Dart: Attach to Process",
             "type": "dart",
             "request": "attach"

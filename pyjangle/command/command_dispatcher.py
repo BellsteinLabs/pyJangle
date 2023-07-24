@@ -1,15 +1,14 @@
 import asyncio
-import functools
 import inspect
-import logging
 from typing import Callable
-from pyjangle.command.command_response import CommandResponse
-from pyjangle.error.error import JangleError
+from pyjangle import CommandResponse
+
+from pyjangle import JangleError
 from pyjangle.logging.logging import LogToggles, log
 
-#This is where the command dispatcher is kept.
-#Access it via command_dispatcher_instance().
-_command_dispatcher = None
+# This is where the command dispatcher is kept.
+# Access it via command_dispatcher_instance().
+_command_dispatcher_instance = None
 
 
 class CommandDispatcherError(JangleError):
@@ -37,25 +36,32 @@ def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
     method--for simplicity, this framework only supports a single 
     command dispatcher per process and leaves anything more 
     complicated than that as an exercise for the implementor.
-    
+
     THROWS
     ------
     CommandDispatcherError when multiple methods are registered."""
     if not asyncio.iscoroutinefunction(wrapped):
-        raise CommandDispatcherError("@RegisterCommandDispatcher must decorate a coroutine (async) method with signature: async def func_name(command: Command) -> CommandResponse")
-    if not len(inspect.signature(wrapped).parameters) == 1:
-        raise CommandDispatcherError("Command dispatcher function should only have one parameter: async def func_name(command: Command) -> CommandResponse")
-    global _command_dispatcher
-    if _command_dispatcher != None:
         raise CommandDispatcherError(
-            "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher)) + ", " + wrapped.__name__)
-    _command_dispatcher = wrapped
-    log(LogToggles.command_dispatcher_registration, "Registering command dispatcher", {"command_dispatcher_type": str(type(wrapped))})
+            "@RegisterCommandDispatcher must decorate a coroutine (async) method with signature: async def func_name(command: Command) -> CommandResponse")
+    if not len(inspect.signature(wrapped).parameters) == 1:
+        raise CommandDispatcherError(
+            "Command dispatcher function should only have one parameter: async def func_name(command: Command) -> CommandResponse")
+    global _command_dispatcher_instance
+    if _command_dispatcher_instance != None:
+        raise CommandDispatcherError(
+            "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher_instance)) + ", " + wrapped.__name__)
+    _command_dispatcher_instance = wrapped
+    log(LogToggles.command_dispatcher_registration, "Registering command dispatcher", {
+        "command_dispatcher_type": str(type(wrapped))})
     return wrapped
 
 
 def command_dispatcher_instance() -> Callable[[any], CommandResponse]:
     """Returns the singleton instance of the registered command dispatcher."""
-    if not _command_dispatcher:
+    if not _command_dispatcher_instance:
         raise CommandDispatcherError
-    return _command_dispatcher
+    return _command_dispatcher_instance
+
+
+__all__ = [CommandDispatcherError.__name__,
+           RegisterCommandDispatcher.__name__, command_dispatcher_instance.__name__]

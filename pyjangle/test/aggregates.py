@@ -1,8 +1,8 @@
 from datetime import datetime
-from pyjangle.aggregate.aggregate import Aggregate, reconstitute_aggregate_state, validate_command
-from pyjangle.command.command_response import CommandResponse
-from pyjangle.command.register import RegisterCommand
-from pyjangle.snapshot.snapshottable import Snapshottable
+from pyjangle import Aggregate, reconstitute_aggregate_state, validate_command
+from pyjangle import CommandResponse
+from pyjangle import RegisterCommand
+from pyjangle import Snapshottable
 from pyjangle.test.commands import AnotherCommandThatAlwaysSucceeds, CommandThatAlwaysSucceeds, CommandThatFails
 from pyjangle.test.events import EventA
 
@@ -16,7 +16,8 @@ class SnapshottableTestAggregate(Aggregate, Snapshottable):
 
     @validate_command(CommandThatAlwaysSucceeds)
     def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
-        self._post_new_event(EventA(version=next_version, created_at=datetime.now()))
+        self._post_new_event(
+            EventA(version=next_version, created_at=datetime.now()))
 
     @reconstitute_aggregate_state(EventA)
     def from_event_that_continues_saga(self, event: EventA):
@@ -30,7 +31,8 @@ class SnapshottableTestAggregate(Aggregate, Snapshottable):
 
     def get_snapshot_frequency(self) -> int:
         return 2
-    
+
+
 @RegisterCommand(AnotherCommandThatAlwaysSucceeds, CommandThatFails)
 class NotSnapshottableTestAggregate(Aggregate):
 
@@ -40,12 +42,14 @@ class NotSnapshottableTestAggregate(Aggregate):
 
     @validate_command(AnotherCommandThatAlwaysSucceeds)
     def validateA(self, command: AnotherCommandThatAlwaysSucceeds, next_version: int):
-        self._post_new_event(EventA(version=next_version, created_at=datetime.now()))
+        self._post_new_event(
+            EventA(version=next_version, created_at=datetime.now()))
         return CommandResponse(True, {})
 
     @validate_command(CommandThatFails)
     def validateB(self, command: CommandThatFails, next_version: int):
-        self._post_new_event(EventA(version=next_version, created_at=datetime.now()))
+        self._post_new_event(
+            EventA(version=next_version, created_at=datetime.now()))
         return CommandResponse(False, {})
 
     @reconstitute_aggregate_state(EventA)

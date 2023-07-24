@@ -1,11 +1,10 @@
 import unittest
-
-from pyjangle.aggregate.aggregate import Aggregate, AggregateError, reconstitute_aggregate_state, validate_command
-from pyjangle.command.command_response import CommandResponse
-from pyjangle.test.commands import CommandB, CommandThatAlwaysSucceeds
 from datetime import datetime
-
+from pyjangle import Aggregate, AggregateError, reconstitute_aggregate_state, validate_command
+from pyjangle import CommandResponse
+from pyjangle.test.commands import CommandB, CommandThatAlwaysSucceeds
 from pyjangle.test.events import EventA
+
 
 class TestAggregate(unittest.TestCase):
 
@@ -28,9 +27,10 @@ class TestAggregate(unittest.TestCase):
 
     def test_register_reconstitue_aggregate_state(self):
         ATTR_NAME = "x"
+
         class A(Aggregate):
             @reconstitute_aggregate_state(EventA)
-            def foo(self, event:EventA):
+            def foo(self, event: EventA):
                 setattr(self, ATTR_NAME, True)
 
         a = A(1)
@@ -40,6 +40,7 @@ class TestAggregate(unittest.TestCase):
 
     def test_can_reconstitute_aggregate_state(self):
         ATTR_NAME = "x"
+
         class A(Aggregate):
 
             def __init__(self, id: any):
@@ -47,7 +48,7 @@ class TestAggregate(unittest.TestCase):
                 setattr(self, ATTR_NAME, 0)
 
             @reconstitute_aggregate_state(EventA)
-            def foo(self, event:EventA):
+            def foo(self, event: EventA):
                 setattr(self, ATTR_NAME, getattr(self, ATTR_NAME) + 1)
 
         a = A(1)
@@ -62,6 +63,7 @@ class TestAggregate(unittest.TestCase):
                 @validate_command(CommandThatAlwaysSucceeds)
                 def foo(self):
                     pass
+
     def test_command_validator_supplies_next_version(self):
         class A(Aggregate):
 
@@ -142,7 +144,7 @@ class TestAggregate(unittest.TestCase):
                 super().__init__(id)
 
             @reconstitute_aggregate_state(EventA)
-            def foo(self, event:EventA):
+            def foo(self, event: EventA):
                 pass
 
         a = A(1)
