@@ -7,20 +7,21 @@ from pyjangle.event.event import Event
 
 from pyjangle.event.event_repository import DuplicateKeyError, EventRepository
 from pyjangle.logging.logging import log
-from pyjangle.serialization.register import get_event_deserializer, get_event_serializer
+from pyjangle.serialization.event_serialization_registration import get_event_deserializer, get_event_serializer
 from pyjangle_sqllite3.symbols import DB_EVENT_STORE_PATH, FIELDS, TABLES
 from pyjangle_sqllite3.yield_results import yield_results
 
+
 class SqlLiteEventRepository(EventRepository):
     def __init__(self):
-        #Create event store table if it's not already there
+        # Create event store table if it's not already there
         with open('pyjangle_sqllite3/create_event_store.sql', 'r') as create_event_store_sql_file:
             create_event_store_sql_script = create_event_store_sql_file.read()
         with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
             conn.executescript(create_event_store_sql_script)
         conn.close()
 
-    async def get_events(self, aggregate_id: any, batch_size: int = 100, current_version = 0) -> Iterator[Event]:
+    async def get_events(self, aggregate_id: any, batch_size: int = 100, current_version=0) -> Iterator[Event]:
         q = f"""
             SELECT {FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}
             FROM {TABLES.EVENT_STORE}
@@ -47,30 +48,31 @@ class SqlLiteEventRepository(EventRepository):
             INSERT INTO {TABLES.PENDING_EVENTS} ({FIELDS.PENDING_EVENTS.EVENT_ID}) VALUES (?);
         """
         data_insert_event_store = [
-            (serialized_event[FIELDS.EVENT_STORE.EVENT_ID], 
-            aggregate_id, 
-            serialized_event[FIELDS.EVENT_STORE.AGGREGATE_VERSION], 
-            serialized_event[FIELDS.EVENT_STORE.DATA], 
-            serialized_event[FIELDS.EVENT_STORE.CREATED_AT], 
-            serialized_event[FIELDS.EVENT_STORE.TYPE])
-            for serialized_event in 
-                [get_event_serializer()(event) for event in events]]
-        data_insert_pending_events = [(row_tuple[0],) for row_tuple in data_insert_event_store]
+            (serialized_event[FIELDS.EVENT_STORE.EVENT_ID],
+             aggregate_id,
+             serialized_event[FIELDS.EVENT_STORE.AGGREGATE_VERSION],
+             serialized_event[FIELDS.EVENT_STORE.DATA],
+             serialized_event[FIELDS.EVENT_STORE.CREATED_AT],
+             serialized_event[FIELDS.EVENT_STORE.TYPE])
+            for serialized_event in
+            [get_event_serializer()(event) for event in events]]
+        data_insert_pending_events = [(row_tuple[0],)
+                                      for row_tuple in data_insert_event_store]
         try:
             with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
                 conn.executemany(q_insert_event_store, data_insert_event_store)
-                conn.executemany(q_insert_pending_events, data_insert_pending_events)
+                conn.executemany(q_insert_pending_events,
+                                 data_insert_pending_events)
         except sqlite3.IntegrityError as e:
             raise DuplicateKeyError(e)
-        finally: 
+        finally:
             conn.close()
 
     async def mark_event_handled(self, id: any):
-        q=f"DELETE FROM {TABLES.EVENT_STORE} WHERE {FIELDS.EVENT_STORE.EVENT_ID} = ?"
+        q = f"DELETE FROM {TABLES.EVENT_STORE} WHERE {FIELDS.EVENT_STORE.EVENT_ID} = ?"
         params = (id,)
         try:
             with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
                 conn.execute(q, params)
         finally:
             conn.close()
-

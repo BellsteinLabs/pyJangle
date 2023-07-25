@@ -29,7 +29,7 @@ class AccountCreationAggregate(Aggregate):
             funds_deposited_event = FundsDeposited(
                 version=2, account_id=next_account_id, initial_deposit=command.initial_deposit)
             self._post_new_event(funds_deposited_event)
-        return command_response.CommandResponse(True, next_account_id)
+        return CommandResponse(True, next_account_id)
 
     @reconstitute_aggregate_state(AccountIdProvisioned)
     def handle_account_created_event(self, event: AccountIdProvisioned):

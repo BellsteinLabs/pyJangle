@@ -1,6 +1,6 @@
 import sqlite3
 
-from pyjangle.serialization.register import (get_snapshot_deserializer,
+from pyjangle.serialization.snapshot_serialization_registration import (get_snapshot_deserializer,
                                              get_snapshot_serializer)
 from pyjangle.snapshot.snapshot_repository import SnapshotRepository
 from pyjangle_sqllite3.symbols import DB_SNAPSHOTS_PATH, FIELDS, TABLES

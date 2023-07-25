@@ -1,10 +1,10 @@
 import sqlite3
 from pyjangle.event.event_repository import DuplicateKeyError
-from pyjangle.event.register import get_event_name
+from pyjangle.event.register_event import get_event_name
 from pyjangle.saga.register_saga import get_saga_name
 from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_repository import SagaRepository
-from pyjangle.serialization.register import get_event_deserializer, get_event_serializer, get_saga_deserializer, get_saga_serializer
+from pyjangle.serialization.saga_serialization_registration import get_saga_deserializer, get_saga_serializer
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH, FIELDS, TABLES
 from pyjangle_sqllite3.yield_results import yield_results
 
