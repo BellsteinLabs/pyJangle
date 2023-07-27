@@ -7,169 +7,188 @@ from typing import Mapping
 import uuid
 from json import dumps
 
-from pyjangle import Event
+from pyjangle import VersionedEvent
 
 
 @dataclass(frozen=True, kw_only=True)
-class AccountIdProvisioned(Event):
+class AccountIdProvisioned(VersionedEvent):
     """An id was provisioned for a new account on the AccountCreationAggregate."""
-    pass
+    def deserialize(data: any) -> any:
+        AccountIdProvisioned(**data)
 
 
 @dataclass(frozen=True, kw_only=True)
-class AccountCreated(Event):
+class AccountCreated(VersionedEvent):
     """Account was created."""
     account_id: str
     name: str
 
+    def deserialize(data: any) -> any:
+        pass
+
 
 @dataclass(frozen=True, kw_only=True)
-class AccountDeleted(Event):
+class AccountDeleted(VersionedEvent):
     """Account was deleted."""
     account_id: str
 
+    def deserialize(data: any) -> any:
+        pass
+
 
 @dataclass(frozen=True, kw_only=True)
-class FundsDeposited(Event):
+class FundsDeposited(VersionedEvent):
     """Funds have been doposited into an account."""
     account_id: str
     amount: Decimal
-    transaction_id: uuid.UUID
+    transaction_id: str = dataclasses.field(
+        default_factory=lambda: str(uuid.uuid4()))
 
-    # @staticmethod
-    # def from_json(d: dict[str, any]):
-    #     return FundsDeposited(id=d["id"],
-    #                             version=d["version"],
-    #                             created_at=d["created_at"],
-    #                             account_id=d["account_id"],
-    #                             amount=d["amount"],
-    #                             transaction_id=d["transaction_id"])
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class FundsWithdrawn(Event):
+class FundsWithdrawn(VersionedEvent):
     """Funds have been withdrawn from an account."""
     account_id: str
     amount: Decimal
-    transaction_id: uuid.UUID
+    transaction_id: str = dataclasses.field(
+        default_factory=lambda: str(uuid.uuid4()))
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class DebtForgiven(Event):
+class DebtForgiven(VersionedEvent):
     """Debt up to $100 has been forgiven in an account."""
     account_id: str
-    transaction_id: uuid.UUID
+    amount: Decimal
+    transaction_id: str = dataclasses.field(
+        default_factory=lambda: str(uuid.uuid4()))
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReceiveFundsRequested(Event):
+class ReceiveFundsRequested(VersionedEvent):
     """This account is requesting funds from another account."""
     funded_account_id: str
     funding_account_id: str
     amount: Decimal
-    transaction_id: uuid.UUID
+    transaction_id: str
     timeout_at: datetime
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class NotifiedReceiveFundsRequested(Event):
+class NotifiedReceiveFundsRequested(VersionedEvent):
     """This account was notified that another account requested ReceiveFunds."""
     funded_account_id: str
     funding_account_id: str
     amount: Decimal
-    transaction_id: uuid.UUID
+    transaction_id: str
     timeout_at: datetime
 
+    def deserialize(data: any) -> any:
+        pass
+
 
 @dataclass(frozen=True, kw_only=True)
-class ReceiveFundsApproved(Event):
+class ReceiveFundsApproved(VersionedEvent):
     """Funding account has approved a transfer."""
     funding_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReceiveFundsRejected(Event):
+class ReceiveFundsRejected(VersionedEvent):
     """Funding account has denied a transfer."""
     funding_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class NotifiedReceivedFundsRejected(Event):
+class NotifiedReceivedFundsRejected(VersionedEvent):
     """This account was notified that another account rejected ReceiveFunds request."""
     funded_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReceiveFundsDebited(Event):
+class ReceiveFundsDebited(VersionedEvent):
     """Funds sent to the account that requested them."""
     funding_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReceiveFundsDebitedRolledBack(Event):
+class ReceiveFundsDebitedRolledBack(VersionedEvent):
     """Sending funds to another account failed an rolled back."""
     funding_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class ReceiveFundsCredited(Event):
+class ReceiveFundsCredited(VersionedEvent):
     """Received requested funds."""
     funded_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class SendFundsCredited(Event):
+class SendFundsCredited(VersionedEvent):
     """Funded account confirms receipt of SendFunds request."""
     funded_account_id: str
     funding_account_id: str
     amount: Decimal
-    transaction_id: uuid.UUID
+    transaction_id: str
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class SendFundsDebited(Event):
+class SendFundsDebited(VersionedEvent):
     """Funds sent to another account."""
     funding_account_id: str
     funded_account_id: str
     amount: Decimal
-    transaction_id: uuid.UUID
+    transaction_id: str = dataclasses.field(
+        default_factory=lambda: str(uuid.uuid4()))
+
+    def deserialize(data: any) -> any:
+        pass
 
 
 @dataclass(frozen=True, kw_only=True)
-class SendFundsDebitedRolledBack(Event):
+class SendFundsDebitedRolledBack(VersionedEvent):
     """Sending funds to another account failed an rolled back."""
     amount: Decimal
     funding_account_id: str
-    transaction_id: uuid.UUID
+    transaction_id: str
 
-#     @staticmethod
-#     def from_json(d: dict[str, any]):
-#         return SendFundsDebitedRolledBack(id=d["id"],
-#                                           version=d["version"],
-#                                           created_at=d["created_at"],
-#                                           amount=d["amount"],
-#                                           funding_account_id=d["funding_account_id"],
-#                                           transaction_id=d["transaction_id"])
-
-
-# def _foo(type_name):
-#     type(type_name).from_json()
-
-
-# fd = FundsDeposited(version=42, account_id="4242", amount=420, transaction_id=uuid.uuid4())
-# serialized = json.dumps(dataclasses.asdict(fd), cls=CustomEncoder)
-# row = (str(FundsDeposited), serialized)
-# #deserialized = json.loads(row[1], object_hook=lambda d : type(row[0]).from_json(d))
-# deserialized_dict = json.loads(row[1])
-# print(deserialized_dict)
-# bar = FundsDeposited(**deserialized_dict)
-# print(bar)
-# print(fd)
-
-# #print(deserialized)
+    def deserialize(data: any) -> any:
+        pass

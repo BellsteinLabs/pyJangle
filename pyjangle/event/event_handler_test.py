@@ -1,7 +1,7 @@
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-from pyjangle import (Event, EventHandlerError, EventHandlerRegistrationError,
+from pyjangle import (VersionedEvent, EventHandlerError, EventHandlerRegistrationError,
                       handle_event, register_event_handler)
 from pyjangle.test.events import EventA
 from pyjangle.test.registration_paths import EVENT_TYPE_TO_EVENT_HANDLER_MAP
@@ -13,7 +13,7 @@ class TestEventHandler(IsolatedAsyncioTestCase):
         self.calls = 0
 
         @register_event_handler(EventA)
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             self.calls += 1
 
         @register_event_handler(EventA)

@@ -3,8 +3,20 @@ from logging import Formatter, LogRecord
 import logging
 from typing import List, Mapping
 from pyjangle.logging.logging import NAME, LEVELNO, LEVELNAME, PATHNAME, FILENAME, MODULE, LINENO, FUNCNAME, CREATED, ASCTIME, MSECS, RELATIVE_CREATED, THREAD, THREADNAME, PROCESS, MESSAGE
+from colorama import Fore, Style
+
 
 class LogFormatter(Formatter):
+
+    _color_mapping = {
+        logging.NOTSET: Fore.WHITE,
+        logging.DEBUG: Fore.WHITE,
+        logging.INFO: Fore.CYAN,
+        logging.WARNING: Fore.YELLOW,
+        logging.ERROR: Fore.RED,
+        logging.CRITICAL: Fore.RED,
+        logging.FATAL: Fore.RED
+    }
 
     _field_mappings = {
         NAME: "name",
@@ -27,7 +39,7 @@ class LogFormatter(Formatter):
 
     def set_included_fields(self, *fields: List[int]):
         """Specify which fields are included in log messages.
-        
+
         Possible options are:
             NAME = 1
             LEVELNO = 2
@@ -59,7 +71,7 @@ class LogFormatter(Formatter):
 
     def formatMessage(self, record: LogRecord):
 
-        #only add asctime if it's been included
+        # only add asctime if it's been included
         if hasattr(self, "include_asc_time") and self.include_asc_time:
             record.asctime = self.formatTime(record, self.datefmt)
         log_dict = dict()
@@ -79,20 +91,29 @@ class LogFormatter(Formatter):
         record.exc_text = None
         record.stack_info = None
 
-        return json.dumps(log_dict, indent=4)
-    
+        return LogFormatter._color_mapping[record.levelno] + json.dumps(recursively_remove_dunder_keys(log_dict), indent=4, default=str) + Style.RESET_ALL
 
 
-def initialize_jangle_logging(*included_fields: int, logging_module:str|None = None, logging_level: int = logging.DEBUG): 
+def recursively_remove_dunder_keys(dictionary: dict) -> dict:
+    dictionary = {key: dictionary[key]
+                  for key in dictionary if not key.startswith("_")}
+    for key in dictionary:
+        if isinstance(dictionary[key], dict):
+            dictionary[key] = recursively_remove_dunder_keys(dictionary[key])
+
+    return dictionary
+
+
+def initialize_jangle_logging(*included_fields: int, logging_module: str | None = None, logging_level: int = logging.DEBUG):
     """Initializes pyJangle JSON logging.
-    
+
     PARAMETERS
     ----------
     logging_module
         Set the logging module that you'd like to configure.  
         Typically, you'll just configure the root module 
         which is the default.
-    
+
     logging_level
         Specify the logging level as defined in the logging 
         package.
@@ -127,7 +148,8 @@ def initialize_jangle_logging(*included_fields: int, logging_module:str|None = N
         the end of the log entry.
     """
     if not included_fields:
-        included_fields = (NAME, LEVELNO, LEVELNAME, PATHNAME, FILENAME, MODULE, LINENO, FUNCNAME, CREATED, ASCTIME, MSECS, RELATIVE_CREATED, THREAD, THREADNAME, PROCESS, MESSAGE)
+        included_fields = (NAME, LEVELNO, LEVELNAME, PATHNAME, FILENAME, MODULE, LINENO, FUNCNAME,
+                           CREATED, ASCTIME, MSECS, RELATIVE_CREATED, THREAD, THREADNAME, PROCESS, MESSAGE)
     formatter = LogFormatter()
     formatter.set_included_fields(*included_fields)
     logger = logging.getLogger(logging_module)

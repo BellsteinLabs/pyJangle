@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Iterator, List
 
 from pyjangle import JangleError
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.logging.logging import LogToggles, log
 
 # Holds a singleton instance of an event repository.
@@ -28,7 +28,7 @@ def RegisterEventRepository(cls):
             type(_event_repository_instance)) + ", " + str(cls))
     _event_repository_instance = cls()
     log(LogToggles.event_repository_registration, "Event repository registered", {
-        "event_repository_type": str(type(cls))})
+        "event_repository_type": str(cls)})
     return cls
 
 
@@ -58,7 +58,7 @@ class EventRepository(metaclass=abc.ABCMeta):
     """
 
     @abc.abstractmethod
-    async def get_events(self, aggregate_id: any, current_version=0, batch_size: int = 100) -> Iterator[Event]:
+    async def get_events(self, aggregate_id: any, current_version=0, batch_size: int = 100) -> Iterator[VersionedEvent]:
         """Returns events for a particular aggregate.
 
         RETURNS
@@ -79,7 +79,7 @@ class EventRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def commit_events(self, aggregate_id: any, events: List[Event]):
+    async def commit_events(self, aggregate_id_and_event_tuples: list[tuple[any, VersionedEvent]]):
         """Persist events to the event store.
 
         The event store enforces a uniuquesness constraint 
@@ -101,7 +101,7 @@ class EventRepository(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def get_unhandled_events(self, batch_size: int, time_delta: datetime) -> Iterator[Event]:
+    async def get_unhandled_events(self, batch_size: int, time_delta: datetime) -> Iterator[VersionedEvent]:
         """Returns unhandled events.
 
         RETURNS

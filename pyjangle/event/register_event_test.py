@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import patch
 
-from pyjangle import (Event, EventRegistrationError, RegisterEvent,
+from pyjangle import (VersionedEvent, EventRegistrationError, RegisterEvent,
                       get_event_name, get_event_type)
 from pyjangle.test.registration_paths import (EVENT_REPO,
                                               EVENT_TYPE_TO_NAME_MAP,
@@ -15,7 +15,7 @@ from pyjangle.test.transient_event_repository import TransientEventRepository
 class TestRegisterEvent(TestCase):
     def test_non_parenthesis_form(self, *_):
         @RegisterEvent
-        class Foo(Event):
+        class Foo(VersionedEvent):
             pass
 
         self.assertEqual(get_event_name(
@@ -23,7 +23,7 @@ class TestRegisterEvent(TestCase):
 
     def test_parenthesis_form(self, *_):
         @RegisterEvent()
-        class Foo(Event):
+        class Foo(VersionedEvent):
             pass
 
         self.assertEqual(get_event_name(
@@ -38,18 +38,18 @@ class TestRegisterEvent(TestCase):
     def test_exception_when_event_name_already_registered(self, *_):
         with self.assertRaises(EventRegistrationError):
             @RegisterEvent(name="books.HarryPotter.characters.Hermione")
-            class Foo(Event):
+            class Foo(VersionedEvent):
                 pass
 
             @RegisterEvent(name="books.HarryPotter.characters.Hermione")
-            class Bar(Event):
+            class Bar(VersionedEvent):
                 pass
 
     def test_custom_event_name(self, *_):
         EVENT_NAME = "books.HarryPotter.characters.Hermione"
 
         @RegisterEvent(name=EVENT_NAME)
-        class Foo(Event):
+        class Foo(VersionedEvent):
             pass
 
         self.assertEqual(EVENT_NAME, get_event_name(Foo))

@@ -3,7 +3,7 @@ import functools
 import logging
 from typing import List
 from pyjangle import JangleError
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga import Saga
 

@@ -16,7 +16,7 @@ class SnapshottableTestAggregate(Aggregate, Snapshottable):
 
     @validate_command(CommandThatAlwaysSucceeds)
     def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
-        self._post_new_event(
+        self.post_new_event(
             EventA(version=next_version, created_at=datetime.now()))
 
     @reconstitute_aggregate_state(EventA)
@@ -42,13 +42,13 @@ class NotSnapshottableTestAggregate(Aggregate):
 
     @validate_command(AnotherCommandThatAlwaysSucceeds)
     def validateA(self, command: AnotherCommandThatAlwaysSucceeds, next_version: int):
-        self._post_new_event(
+        self.post_new_event(
             EventA(version=next_version, created_at=datetime.now()))
         return CommandResponse(True, {})
 
     @validate_command(CommandThatFails)
     def validateB(self, command: CommandThatFails, next_version: int):
-        self._post_new_event(
+        self.post_new_event(
             EventA(version=next_version, created_at=datetime.now()))
         return CommandResponse(False, {})
 

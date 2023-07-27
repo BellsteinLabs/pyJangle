@@ -25,23 +25,29 @@ class TestSqlLiteEventRepository(unittest.IsolatedAsyncioTestCase):
             os.remove(DB_EVENT_STORE_PATH)
 
     async def test_committed_events_can_be_retrieved(self, *_):
-        events = [EventA(version=1), EventA(version=2),
-                  EventA(version=3), EventA(version=4)]
-        await self.sql_lite_event_repo.commit_events(42, events)
-        retrieved_events = await self.sql_lite_event_repo.get_events(42)
-        self.assertListEqual(events, sorted(
-            retrieved_events, key=lambda event: event.version))
+        tuple_41 = (41, EventA(version=1))
+        tuple_42 = (42, EventA(version=3))
+        aggregate_id_and_event_tuples = [tuple_41, tuple_42]
+        await self.sql_lite_event_repo.commit_events(aggregate_id_and_event_tuples)
+        retrieved_events_41 = list(await self.sql_lite_event_repo.get_events(41))
+        self.assertEqual(1, len(retrieved_events_41))
+        self.assertDictEqual(
+            tuple_41[1].__dict__, retrieved_events_41[0].__dict__)
+        retrieved_events_42 = list(await self.sql_lite_event_repo.get_events(42))
+        self.assertEqual(1, len(retrieved_events_42))
+        self.assertDictEqual(
+            tuple_42[1].__dict__, retrieved_events_42[0].__dict__)
 
     async def test_when_event_aggregate_id_and_version_exists_duplicate_key_error(self, *_):
         with self.assertRaises(DuplicateKeyError):
             events = [EventA(version=1)]
-            await self.sql_lite_event_repo.commit_events(42, events)
-            await self.sql_lite_event_repo.commit_events(42, events)
+            await self.sql_lite_event_repo.commit_events([(42, event) for event in events])
+            await self.sql_lite_event_repo.commit_events([(42, event) for event in events])
 
     async def test_when_events_not_marked_handled_retrieved_with_get_unhandled_events(self, *_):
         events = [EventA(version=1), EventA(version=2),
                   EventA(version=3), EventA(version=4)]
-        await self.sql_lite_event_repo.commit_events(42, events)
+        await self.sql_lite_event_repo.commit_events([(42, event) for event in events])
         unhandled_events = await self.sql_lite_event_repo.get_unhandled_events(100, time_since_published=timedelta(seconds=0))
         self.assertListEqual(sorted(events, key=lambda x: x.version), sorted(
             unhandled_events, key=lambda x: x.version))
@@ -49,7 +55,7 @@ class TestSqlLiteEventRepository(unittest.IsolatedAsyncioTestCase):
     async def test_when_events_marked_handled_not_retreived_with_get_unhandled_events(self, *_):
         events = [EventA(version=1), EventA(version=2),
                   EventA(version=3), EventA(version=4)]
-        await self.sql_lite_event_repo.commit_events(42, events)
+        await self.sql_lite_event_repo.commit_events([(42, event) for event in events])
         [await self.sql_lite_event_repo.mark_event_handled(event.id) for event in events]
         unhandled_events = await self.sql_lite_event_repo.get_unhandled_events(100, timedelta(seconds=0))
         self.assertFalse([_ for _ in unhandled_events])

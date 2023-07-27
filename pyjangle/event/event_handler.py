@@ -1,17 +1,17 @@
 import functools
 import inspect
 import logging
-from typing import Callable, List
+from typing import Callable, List, Type
 
 from pyjangle import JangleError
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.logging.logging import LogToggles, log
 
 # contains the singleton that maps event types to
 # event handlers.  You shouldn't need to access
 # this directly.
 __event_type_to_event_handler_handler_map: dict[type, List[Callable[[
-    Event], None]]] = dict()
+    VersionedEvent], None]]] = dict()
 
 
 class EventHandlerError(JangleError):
@@ -59,7 +59,8 @@ def register_event_handler(event_type: any):
     Seriously, don't forget to make these IDEMPOTENT.
     """
 
-    def decorator(wrapped: Callable[[Event], None]):
+    def decorator(wrapped: Callable[[VersionedEvent], None]):
+        global __event_type_to_event_handler_handler_map
         if not callable(wrapped) or len(inspect.signature(wrapped).parameters) != 1 or not inspect.iscoroutinefunction(wrapped):
             raise EventHandlerRegistrationError(
                 "@register_event_handler should decoratate a function with signature: async def func_name(event: Event) -> None")
@@ -72,7 +73,12 @@ def register_event_handler(event_type: any):
     return decorator
 
 
-async def handle_event(event: Event):
+def has_registered_event_handler(event_type: Type) -> bool:
+    global __event_type_to_event_handler_handler_map
+    return event_type in __event_type_to_event_handler_handler_map
+
+
+async def handle_event(event: VersionedEvent):
     """Finds the appropriate event handler for the specified event.
 
     Event handlers are decorated with @register_event_handler.
@@ -93,7 +99,7 @@ async def handle_event(event: Event):
     try:
         for handler in __event_type_to_event_handler_handler_map[event_type]:
             await handler(event)
-    except:
+    except Exception as e:
         log(LogToggles.event_handler_failed, "Event handler failed", {"event_type": str(
-            event_type), "event_handler_type": str(type(handler)), "event": event.__dict__})
+            event_type), "event_handler_type": str(type(handler)), "event": event.__dict__}, exc_info=e)
     return

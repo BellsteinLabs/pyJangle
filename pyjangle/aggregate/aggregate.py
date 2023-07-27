@@ -9,7 +9,7 @@ from pyjangle import CommandResponse
 from pyjangle import Command
 
 
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.registration.utility import (find_decorated_method_names,
                                            register_methods)
@@ -109,7 +109,7 @@ class Aggregate:
                          Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type])
 
     @property
-    def new_events(self) -> List[Event]:
+    def new_events(self) -> List[tuple[any, VersionedEvent]]:
         """New events created from validating commands.
 
         When an aggregate is instantiated and all of its 
@@ -119,11 +119,12 @@ class Aggregate:
         _post_new_event will show up here."""
         return self._new_events
 
-    def _post_new_event(self, event: Event):
+    def post_new_event(self, event: VersionedEvent, aggregate_id: any = None):
+        aggregate_id = self.id if aggregate_id == None else aggregate_id
         """Advertises new events that should be committed to the event store."""
-        self._new_events.append(event)
-        log(LogToggles.post_new_event, "Posted New Event", {
-            "aggregate_id": self.id, "event": event.__dict__})
+        self._new_events.append((aggregate_id, event))
+        log(LogToggles.post_new_event, "Posted New Event", {"aggregate_type": str(type(self)),
+            "aggregate_id": aggregate_id, "event_type": str(type(event)), "event": event.__dict__})
 
     @property
     def version(self):
@@ -136,7 +137,7 @@ class Aggregate:
     def version(self, value: int):
         self._version = value
 
-    def apply_events(self, events: List[Event]):
+    def apply_events(self, events: List[VersionedEvent]):
         """Process events to rebuild aggregate state.
 
         THROWS
@@ -169,28 +170,28 @@ class Aggregate:
                 "Missing command validator for " + str(type(command)) + "}", ke)
 
 
-def reconstitute_aggregate_state(type: type):
+def reconstitute_aggregate_state(event_type: type):
     """Decorates methods in an aggregate that reconstitute state from historical events."""
     def decorator(wrapped):
         # mark methods with this attribute to be found by _method_is_state_reconstitutor()
-        setattr(wrapped, STATE_RECONSTITUTOR_TYPE, type)
+        setattr(wrapped, STATE_RECONSTITUTOR_TYPE, event_type)
 
         @functools.wraps(wrapped)
-        def wrapper(self: Aggregate, event: Event, *args, **kwargs):
+        def wrapper(self: Aggregate, event: VersionedEvent, *args, **kwargs):
             # update the aggregate version if it is lower than the event version
             self.version = event.version if event.version > self.version else self.version
-            log(LogToggles.event_applied_to_aggregate, "Reconstituting aggregate state", {
-                "aggregate_id": self.id, "event": event.__dict__})
+            log(LogToggles.event_applied_to_aggregate, "Reconstituting aggregate state", {"aggregate_type": str(type(self)),
+                "aggregate_id": self.id, "event_type": str(type(event)), "event": event.__dict__})
             return wrapped(self, event, *args, **kwargs)
         return wrapper
     return decorator
 
 
-def validate_command(type: type):
+def validate_command(command_type: type):
     """Decorates methods in an aggregate that validate commands to produce events."""
     def decorator(wrapped):
         # mark methods with this attribute to be found by _method_is_command_validator()
-        setattr(wrapped, COMMAND_VALIDATOR_TYPE, type)
+        setattr(wrapped, COMMAND_VALIDATOR_TYPE, command_type)
         if len(inspect.signature(wrapped).parameters) != 3:
             raise AggregateError(
                 "@validate_command must decorate a method with 3 parameters: self, command: Command, next_version: int")
@@ -205,11 +206,11 @@ def validate_command(type: type):
             # if the command validator returns nothing, assume success.  It's a convenience feature.
             response = CommandResponse(True) if retVal == None else retVal
             if not response.is_success:
-                log(LogToggles.command_validation_failed, "Command validation failed", {
-                    "aggregate_id": self.id, "command": command.__dict__})
+                log(LogToggles.command_validation_failed, "Command validation failed", {"aggregate_type": str(type(self)),
+                    "aggregate_id": self.id, "command_type": str(type(command)), "command": command.__dict__})
             if response.is_success:
-                log(LogToggles.command_validation_succeeded, "Command validation succeeded", {
-                    "aggregate_id": self.id, "command": command.__dict__})
+                log(LogToggles.command_validation_succeeded, "Command validation succeeded", {"aggregate_type": str(type(self)),
+                    "aggregate_id": self.id, "command_type": str(type(command)), "command": command.__dict__})
             return response
         return wrapper
     return decorator

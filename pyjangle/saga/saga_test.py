@@ -2,7 +2,7 @@ import unittest
 from datetime import datetime
 from typing import List
 
-from pyjangle import (Event, Saga, SagaError, event_receiver,
+from pyjangle import (VersionedEvent, Saga, SagaError, event_receiver,
                       reconstitute_saga_state)
 from pyjangle.test.events import EventThatCompletesSaga, EventThatContinuesSaga
 from pyjangle.test.sagas import SagaForTesting
@@ -18,7 +18,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(SagaError):
             class A(Saga):
 
-                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                     super().__init__(saga_id, events, retry_at,
                                      timeout_at, is_complete)  # pragma no cover
 
@@ -33,7 +33,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(SagaError):
             class A(Saga):
 
-                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                     super().__init__(saga_id, events, retry_at,
                                      timeout_at, is_complete)  # pragma no cover
 
@@ -48,7 +48,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(SagaError):
             class A(Saga):
 
-                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
                 @reconstitute_saga_state(EventThatContinuesSaga)
@@ -70,7 +70,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(SagaError):
             class A(Saga):
 
-                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                     super().__init__(saga_id, events, retry_at,
                                      timeout_at, is_complete)  # pragma no cover
 
@@ -90,7 +90,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(SagaError):
             class A(Saga):
 
-                def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
                 @event_receiver(EventThatContinuesSaga)
@@ -124,7 +124,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
     def test_init(self):
         class A(Saga):
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -148,7 +148,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
     def test_set_retry(self):
         class A(Saga):
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -170,7 +170,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
     def test_set_complete(self):
         class A(Saga):
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -192,7 +192,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
     def test_set_timeout(self):
         class A(Saga):
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -213,7 +213,7 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
     def test_set_timed_out(self):
         class A(Saga):
 
-            def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)

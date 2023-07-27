@@ -4,7 +4,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import pyjangle.test.aggregates
-from pyjangle import (Event, EventDispatcherError, RegisterEventDispatcher,
+from pyjangle import (VersionedEvent, EventDispatcherError, RegisterEventDispatcher,
                       begin_processing_committed_events,
                       event_dispatcher_instance, event_repository_instance,
                       handle_command, tasks)
@@ -19,21 +19,26 @@ from pyjangle.test.transient_event_repository import TransientEventRepository
 @patch(EVENT_DISPATCHER, None)
 class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
 
-    def test_register_multiple_event_dispatcher(self, *_):
+    async def test_register_multiple_event_dispatcher(self, *_):
         @RegisterEventDispatcher
-        def Event_dispatcher1(_): pass
+        async def Event_dispatcher1(_): pass
         with self.assertRaises(EventDispatcherError):
             @RegisterEventDispatcher
             def Event_dispatcher2(_): pass
 
-    def test_register_event_dispatcher_with_wrong_function_signature_raises_error(self, *_):
+    async def test_register_event_dispatcher_with_wrong_function_signature_raises_error(self, *_):
+        with self.assertRaises(EventDispatcherError):
+            @RegisterEventDispatcher
+            async def Event_dispatcher(): pass
+
+    async def test_register_event_dispatcher_not_coroutine_then_error(self, *_):
         with self.assertRaises(EventDispatcherError):
             @RegisterEventDispatcher
             def Event_dispatcher(): pass
 
-    def test_register_event_dispatcher(self, *_):
+    async def test_register_event_dispatcher(self, *_):
         @RegisterEventDispatcher
-        def Event_dispatcher(event: Event): pass
+        async def Event_dispatcher(event: VersionedEvent): pass
 
         self.assertEqual(event_dispatcher_instance().__name__,
                          Event_dispatcher.__name__)
@@ -42,7 +47,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
         q = Queue()
 
         @RegisterEventDispatcher
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             await q.put(event)
 
         await handle_command(CommandThatAlwaysSucceeds())
@@ -61,7 +66,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
         q = Queue()
 
         @RegisterEventDispatcher
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             await q.put(True)
             raise Exception()
         task = create_task(begin_processing_committed_events())
@@ -76,7 +81,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
         event_repo = event_repository_instance()
 
         @RegisterEventDispatcher
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             try:
                 raise Exception()
             finally:
@@ -93,7 +98,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
         q = Queue()
 
         @RegisterEventDispatcher
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             await q.put(True)
         task = create_task(begin_processing_committed_events())
         await handle_command(CommandThatAlwaysSucceeds())

@@ -1,9 +1,14 @@
 import abc
-from datetime import datetime
+from datetime import datetime, timedelta
 import functools
 import inspect
-from typing import Callable, Iterable, List
-from pyjangle.event.event import Event
+import logging
+import os
+from typing import Awaitable, Callable, Iterable, List
+from pyjangle.command.command_dispatcher import CommandDispatcherError, command_dispatcher_instance
+from pyjangle.command.command_response import CommandResponse
+from pyjangle.event.event import Event, VersionedEvent
+from pyjangle.logging.logging import LogToggles, log
 from pyjangle.registration.utility import find_decorated_method_names, register_methods
 
 # Name of the attribute used to tag saga methods decorated with
@@ -21,12 +26,28 @@ _STATE_RECONSTITUTOR_EVENT_TYPE = "__state_reconstitutor_event_type"
 # methods decorated with @reconstitute_saga_state
 _EVENT_TO_STATE_RECONSTITUTORS_MAP = "__event_to_state_reconstitutors_map"
 
+_SAGA_RETRY_INTERVAL_ENV_VAR = "SAGA_RETRY_INTERVAL"
+
+
+def get_saga_retry_wait_interval():
+    default = 30
+    try:
+        raw = os.getenv(_SAGA_RETRY_INTERVAL_ENV_VAR, default)
+        return int(raw)
+    except ValueError:
+        log(logging.ERROR,
+            f"Specify an integer for {_SAGA_RETRY_INTERVAL_ENV_VAR}. '{raw}' is invalid")
+        return default
+
+
+DEFAULT_SAGA_RETRY_WAIT_INTERVAL = get_saga_retry_wait_interval()
+
 
 class SagaError(Exception):
     pass
 
 
-def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = True):
+def reconstitute_saga_state(type: type[VersionedEvent], add_event_type_to_flags: bool = True):
     """Decorates saga methods that reconstitute state from events.
 
     PARAMETERS
@@ -63,7 +84,7 @@ def reconstitute_saga_state(type: type[Event], add_event_type_to_flags: bool = T
     return decorator
 
 
-def event_receiver(type: type, require_event_type_in_flags: bool = True, required_flags: Iterable = [], skip_if_any_flags_set: Iterable = []):
+def event_receiver(type: type, require_event_type_in_flags: bool = True, required_flags: Iterable = [], skip_if_any_flags_set: Iterable = [], default_retry_interval_in_seconds: int = None):
     """Decorates saga methods that receive events.
 
     All but the first of the parameters are provided 
@@ -119,7 +140,12 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
             if require_event_type_in_flags and not type in self.flags:
                 return
             if self.flags.issuperset(required_flags) and not self.flags.intersection(skip_if_any_flags_set):
-                return await wrapped(self)
+                try:
+                    return await wrapped(self)
+                except Exception as e:
+                    self._log_command_failure(self._last_command)
+                    self.set_retry(
+                        default_retry_interval_in_seconds if default_retry_interval_in_seconds else DEFAULT_SAGA_RETRY_WAIT_INTERVAL)
         return wrapper
     return decorator
 
@@ -213,7 +239,7 @@ class Saga:
     # type.
     _saga_type_to_event_receiver_method_names = dict()
 
-    def __init__(self, saga_id: any, events: List[Event], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
+    def __init__(self, saga_id: any, events: List[Event] = [], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
         saga_type = type(self)
 
         # Update the cache with method names if needed.
@@ -235,11 +261,25 @@ class Saga:
         self.timeout_at = timeout_at
         self.is_timed_out = is_timed_out
         self.is_complete = is_complete
-        self.new_events: list[Event] = []
+        self.new_events: list[VersionedEvent] = []
         self.is_dirty = False
         self._apply_historical_events(events)
+        try:
+            self._command_dispatcher = command_dispatcher_instance()
+        except CommandDispatcherError:
+            self._command_dispatcher = None
 
-    async def evaluate(self, event: Event = None):
+    async def dispatch_command(self, command: any) -> CommandResponse:
+        self._last_command = command
+        if not self._command_dispatcher:
+            raise CommandDispatcherError(
+                "No command dispatcher registerd with @RegisterCommandDispatcher")
+        return await self._command_dispatcher(self._last_command)
+
+    def flags_has_any(self, *args: any):
+        return set(args).intersection(self.flags)
+
+    async def evaluate(self, event: VersionedEvent = None):
         """Call to process add a new event to the saga.
 
         When this method is called, the assumption is 
@@ -249,10 +289,10 @@ class Saga:
             self.set_timed_out()
             return
         self.retry_at = None
-        event_receiver_map: dict[Event, Callable[[Event], None]] = getattr(
+        event_receiver_map: dict[VersionedEvent, Callable[[VersionedEvent], None]] = getattr(
             self, _EVENT_TO_EXTERNAL_RECEIVED_MAP)
         if event:
-            self._post_new_event(event)
+            self.post_new_event(event)
             self._apply_historical_events([event])
             event_type = type(event)
             try:
@@ -280,13 +320,15 @@ class Saga:
         self.is_dirty = True
         self.is_timed_out = True
 
-    def set_retry(self, retry_at: datetime):
+    def set_retry(self, retry_at: datetime | float | int):
         """Call from evaluate() to specify when the saga should retry."""
+        if retry_at and not isinstance(retry_at, datetime):
+            retry_at = datetime.now() + timedelta(seconds=retry_at)
         if self.retry_at != retry_at:
             self.is_dirty = True
         self.retry_at = retry_at
 
-    def _apply_historical_events(self, events: List[Event]):
+    def _apply_historical_events(self, events: List[VersionedEvent]):
         """Applies events to rebuild aggregate state.
 
         THROWS
@@ -302,12 +344,17 @@ class Saga:
             raise SagaError(
                 "Missing state reconstitutor (@reconstitute_saga_state) for " + str(type(e)) + "}", ke)
 
-    def _post_new_event(self, event: Event):
+    def post_new_event(self, event: VersionedEvent):
         """Call from evalute() to post new state change events.  
 
         Events that are received to progress
         saga state are already committed by the 
         framework, so events that are posted using this method
          are generally to set flags when commands are sent. """
+        self._apply_historical_events([event])
         self.is_dirty = True
         self.new_events.append(event)
+
+    def _log_command_failure(command: any, exception: Exception):
+        log(LogToggles.saga_command_failed, "Command failed", {"command_type": str(
+            type(command)), "command": command.__dict__ if command else None}, exc_info=exception)

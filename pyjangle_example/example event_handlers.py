@@ -1,5 +1,5 @@
-from example_commands import CreditSendFunds, RollbackSendFundsDebit, SendFunds
-from example_events import SendFundsDebited
+from pyjangle_example.example_commands import CreditSendFunds, RollbackSendFundsDebit, SendFunds
+from pyjangle_example.example_events import SendFundsDebited
 
 from pyjangle import (JangleError, command_dispatcher_instance,
                       register_event_handler)

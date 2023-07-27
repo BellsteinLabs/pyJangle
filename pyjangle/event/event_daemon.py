@@ -1,7 +1,7 @@
 from asyncio import Queue, sleep
 import asyncio
 from datetime import timedelta
-from pyjangle.event.event_dispatcher import EventDispatcherError, enqueue_committed_event_for_dispatch, event_dispatcher_instance
+from pyjangle.event.event_dispatcher import EventDispatcherError, event_dispatcher_instance
 from pyjangle.event.event_repository import event_repository_instance
 from pyjangle.event.event_handler import handle_event
 from pyjangle.logging.logging import LogToggles, log

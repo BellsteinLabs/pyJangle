@@ -2,7 +2,7 @@ import unittest
 from typing import List
 from unittest.mock import patch
 
-from pyjangle import (Event, EventRepositoryError, RegisterEventRepository,
+from pyjangle import (VersionedEvent, EventRepositoryError, RegisterEventRepository,
                       event_repository_instance)
 from pyjangle.test.registration_paths import EVENT_REPO
 
@@ -14,11 +14,11 @@ class TestEventRepository(unittest.TestCase):
         @RegisterEventRepository
         class A:
             def get_events(self, aggregate_id: any,
-                           current_version=0) -> List[Event]: pass
+                           current_version=0) -> List[VersionedEvent]: pass
 
-            def commit_events(self, events: List[Event]): pass
+            def commit_events(self, events: List[VersionedEvent]): pass
 
-            def mark_event_handled(self, event: Event): pass
+            def mark_event_handled(self, event: VersionedEvent): pass
 
             def get_failed_events(self, batch_size: int): pass
 

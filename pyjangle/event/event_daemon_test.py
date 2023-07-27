@@ -4,7 +4,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
 import pyjangle
-from pyjangle import (Event, EventDispatcherError, EventRepositoryError,
+from pyjangle import (VersionedEvent, EventDispatcherError, EventRepositoryError,
                       RegisterEventDispatcher,
                       begin_processing_committed_events,
                       begin_retry_failed_events_loop,
@@ -24,7 +24,7 @@ class TestEventDaemon(IsolatedAsyncioTestCase):
         event_repo = event_repository_instance()
 
         @RegisterEventDispatcher
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             if not hasattr(foo, "count"):
                 foo.count = 0
             foo.count += 1
@@ -46,7 +46,7 @@ class TestEventDaemon(IsolatedAsyncioTestCase):
 
     async def test_when_no_event_repository_then_exception(self, *_):
         @RegisterEventDispatcher
-        async def foo(event: Event):
+        async def foo(event: VersionedEvent):
             pass
         with patch(EVENT_REPO, None):
             with self.assertRaises(EventRepositoryError):

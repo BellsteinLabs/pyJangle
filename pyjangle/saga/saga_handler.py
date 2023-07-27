@@ -1,5 +1,5 @@
 from pyjangle import JangleError
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.event.event_repository import DuplicateKeyError
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga import Saga
@@ -10,7 +10,7 @@ class SagaHandlerError(JangleError):
     pass
 
 
-async def handle_saga_event(saga_id: any, event: Event, saga_type: type[Saga] | None):
+async def handle_saga_event(saga_id: any, event: VersionedEvent, saga_type: type[Saga] | None):
     """Connects events to their respective sagas.
 
     When an event handler for an event related

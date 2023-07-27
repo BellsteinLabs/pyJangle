@@ -1,6 +1,6 @@
 import asyncio
 import inspect
-from typing import Callable
+from typing import Awaitable, Callable
 from pyjangle import CommandResponse
 
 from pyjangle import JangleError

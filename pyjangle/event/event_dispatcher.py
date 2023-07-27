@@ -7,7 +7,7 @@ import os
 from typing import Callable, List
 
 from pyjangle import JangleError
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.event.event_repository import event_repository_instance
 from pyjangle.logging.logging import LogToggles, log
 
@@ -27,7 +27,7 @@ async def begin_processing_committed_events():
         await _dispatch_event(event)
 
 
-async def _dispatch_event(event: Event):
+async def _dispatch_event(event: VersionedEvent):
     try:
         event_repo = event_repository_instance()
         await _event_dispatcher(event)
@@ -42,7 +42,7 @@ _event_dispatcher = None
 _committed_event_queue = Queue(maxsize=COMMITTED_EVENT_QUEUE_SIZE)
 
 
-async def enqueue_committed_event_for_dispatch(event: Event):
+async def enqueue_committed_event_for_dispatch(event: VersionedEvent):
     await _committed_event_queue.put(event)
 
 
@@ -50,7 +50,7 @@ class EventDispatcherError(JangleError):
     pass
 
 
-def RegisterEventDispatcher(wrapped):
+def RegisterEventDispatcher(wrapped: Callable):
     """Register a single event dispatcher.
 
     Once events are persisted to durable storage,
@@ -76,19 +76,20 @@ def RegisterEventDispatcher(wrapped):
     EventDispatcherError when multiple event 
     dispatchers are registered.
     """
-    if len(inspect.signature(wrapped).parameters) != 1:
+
+    if not callable(wrapped) or len(inspect.signature(wrapped).parameters) != 1 or not inspect.iscoroutinefunction(wrapped):
         raise EventDispatcherError(
-            "@RegisterEventDispatcher must decorate a method with 1 parameters: event: Event")
+            "@RegisterEventDispatcher must decorate a method with 1 parameters: async def func_name(event: Event)")
     global _event_dispatcher
     if _event_dispatcher != None:
         raise EventDispatcherError(
             "Cannot register multiple event dispatchers: " + str(type(_event_dispatcher)) + ", " + str(wrapped))
     _event_dispatcher = wrapped
     log(LogToggles.event_dispatcher_registration, "Event dispatcher registered", {
-        "event_dispatcher_type": str(type(wrapped))})
+        "event_dispatcher_type": wrapped.__module__ + "." + wrapped.__name__})
     return wrapped
 
 
-def event_dispatcher_instance() -> Callable[[List[Event], Callable[[Event], None]], None]:
+def event_dispatcher_instance() -> Callable[[List[VersionedEvent], Callable[[VersionedEvent], None]], None]:
     """Returns the registered singleton event dispatcher."""
     return _event_dispatcher

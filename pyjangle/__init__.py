@@ -8,7 +8,7 @@ from .command.command_handler import handle_command
 
 from .aggregate.aggregate import Aggregate, AggregateError, register_methods, reconstitute_aggregate_state, validate_command
 
-from .event.event import EventError, Event
+from .event.event import EventError, Event, VersionedEvent
 from .event.register_event import EventRegistrationError, RegisterEvent, get_event_name, get_event_type
 from .event.event_repository import RegisterEventRepository, EventRepository, event_repository_instance, EventRepositoryError, DuplicateKeyError
 from .event.event_handler import EventHandlerError, EventHandlerRegistrationError, register_event_handler, handle_event

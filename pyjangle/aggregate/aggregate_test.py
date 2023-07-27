@@ -82,7 +82,7 @@ class TestAggregate(unittest.TestCase):
             @validate_command(CommandThatAlwaysSucceeds)
             def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
                 self.updated_version = next_version
-                self._post_new_event(EventA(id=2, version=2, created_at=None))
+                self.post_new_event(EventA(id=2, version=2, created_at=None))
 
         a = A(1)
         a.validate(CommandThatAlwaysSucceeds())

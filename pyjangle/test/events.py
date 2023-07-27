@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from datetime import datetime
 import uuid
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.event.register_event import RegisterEvent
 
 
 @RegisterEvent()
 @dataclass(frozen=True, kw_only=True)
-class EventA(Event):
+class EventA(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]
         data["created_at"] = data["created_at"]
@@ -16,7 +16,7 @@ class EventA(Event):
 
 @RegisterEvent()
 @dataclass(frozen=True, kw_only=True)
-class EventB(Event):
+class EventB(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -25,7 +25,7 @@ class EventB(Event):
 
 @RegisterEvent()
 @dataclass(frozen=True, kw_only=True)
-class EventThatCompletesSaga(Event):
+class EventThatCompletesSaga(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -34,7 +34,7 @@ class EventThatCompletesSaga(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class EventThatContinuesSaga(Event):
+class EventThatContinuesSaga(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -43,7 +43,7 @@ class EventThatContinuesSaga(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class EventThatTimesOutSaga(Event):
+class EventThatTimesOutSaga(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -52,7 +52,7 @@ class EventThatTimesOutSaga(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class EventThatCompletesACommand(Event):
+class EventThatCompletesACommand(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -61,7 +61,7 @@ class EventThatCompletesACommand(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class EventThatSetsSagaToTimedOut(Event):
+class EventThatSetsSagaToTimedOut(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -70,7 +70,7 @@ class EventThatSetsSagaToTimedOut(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class EventThatCausesDuplicateKeyError(Event):
+class EventThatCausesDuplicateKeyError(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -79,7 +79,7 @@ class EventThatCausesDuplicateKeyError(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class EventThatCausesSagaToRetry(Event):
+class EventThatCausesSagaToRetry(VersionedEvent):
     def deserialize(data: any) -> any:
         data["id"] = data["id"]  # pragma no cover
         data["created_at"] = data["created_at"]  # pragma no cover
@@ -88,7 +88,7 @@ class EventThatCausesSagaToRetry(Event):
 
 @RegisterEvent
 @dataclass(frozen=True, kw_only=True)
-class TestSagaEvent(Event):
+class TestSagaEvent(VersionedEvent):
     version: int = 0
 
     def deserialize(data: any) -> any:

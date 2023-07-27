@@ -3,7 +3,7 @@ import json
 import sqlite3
 import os
 from typing import Iterator, List
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 
 from pyjangle.event.event_repository import DuplicateKeyError, EventRepository
 from pyjangle.logging.logging import log
@@ -21,7 +21,7 @@ class SqlLiteEventRepository(EventRepository):
             conn.executescript(create_event_store_sql_script)
         conn.close()
 
-    async def get_events(self, aggregate_id: any, batch_size: int = 100, current_version=0) -> Iterator[Event]:
+    async def get_events(self, aggregate_id: any, batch_size: int = 100, current_version=0) -> Iterator[VersionedEvent]:
         q = f"""
             SELECT {FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}
             FROM {TABLES.EVENT_STORE}
@@ -31,7 +31,7 @@ class SqlLiteEventRepository(EventRepository):
         params = (aggregate_id, current_version)
         return yield_results(db_path=DB_EVENT_STORE_PATH, query=q, params=params, batch_size=batch_size, deserializer=get_event_deserializer())
 
-    async def get_unhandled_events(self, batch_size: int, time_since_published: timedelta) -> Iterator[Event]:
+    async def get_unhandled_events(self, batch_size: int, time_since_published: timedelta) -> Iterator[VersionedEvent]:
         q = f"""
             SELECT {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}
             FROM {TABLES.PENDING_EVENTS}
@@ -40,7 +40,7 @@ class SqlLiteEventRepository(EventRepository):
         """
         return yield_results(db_path=DB_EVENT_STORE_PATH, batch_size=batch_size, query=q, params=None, deserializer=get_event_deserializer())
 
-    async def commit_events(self, aggregate_id: any, events: List[Event]):
+    async def commit_events(self, aggregate_id_and_event_tuples: list[tuple[any, VersionedEvent]]):
         q_insert_event_store = f"""
             INSERT INTO {TABLES.EVENT_STORE} ({FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}) VALUES (?,?,?,?,?,?);
         """
@@ -48,14 +48,14 @@ class SqlLiteEventRepository(EventRepository):
             INSERT INTO {TABLES.PENDING_EVENTS} ({FIELDS.PENDING_EVENTS.EVENT_ID}) VALUES (?);
         """
         data_insert_event_store = [
-            (serialized_event[FIELDS.EVENT_STORE.EVENT_ID],
-             aggregate_id,
-             serialized_event[FIELDS.EVENT_STORE.AGGREGATE_VERSION],
-             serialized_event[FIELDS.EVENT_STORE.DATA],
-             serialized_event[FIELDS.EVENT_STORE.CREATED_AT],
-             serialized_event[FIELDS.EVENT_STORE.TYPE])
-            for serialized_event in
-            [get_event_serializer()(event) for event in events]]
+            (aggregate_id_and_serialized_event_tuple[1][FIELDS.EVENT_STORE.EVENT_ID],
+             aggregate_id_and_serialized_event_tuple[0],
+             aggregate_id_and_serialized_event_tuple[1][FIELDS.EVENT_STORE.AGGREGATE_VERSION],
+             aggregate_id_and_serialized_event_tuple[1][FIELDS.EVENT_STORE.DATA],
+             aggregate_id_and_serialized_event_tuple[1][FIELDS.EVENT_STORE.CREATED_AT],
+             aggregate_id_and_serialized_event_tuple[1][FIELDS.EVENT_STORE.TYPE])
+            for aggregate_id_and_serialized_event_tuple in
+            [(aggregate_id_and_event_tuple[0], get_event_serializer()(aggregate_id_and_event_tuple[1])) for aggregate_id_and_event_tuple in aggregate_id_and_event_tuples]]
         data_insert_pending_events = [(row_tuple[0],)
                                       for row_tuple in data_insert_event_store]
         try:

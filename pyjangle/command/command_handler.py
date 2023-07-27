@@ -1,16 +1,15 @@
-from __future__ import annotations
 from pyjangle.aggregate.aggregate import Aggregate
 from pyjangle import Command
 from pyjangle import CommandResponse
 
 
 from pyjangle import command_to_aggregate_map_instance
-from pyjangle.event.event import Event
+from pyjangle.event.event import VersionedEvent
 from pyjangle.event.event_dispatcher import (
     enqueue_committed_event_for_dispatch, event_dispatcher_instance)
 from pyjangle.event.event_repository import (DuplicateKeyError,
                                              event_repository_instance)
-from pyjangle.logging.logging import LogToggles, log
+from pyjangle.logging.logging import ERROR, LogToggles, log
 from pyjangle.snapshot.snapshot_repository import snapshot_repository_instance
 from pyjangle.snapshot.snapshottable import Snapshottable
 
@@ -28,35 +27,39 @@ async def handle_command(command: Command) -> CommandResponse:
     someone else got there first), this method will retry command validation
     until it succeeds (optimistic concurrency at its finest)"""
 
-    aggregate_id = command.get_aggregate_id()
-    log(LogToggles.command_received, "Command received", {
-        "aggregate_id": aggregate_id, "command_data": command.__dict__})
-    while True:
-        # create blank instance of relevant aggregate based on command type
-        aggregate = command_to_aggregate_map_instance()[
-            type(command)](id=aggregate_id)
-        log(LogToggles.aggregate_created, "Blank aggregate created", {
-            "aggregate_id": aggregate_id, "aggregate_type": str(type(aggregate))})
-        # this will apply any snapshotting to the aggregate AND update its verison
-        aggregate = await _apply_snapshotting_to_aggregate(aggregate, command)
-        event_repository = event_repository_instance()
-        # get post-snapshot events for aggregate (it's why the version is passed in as an argument)
-        events = await event_repository.get_events(aggregate_id, aggregate.version)
-        log(LogToggles.retrieved_aggregate_events, "Retrieved aggregate events", {
-            "aggregate_id": aggregate_id, "aggregate_type": str(type(aggregate)), "event_count": len(list(events))})
-        aggregate.apply_events(events)
-        command_response = aggregate.validate(command)
-        if command_response.is_success:
-            try:
-                await event_repository.commit_events(aggregate_id, aggregate.new_events)
-                for e in aggregate.new_events:
-                    log(LogToggles.committed_event, "Event committed", {
-                        "aggregate_id": aggregate_id, "event": e.__dict__})
-                await _record_new_snapshot_if_applicable(aggregate_id, aggregate)
-                await _dispatch_events_locally(aggregate.new_events)
-            except DuplicateKeyError:
-                continue
-        return command_response
+    try:
+        aggregate_id = command.get_aggregate_id()
+        log(LogToggles.command_received, "Command received", {
+            "aggregate_id": aggregate_id, "command_type": str(type(command)), "command_data": command.__dict__})
+        while True:
+            # create blank instance of relevant aggregate based on command type
+            aggregate = command_to_aggregate_map_instance()[
+                type(command)](id=aggregate_id)
+            log(LogToggles.aggregate_created, "Blank aggregate created", {
+                "aggregate_id": aggregate_id, "aggregate_type": str(type(aggregate))})
+            # this will apply any snapshotting to the aggregate AND update its verison
+            aggregate = await _apply_snapshotting_to_aggregate(aggregate, command)
+            event_repository = event_repository_instance()
+            # get post-snapshot events for aggregate (it's why the version is passed in as an argument)
+            events = await event_repository.get_events(aggregate_id, aggregate.version)
+            log(LogToggles.retrieved_aggregate_events, "Retrieved aggregate events", {
+                "aggregate_id": aggregate_id, "aggregate_type": str(type(aggregate)), "event_count": len(list(events))})
+            aggregate.apply_events(events)
+            command_response = aggregate.validate(command)
+            if command_response.is_success:
+                try:
+                    await event_repository.commit_events(aggregate.new_events)
+                    for (id, event) in aggregate.new_events:
+                        log(LogToggles.committed_event, "Event committed", {"aggregate_type": str(type(aggregate)),
+                            "aggregate_id": id, "event_type": str(type(event)), "event": event.__dict__})
+                    await _record_new_snapshot_if_applicable(aggregate_id, aggregate)
+                    await _dispatch_events_locally([event for (_, event) in aggregate.new_events])
+                except DuplicateKeyError:
+                    continue
+            return command_response
+    except Exception as e:
+        log(ERROR, msg="Error while handling command", exc_info=e)
+        raise
 
 
 async def _apply_snapshotting_to_aggregate(aggregate: Snapshottable, command: Command) -> Aggregate:
@@ -69,7 +72,7 @@ async def _apply_snapshotting_to_aggregate(aggregate: Snapshottable, command: Co
     if not is_snapshotting:
         return aggregate
     log(LogToggles.is_snapshotting, f"Snapshotting status", {
-        "enabled": is_snapshotting, "aggregate_id": aggregate.id, "aggregate_type": str(type(aggregate))})
+        "enabled": is_snapshotting, "aggregate_type": str(type(aggregate)), "aggregate_id": aggregate.id})
     snapshot_repo = snapshot_repository_instance() if is_snapshotting else None
     version_and_snapshot_tuple = await snapshot_repo.get_snapshot(command.get_aggregate_id()) if is_snapshotting else None
     log(LogToggles.is_snapshot_found, f"Snapshot was {'found' if version_and_snapshot_tuple != None else 'not found'}.", {
@@ -87,7 +90,7 @@ async def _apply_snapshotting_to_aggregate(aggregate: Snapshottable, command: Co
             # to become outdated, most likely.  The snapshot will be
             # deleted.
             log(LogToggles.snapshot_application_failed,
-                "Snapshot application failed", exc_info=e)
+                msg="Snapshot application failed", exc_info=e)
             # Reset the aggregate to a pristine state just in case the
             # snapshot was partially applied.
             aggregate = command_to_aggregate_map_instance()[
@@ -118,7 +121,8 @@ async def _record_new_snapshot_if_applicable(aggregate_id: any, aggregate: Aggre
         # events that were created from the command validators.  Normally
         # these events are NOT applied until the next time the aggregate
         # is instantiated!
-        aggregate.apply_events(aggregate.new_events)
+        aggregate.apply_events([event for (current_aggregate_id, event)
+                               in aggregate.new_events if current_aggregate_id == aggregate_id])
         await snapshot_repository_instance().store_snapshot(aggregate_id, aggregate.version, snapshotable.get_snapshot())
         log(LogToggles.snapshot_taken, "Snapshot recorded", {
             "aggregate_id": aggregate.id, "aggregate_type": str(type(aggregate)), "version": updated_version})
@@ -132,7 +136,7 @@ def _is_snapshotting(aggregate: Aggregate) -> bool:
     return isinstance(aggregate, Snapshottable) and aggregate.get_snapshot_frequency() > 0
 
 
-async def _dispatch_events_locally(events: list[Event]):
+async def _dispatch_events_locally(events: list[VersionedEvent]):
     """Does something with events after they're committed to the event repository.
 
     The something that this does is determined by the event dispatcher that's 
