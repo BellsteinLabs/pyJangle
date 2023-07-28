@@ -16,7 +16,7 @@ class TestCommandDispatcher(unittest.IsolatedAsyncioTestCase):
             @RegisterCommandDispatcher
             async def command_dispatcher2(command) -> CommandResponse: pass
 
-    async def test_register_command_dispatcher(self):
+    async def test_register_aggregate_dispatcher(self):
         @RegisterCommandDispatcher
         async def command_dispatcher(command) -> CommandResponse: pass
 

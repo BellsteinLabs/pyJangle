@@ -85,9 +85,9 @@ class Aggregate:
     def __init__(self, id: any):
         self.id = id
         self._new_events = []
-        self._register_command_validators_and_state_reconstitutors()
+        self._register_aggregate_validators_and_state_reconstitutors()
 
-    def _register_command_validators_and_state_reconstitutors(self):
+    def _register_aggregate_validators_and_state_reconstitutors(self):
         """Registers methods decorated with @validate_command and @reconstitute_aggregate_state."""
         aggregate_type = type(self)
 

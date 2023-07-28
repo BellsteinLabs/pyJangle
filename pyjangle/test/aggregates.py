@@ -1,13 +1,13 @@
 from datetime import datetime
 from pyjangle import Aggregate, reconstitute_aggregate_state, validate_command
 from pyjangle import CommandResponse
-from pyjangle import RegisterCommand
+from pyjangle import RegisterAggregate
 from pyjangle import Snapshottable
 from pyjangle.test.commands import AnotherCommandThatAlwaysSucceeds, CommandThatAlwaysSucceeds, CommandThatFails
 from pyjangle.test.events import EventA
 
 
-@RegisterCommand(CommandThatAlwaysSucceeds)
+@RegisterAggregate
 class SnapshottableTestAggregate(Aggregate, Snapshottable):
 
     def __init__(self, id: any):
@@ -33,7 +33,7 @@ class SnapshottableTestAggregate(Aggregate, Snapshottable):
         return 2
 
 
-@RegisterCommand(AnotherCommandThatAlwaysSucceeds, CommandThatFails)
+@RegisterAggregate
 class NotSnapshottableTestAggregate(Aggregate):
 
     def __init__(self, id: any):

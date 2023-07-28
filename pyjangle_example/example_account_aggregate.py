@@ -3,7 +3,7 @@ import functools
 from pyjangle_example.example_commands import *
 from pyjangle_example.example_events import *
 
-from pyjangle import (Aggregate, CommandResponse, RegisterCommand,
+from pyjangle import (Aggregate, CommandResponse, RegisterAggregate,
                       reconstitute_aggregate_state, validate_command)
 
 AMOUNT_INDEX = 0
@@ -38,7 +38,7 @@ def fail_if_transaction_timed_out(func):
     return wrapper
 
 
-@RegisterCommand(DepositFunds, WithdrawFunds, SendFunds, ReceiveFunds, RequestForgiveness, DeleteAccount, TryObtainReceiveFundsApproval, NotifyReceiveFundsRejected, CreditSendFunds)
+@RegisterAggregate
 class AccountAggregate(Aggregate):
 
     def __init__(self, **kwargs):

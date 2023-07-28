@@ -3,7 +3,7 @@ from .error.error import JangleError
 from .command.command_response import CommandResponse
 from .command.command import Command
 from .command.command_dispatcher import RegisterCommandDispatcher, command_dispatcher_instance, CommandDispatcherError
-from .command.register_command import command_to_aggregate_map_instance, CommandRegistrationError, RegisterCommand
+from .command.register_aggregate import command_to_aggregate_map_instance, CommandRegistrationError, RegisterAggregate
 from .command.command_handler import handle_command
 
 from .aggregate.aggregate import Aggregate, AggregateError, register_methods, reconstitute_aggregate_state, validate_command

@@ -4,11 +4,11 @@ from datetime import datetime
 from pyjangle_example.example_commands import CreateAccount
 from pyjangle_example.example_events import AccountCreated, AccountIdProvisioned, FundsDeposited
 
-from pyjangle import (Aggregate, CommandResponse, RegisterCommand,
+from pyjangle import (Aggregate, CommandResponse, RegisterAggregate,
                       reconstitute_aggregate_state, validate_command)
 
 
-@RegisterCommand(CreateAccount)
+@RegisterAggregate
 class AccountCreationAggregate(Aggregate):
 
     @validate_command(CreateAccount)
@@ -21,7 +21,8 @@ class AccountCreationAggregate(Aggregate):
         account_created_event = AccountCreated(
             version=1, account_id=next_account_id, name=command.name)
         # TODO: Define the add_to_new_events method
-        self.post_new_event(account_created_event, aggregate_id=next_account_id)
+        self.post_new_event(account_created_event,
+                            aggregate_id=next_account_id)
         if command.initial_deposit:
             funds_deposited_event = FundsDeposited(
                 version=2, account_id=next_account_id, amount=command.initial_deposit)

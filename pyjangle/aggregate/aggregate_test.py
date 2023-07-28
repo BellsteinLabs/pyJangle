@@ -8,7 +8,7 @@ from pyjangle.test.events import EventA
 
 class TestAggregate(unittest.TestCase):
 
-    def test_register_command_validator(self):
+    def test_register_aggregate_validator(self):
         class A(Aggregate):
 
             @validate_command(CommandThatAlwaysSucceeds)

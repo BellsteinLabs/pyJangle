@@ -87,7 +87,7 @@ class TestCommandHandler(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(
             pyjangle.snapshot.snapshot_repository._registered_snapshot_repository._snapshots), 1)
         # Throw exception when this snapshot is applied
-        with patch.object(pyjangle.command.register_command._command_to_aggregate_map[CommandThatAlwaysSucceeds], "apply_snapshot", MagicMock(side_effect=Exception)):
+        with patch.object(pyjangle.command.register_aggregate._command_to_aggregate_map[CommandThatAlwaysSucceeds], "apply_snapshot", MagicMock(side_effect=Exception)):
             await handle_command(CommandThatAlwaysSucceeds())
         self.assertEqual(len(
             pyjangle.snapshot.snapshot_repository._registered_snapshot_repository._snapshots), 0)
