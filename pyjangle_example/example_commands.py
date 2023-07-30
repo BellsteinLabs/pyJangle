@@ -9,7 +9,9 @@ from dataclasses import dataclass
 from pyjangle import Command
 from pyjangle_example.example_static_aggregate_ids import ACCOUNT_CREATION_AGGREGATE_ID
 
-#--------------
+# --------------
+
+
 @dataclass(frozen=True, kw_only=True)
 class CreateAccount(Command):
     """Requests a new account to be created."""
@@ -19,7 +21,9 @@ class CreateAccount(Command):
     def get_aggregate_id(self):
         return ACCOUNT_CREATION_AGGREGATE_ID
 
-#--------------
+# --------------
+
+
 @dataclass(frozen=True, kw_only=True)
 class DepositFunds(Command):
     """Deposits funds into an account."""
@@ -29,7 +33,9 @@ class DepositFunds(Command):
     def get_aggregate_id(self):
         return self.account_id
 
-#--------------
+# --------------
+
+
 @dataclass(frozen=True, kw_only=True)
 class WithdrawFunds(Command):
     """Withdraws funds from an account."""
@@ -39,7 +45,9 @@ class WithdrawFunds(Command):
     def get_aggregate_id(self):
         return self.account_id
 
-#--------------
+# --------------
+
+
 @dataclass(frozen=True, kw_only=True)
 class SendFunds(Command):
     """Transfer funds to another account."""
@@ -73,7 +81,9 @@ class ReceiveFunds(Command):
         if self.funded_account_id == self.funding_account_id:
             raise ValueError("Receiving funds from self not allowed.")
 
-#--------------
+# --------------
+
+
 @dataclass(frozen=True, kw_only=True)
 class RequestForgiveness(Command):
     """Forgives debt up to $100.
@@ -114,7 +124,7 @@ class TryObtainReceiveFundsApproval(Command):
     amount: Decimal
 
     def get_aggregate_id(self):
-        return self.funded_account_id
+        return self.funding_account_id
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -149,7 +159,7 @@ class NotifyReceiveFundsRejected(Command):
     transaction_id: uuid
 
     def get_aggregate_id(self):
-        return self.funding_account_id
+        return self.funded_account_id
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -207,6 +217,7 @@ class RollbackSendFundsDebit(Command):
     command to rollback the transaction on the funding 
     account.
     """
+    amount: Decimal
     funding_account_id: str
     transaction_id: str
 

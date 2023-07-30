@@ -143,7 +143,7 @@ def event_receiver(type: type, require_event_type_in_flags: bool = True, require
                 try:
                     return await wrapped(self)
                 except Exception as e:
-                    self._log_command_failure(self._last_command)
+                    self._log_command_failure(self._last_command, e)
                     self.set_retry(
                         default_retry_interval_in_seconds if default_retry_interval_in_seconds else DEFAULT_SAGA_RETRY_WAIT_INTERVAL)
         return wrapper
@@ -269,12 +269,31 @@ class Saga:
         except CommandDispatcherError:
             self._command_dispatcher = None
 
-    async def dispatch_command(self, command: any) -> CommandResponse:
+    async def dispatch_command(self, command: any, on_success_event: Event = None, on_failure_event: Event = None, skip_if_result_event_type_in_flags: bool = True) -> CommandResponse:
+        if inspect.isclass(on_success_event):
+            on_success_event = on_success_event()
+        if inspect.isclass(on_failure_event):
+            on_failure_event = on_failure_event()
+        if inspect.ismethod(command) or inspect.isfunction(command):
+            command = command()
+
+        if skip_if_result_event_type_in_flags:
+            on_success_in_flags = (
+                on_success_event and self.flags_has_any(type(on_success_event)))
+            on_failure_in_flags = (
+                on_failure_event and self.flags_has_any(type(on_failure_event)))
+            if on_success_in_flags or on_failure_in_flags:
+                return
         self._last_command = command
         if not self._command_dispatcher:
             raise CommandDispatcherError(
                 "No command dispatcher registerd with @RegisterCommandDispatcher")
-        return await self._command_dispatcher(self._last_command)
+        response: CommandResponse = await self._command_dispatcher(self._last_command)
+        if response.is_success and on_success_event:
+            self.post_state_change_event(on_success_event)
+        if not response.is_success and on_failure_event:
+            self.post_state_change_event(on_failure_event)
+        return response
 
     def flags_has_any(self, *args: any):
         return set(args).intersection(self.flags)
@@ -292,7 +311,7 @@ class Saga:
         event_receiver_map: dict[VersionedEvent, Callable[[VersionedEvent], None]] = getattr(
             self, _EVENT_TO_EXTERNAL_RECEIVED_MAP)
         if event:
-            self.post_new_event(event)
+            self.post_state_change_event(event)
             self._apply_historical_events([event])
             event_type = type(event)
             try:
@@ -344,7 +363,7 @@ class Saga:
             raise SagaError(
                 "Missing state reconstitutor (@reconstitute_saga_state) for " + str(type(e)) + "}", ke)
 
-    def post_new_event(self, event: VersionedEvent):
+    def post_state_change_event(self, event: VersionedEvent):
         """Call from evalute() to post new state change events.  
 
         Events that are received to progress
@@ -355,6 +374,6 @@ class Saga:
         self.is_dirty = True
         self.new_events.append(event)
 
-    def _log_command_failure(command: any, exception: Exception):
+    def _log_command_failure(self, command: any, exception: Exception):
         log(LogToggles.saga_command_failed, "Command failed", {"command_type": str(
             type(command)), "command": command.__dict__ if command else None}, exc_info=exception)

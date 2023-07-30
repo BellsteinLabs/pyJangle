@@ -144,14 +144,20 @@ class Aggregate:
         ------
         AggregateError when missing a corresponding method decorated
         with @reconstitute_aggregate_state."""
-        try:
-            for event in sorted(events, key=lambda x: x.version):
+        for event in sorted(events, key=lambda x: x.version):
+            try:
                 state_reconstitutor = getattr(
                     self, EVENT_TO_STATE_RECONSTITUTOR_MAP)[type(event)]
+            except KeyError as ke:
+                log(LogToggles.aggregate_cant_find_state_reconstitutor, "Missing state reconstitutor.", {
+                    "aggregate_type": str(type(self)), "event_type": str(type(event))})
+                raise ke
+            try:
                 state_reconstitutor(event)
-        except KeyError as ke:
-            raise AggregateError(
-                "Missing state reconstitutor for " + str(type(event)) + "}", ke)
+            except Exception as e:
+                log(LogToggles.aggregate_event_application_failed, "Error when applying event to aggregate", {
+                    "aggregate_type": str(type(self)), "event_type": str(type(event)), "event": event.__dict__})
+                raise e
 
     def validate(self, command: Command) -> pyjangle.CommandResponse:
         """Validates a command for the purpose of creating new events.
@@ -164,10 +170,16 @@ class Aggregate:
         try:
             command_validator = getattr(self, COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP)[
                 type(command)]
-            return command_validator(command)
         except KeyError as ke:
-            raise AggregateError(
-                "Missing command validator for " + str(type(command)) + "}", ke)
+            log(LogToggles.command_validator_missing, "Missing command validator.", {"aggregate_type": str(type(self)), "command_type": str(
+                type(command))}, exc_info=ke)
+            raise ke
+        try:
+            return command_validator(command)
+        except Exception as e:
+            log(LogToggles.command_validation_errored, "An error occurred while validating a command", {"command_type": str(
+                type(command)), "command": command.__dict__, "method": command_validator.__name__}, exc_info=e)
+            raise e
 
 
 def reconstitute_aggregate_state(event_type: type):
@@ -206,7 +218,7 @@ def validate_command(command_type: type):
             # if the command validator returns nothing, assume success.  It's a convenience feature.
             response = CommandResponse(True) if retVal == None else retVal
             if not response.is_success:
-                log(LogToggles.command_validation_failed, "Command validation failed", {"aggregate_type": str(type(self)),
+                log(LogToggles.command_validation_errored, "Command validation failed", {"aggregate_type": str(type(self)),
                     "aggregate_id": self.id, "command_type": str(type(command)), "command": command.__dict__})
             if response.is_success:
                 log(LogToggles.command_validation_succeeded, "Command validation succeeded", {"aggregate_type": str(type(self)),

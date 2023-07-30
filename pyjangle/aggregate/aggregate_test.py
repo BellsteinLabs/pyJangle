@@ -115,7 +115,7 @@ class TestAggregate(unittest.TestCase):
         self.assertEqual("Foo", response.data)
 
     def test_missing_command_validator(self):
-        with self.assertRaises(AggregateError):
+        with self.assertRaises(KeyError):
             class A(Aggregate):
 
                 @validate_command(CommandThatAlwaysSucceeds)
@@ -126,7 +126,7 @@ class TestAggregate(unittest.TestCase):
             a.validate(CommandB())
 
     def test_missing_state_reconstitutor(self):
-        with self.assertRaises(AggregateError):
+        with self.assertRaises(KeyError):
             class A(Aggregate):
                 pass
 

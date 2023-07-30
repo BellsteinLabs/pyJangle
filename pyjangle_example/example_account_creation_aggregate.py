@@ -25,7 +25,7 @@ class AccountCreationAggregate(Aggregate):
                             aggregate_id=next_account_id)
         if command.initial_deposit:
             funds_deposited_event = FundsDeposited(
-                version=2, account_id=next_account_id, amount=command.initial_deposit)
+                version=2, account_id=next_account_id, balance=command.initial_deposit, amount=command.initial_deposit)
             self.post_new_event(funds_deposited_event, next_account_id)
         return CommandResponse(True, next_account_id)
 

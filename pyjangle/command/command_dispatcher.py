@@ -56,7 +56,7 @@ def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
     return wrapped
 
 
-def command_dispatcher_instance() -> Callable[[any], CommandResponse]:
+def command_dispatcher_instance() -> Awaitable[Callable[[any], CommandResponse]]:
     """Returns the singleton instance of the registered command dispatcher."""
     if not _command_dispatcher_instance:
         raise CommandDispatcherError

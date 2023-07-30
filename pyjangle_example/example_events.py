@@ -41,6 +41,7 @@ class FundsDeposited(VersionedEvent):
     """Funds have been doposited into an account."""
     account_id: str
     amount: Decimal
+    balance: Decimal
     transaction_id: str = dataclasses.field(
         default_factory=lambda: str(uuid.uuid4()))
 
@@ -53,6 +54,7 @@ class FundsWithdrawn(VersionedEvent):
     """Funds have been withdrawn from an account."""
     account_id: str
     amount: Decimal
+    balance: Decimal
     transaction_id: str = dataclasses.field(
         default_factory=lambda: str(uuid.uuid4()))
 
@@ -132,6 +134,7 @@ class NotifiedReceivedFundsRejected(VersionedEvent):
 class ReceiveFundsDebited(VersionedEvent):
     """Funds sent to the account that requested them."""
     funding_account_id: str
+    balance: Decimal
     transaction_id: str
 
     def deserialize(data: any) -> any:
@@ -143,6 +146,7 @@ class ReceiveFundsDebitedRolledBack(VersionedEvent):
     """Sending funds to another account failed an rolled back."""
     funding_account_id: str
     transaction_id: str
+    balance: Decimal
 
     def deserialize(data: any) -> any:
         pass
@@ -153,6 +157,7 @@ class ReceiveFundsCredited(VersionedEvent):
     """Received requested funds."""
     funded_account_id: str
     transaction_id: str
+    balance: Decimal
 
     def deserialize(data: any) -> any:
         pass
@@ -164,6 +169,7 @@ class SendFundsCredited(VersionedEvent):
     funded_account_id: str
     funding_account_id: str
     amount: Decimal
+    balance: Decimal
     transaction_id: str
 
     def deserialize(data: any) -> any:
@@ -176,6 +182,7 @@ class SendFundsDebited(VersionedEvent):
     funding_account_id: str
     funded_account_id: str
     amount: Decimal
+    balance: Decimal
     transaction_id: str = dataclasses.field(
         default_factory=lambda: str(uuid.uuid4()))
 
@@ -188,6 +195,7 @@ class SendFundsDebitedRolledBack(VersionedEvent):
     """Sending funds to another account failed an rolled back."""
     amount: Decimal
     funding_account_id: str
+    balance: Decimal
     transaction_id: str
 
     def deserialize(data: any) -> any:

@@ -24,6 +24,11 @@ class TryObtainReceiveFundsApprovalCommandSucceeded(Event):
         pass
 
 
+class TryObtainReceiveFundsApprovalCommandFailed(Event):
+    def deserialize(data: any) -> any:
+        pass
+
+
 class NotifyReceiveFundsRejectedCommandSucceeded(Event):
     def deserialize(data: any) -> any:
         pass
@@ -34,7 +39,17 @@ class DebitReceiveFundsCommandSucceeded(Event):
         pass
 
 
+class DebitReceiveFundsCommandFailed(Event):
+    def deserialize(data: any) -> any:
+        pass
+
+
 class CreditReceiveFundsCommandSucceeded(Event):
+    def deserialize(data: any) -> any:
+        pass
+
+
+class CreditReceiveFundsCommandFailed(Event):
     def deserialize(data: any) -> any:
         pass
 
@@ -48,86 +63,64 @@ class RequestFundsFromAnotherAccount(Saga):
 
     @event_receiver(ReceiveFundsRequested, skip_if_any_flags_set=[TryObtainReceiveFundsApprovalCommandSucceeded, NotifyReceiveFundsRejectedCommandSucceeded])
     async def on_receive_funds_requested(self):
-        request_transfer_approval_on_funding_account_command_response = None
-        try:
-            request_transfer_approval_on_funding_account_command_response = self.command_dispatcher(
-                self._make_try_obtain_receive_funds_approval_command())
-        except:
-            self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-            return
-        if request_transfer_approval_on_funding_account_command_response.is_success:
-            self.post_new_event(TryObtainReceiveFundsApprovalCommandSucceeded(
-                saga_id=self.saga_id))
-            return
-        else:
-            try:
-                self.command_dispatcher(
-                    self._make_notify_receive_funds_rejected_command())
-                self.post_new_event(NotifyReceiveFundsRejectedCommandSucceeded(
-                    saga_id=self.saga_id))
-                self.set_complete()
-            except:
-                self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-                return
+        await self.dispatch_command(
+            command=self._make_try_obtain_receive_funds_approval_command,
+            on_success_event=TryObtainReceiveFundsApprovalCommandSucceeded,
+            on_failure_event=TryObtainReceiveFundsApprovalCommandFailed)
 
-    @event_receiver(ReceiveFundsApproved)
+        if self.flags_has_any(TryObtainReceiveFundsApprovalCommandFailed):
+            await self.dispatch_command(
+                command=self._make_notify_receive_funds_rejected_command,
+                on_success_event=NotifyReceiveFundsRejectedCommandSucceeded,
+                on_failure_event=NotifyReceiveFundsRejectedCommandSucceeded)
+            self.set_complete()
+            return
+
+    @event_receiver(ReceiveFundsApproved, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandSucceeded, CreditReceiveFundsCommandSucceeded, RollbackReceiveFundsDebitCommandSucceeded])
     async def on_receive_funds_approved(self):
-        if not DebitReceiveFunds in self.flags:
-            debit_transfer_funds_response = None
-            try:
-                debit_transfer_funds_response = self.command_dispatcher(
-                    self._make_debit_receive_funds_command())
-            except:
-                self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-                return
-            if debit_transfer_funds_response.is_success:
-                self.post_new_event(DebitReceiveFundsCommandSucceeded(
-                    saga_id=self.saga_id))
-            else:
-                try:
-                    self.command_dispatcher(
-                        self._make_notify_receive_funds_rejected_command())
-                    self.post_new_event(NotifyReceiveFundsRejectedCommandSucceeded(
-                        saga_id=self.saga_id))
-                    self.set_complete()
-                except:
-                    self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-                    return
-        if not CreditReceiveFunds in self.flags:
-            credit_receive_transfer_funds_response = None
-            try:
-                credit_receive_transfer_funds_response = self.command_dispatcher(
-                    self._make_credit_receive_funds_command())
-            except:
-                self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-                return
-            if credit_receive_transfer_funds_response.is_success:
-                self.post_new_event(CreditReceiveFundsCommandSucceeded(
-                    saga_id=self.saga_id))
-                self.set_complete()
-            else:
-                try:
-                    self.command_dispatcher(
-                        self._make_rollback_receive_funds_debit_command())
-                    self.post_new_event(RollbackReceiveFundsDebitCommandSucceeded(
-                        saga_id=self.saga_id))
-                    self.set_complete()
-                except:
-                    self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-                    return
+        await self.dispatch_command(
+            command=self._make_debit_receive_funds_command,
+            on_success_event=DebitReceiveFundsCommandSucceeded,
+            on_failure_event=DebitReceiveFundsCommandFailed
+        )
+
+        if self.flags_has_any(DebitReceiveFundsCommandFailed):
+            await self.dispatch_command(
+                command=self._make_notify_receive_funds_rejected_command,
+                on_success_event=NotifyReceiveFundsRejectedCommandSucceeded,
+                on_failure_event=NotifyReceiveFundsRejectedCommandSucceeded
+            )
+            self.set_complete()
+            return
+
+        if self.flags_has_any(DebitReceiveFundsCommandSucceeded):
+            await self.dispatch_command(
+                command=self._make_credit_receive_funds_command,
+                on_success_event=CreditReceiveFundsCommandSucceeded,
+                on_failure_event=CreditReceiveFundsCommandFailed,
+            )
+
+        if self.flags_has_any(CreditReceiveFundsCommandSucceeded):
+            self.set_complete()
+
+        if self.flags_has_any(CreditReceiveFundsCommandFailed):
+            await self.dispatch_command(
+                command=self._make_rollback_receive_funds_debit_command,
+                on_success_event=RollbackReceiveFundsDebitCommandSucceeded,
+                on_failure_event=RollbackReceiveFundsDebitCommandSucceeded
+            )
+
+        if self.flags_has_any(RollbackReceiveFundsDebitCommandSucceeded):
+            self.set_complete()
 
     @event_receiver(ReceiveFundsRejected, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandSucceeded])
     async def on_receive_funds_rejected(self):
-        if not NotifyReceiveFundsRejected in self.flags:
-            try:
-                await self.dispatch_command(
-                    self._make_notify_receive_funds_rejected_command())
-                self.post_new_event(NotifyReceiveFundsRejectedCommandSucceeded(
-                    saga_id=self.saga_id, version=0))
-                self.set_complete()
-            except:
-                self.set_retry(datetime.now + RETRY_TIMEOUT_LENGTH)
-                return
+        await self.dispatch_command(
+            command=self._make_notify_receive_funds_rejected_command,
+            on_failure_event=NotifyReceiveFundsRejectedCommandSucceeded,
+            on_success_event=NotifyReceiveFundsRejectedCommandSucceeded
+        )
+        self.set_complete()
 
     @reconstitute_saga_state(ReceiveFundsRequested)
     def handle_receive_funds_transfer_requested(self, event: ReceiveFundsRequested):
@@ -150,6 +143,10 @@ class RequestFundsFromAnotherAccount(Saga):
     def from_try_obtain_receive_funds_approval_command_received(self, event: TryObtainReceiveFundsApprovalCommandSucceeded):
         pass
 
+    @reconstitute_saga_state(CreditReceiveFundsCommandFailed)
+    def from_try_obtain_receive_funds_approval_command_received(self, event: CreditReceiveFundsCommandFailed):
+        pass
+
     @reconstitute_saga_state(NotifyReceiveFundsRejectedCommandSucceeded)
     def from_notify_receive_funds_rejected_command_received(self, event: NotifyReceiveFundsRejectedCommandSucceeded):
         pass
@@ -160,6 +157,10 @@ class RequestFundsFromAnotherAccount(Saga):
 
     @reconstitute_saga_state(CreditReceiveFundsCommandSucceeded)
     def from_credit_receive_funds_command_received(self, event: CreditReceiveFundsCommandSucceeded):
+        pass
+
+    @reconstitute_saga_state(DebitReceiveFundsCommandFailed)
+    def from_debit_receive_funds_command_failed(self, event: DebitReceiveFundsCommandFailed):
         pass
 
     @reconstitute_saga_state(RollbackReceiveFundsDebitCommandSucceeded)
@@ -196,15 +197,12 @@ class SendFundsToAnotherAccountSaga(Saga):
 
     @event_receiver(SendFundsDebited)
     async def on_send_funds_debited(self):
-        if not self.flags_has_any(CreditSendFundsSucceeded, CreditSendFundsFailed):
-            if (await self.dispatch_command(self._make_credit_send_funds_command())).is_success:
-                self.post_new_event(CreditSendFundsSucceeded())
-            else:
-                self.post_new_event(CreditSendFundsFailed())
-
+        await self.dispatch_command(
+            command=self._make_credit_send_funds_command,
+            on_success_event=CreditSendFundsSucceeded,
+            on_failure_event=CreditSendFundsFailed)
         if self.flags_has_any(CreditSendFundsFailed):
-            await self.dispatch_command(self._make_rollback_send_funds_debit_command())
-
+            await self.dispatch_command(self._make_rollback_send_funds_debit_command)
         self.set_complete()
 
     @reconstitute_saga_state(SendFundsDebited)
@@ -228,4 +226,4 @@ class SendFundsToAnotherAccountSaga(Saga):
 
     def _make_rollback_send_funds_debit_command(self):
         return RollbackSendFundsDebit(
-            funding_account_id=self.funding_account_id, transaction_id=self.transaction_id)
+            funding_account_id=self.funding_account_id, amount=self.amount, transaction_id=self.transaction_id)

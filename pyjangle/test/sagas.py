@@ -17,7 +17,7 @@ class SagaForTestingRetryLogic(Saga):
     async def on_event_that_continues_saga(self):
         try:
             await command_dispatcher_instance()(CommandThatErrorsTheFirstTime())
-            self.post_new_event(EventThatCompletesACommand(version=1))
+            self.post_state_change_event(EventThatCompletesACommand(version=1))
         except Exception as e:
             self.set_retry(datetime.min)
 
@@ -40,7 +40,7 @@ class SagaForTesting(Saga):
 
     @event_receiver(EventThatContinuesSaga, skip_if_any_flags_set=[TestSagaEvent])
     async def on_event_that_continues_saga(self):
-        self.post_new_event(TestSagaEvent())
+        self.post_state_change_event(TestSagaEvent())
         self.calls["on_event_that_continues_saga"] += 1
 
     @event_receiver(EventThatCompletesSaga)
@@ -53,7 +53,8 @@ class SagaForTesting(Saga):
 
     @event_receiver(EventThatCausesDuplicateKeyError)
     async def on_event_that_causes_duplicate_key_error(self):
-        self.post_new_event(TestSagaEvent(id=self._used_event_ids.pop()))
+        self.post_state_change_event(
+            TestSagaEvent(id=self._used_event_ids.pop()))
 
     @event_receiver(EventThatSetsSagaToTimedOut)
     async def on_event_that_sets_saga_to_timed_out(self):
