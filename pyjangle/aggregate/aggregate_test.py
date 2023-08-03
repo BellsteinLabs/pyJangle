@@ -126,7 +126,7 @@ class TestAggregate(unittest.TestCase):
             a.validate(CommandB())
 
     def test_missing_state_reconstitutor(self):
-        with self.assertRaises(KeyError):
+        with self.assertRaises(AggregateError):
             class A(Aggregate):
                 pass
 

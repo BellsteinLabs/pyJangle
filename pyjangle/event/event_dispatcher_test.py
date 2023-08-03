@@ -10,12 +10,14 @@ from pyjangle import (VersionedEvent, EventDispatcherError, RegisterEventDispatc
                       handle_command, tasks)
 from pyjangle.test.commands import CommandThatAlwaysSucceeds
 from pyjangle.test.registration_paths import (COMMITTED_EVENT_QUEUE,
-                                              EVENT_DISPATCHER, EVENT_REPO)
+                                              EVENT_DISPATCHER, EVENT_REPO, SNAPSHOT_REPO)
 from pyjangle.test.transient_event_repository import TransientEventRepository
+from pyjangle.test.transient_snapshot_repository import TransientSnapshotRepository
 
 
 @patch(COMMITTED_EVENT_QUEUE, new_callable=lambda: Queue())
 @patch(EVENT_REPO, new_callable=lambda: TransientEventRepository())
+@patch(SNAPSHOT_REPO, new_callable=lambda: TransientSnapshotRepository())
 @patch(EVENT_DISPATCHER, None)
 class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
 

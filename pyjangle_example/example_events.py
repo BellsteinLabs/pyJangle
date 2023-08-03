@@ -44,7 +44,6 @@ class FundsDeposited(VersionedEvent):
     balance: Decimal
     transaction_id: str = dataclasses.field(
         default_factory=lambda: str(uuid.uuid4()))
-
     def deserialize(data: any) -> any:
         pass
 

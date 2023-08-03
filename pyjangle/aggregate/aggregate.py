@@ -151,7 +151,8 @@ class Aggregate:
             except KeyError as ke:
                 log(LogToggles.aggregate_cant_find_state_reconstitutor, "Missing state reconstitutor.", {
                     "aggregate_type": str(type(self)), "event_type": str(type(event))})
-                raise ke
+                raise AggregateError(
+                    f"Missing @reconstitute_aggregate_state method for {str(type(event))}") from ke
             try:
                 state_reconstitutor(event)
             except Exception as e:

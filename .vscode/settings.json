@@ -3,12 +3,12 @@
         "editor.defaultFormatter": "ms-python.autopep8"
     },
     "python.formatting.provider": "none",
-    "python.analysis.extraPaths": [
-        "./event",
-        "./snapshot",
-        "./command",
-        "./error"
-    ],
+    // "python.analysis.extraPaths": [
+    //     "./event",
+    //     "./snapshot",
+    //     "./command",
+    //     "./error"
+    // ],
     "python.testing.unittestArgs": [
         "-v",
         "-s",
