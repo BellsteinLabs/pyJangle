@@ -304,7 +304,7 @@ class Saga:
         When this method is called, the assumption is 
         that all of the events leading up to this one
         have been reconstituted into the saga."""
-        if self.timeout_at != None and self.timeout_at < datetime.now():
+        if self.timeout_at != None and self.timeout_at < self._get_current_time():
             self.set_timed_out()
             return
         self.retry_at = None
@@ -342,10 +342,13 @@ class Saga:
     def set_retry(self, retry_at: datetime | float | int):
         """Call from evaluate() to specify when the saga should retry."""
         if retry_at and not isinstance(retry_at, datetime):
-            retry_at = datetime.now() + timedelta(seconds=retry_at)
+            retry_at = self._get_current_time() + timedelta(seconds=retry_at)
         if self.retry_at != retry_at:
             self.is_dirty = True
         self.retry_at = retry_at
+
+    def _get_current_time(self):
+        return datetime.now()
 
     def _apply_historical_events(self, events: List[VersionedEvent]):
         """Applies events to rebuild aggregate state.
@@ -363,7 +366,7 @@ class Saga:
             raise SagaError(
                 "Missing state reconstitutor (@reconstitute_saga_state) for " + str(type(e)) + "}", ke)
 
-    def post_state_change_event(self, event: VersionedEvent):
+    def post_state_change_event(self, event: Event):
         """Call from evalute() to post new state change events.  
 
         Events that are received to progress

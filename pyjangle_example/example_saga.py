@@ -29,7 +29,7 @@ class TryObtainReceiveFundsApprovalCommandFailed(Event):
         pass
 
 
-class NotifyReceiveFundsRejectedCommandSucceeded(Event):
+class NotifyReceiveFundsRejectedCommandAcknowledged(Event):
     def deserialize(data: any) -> any:
         pass
 
@@ -54,14 +54,14 @@ class CreditReceiveFundsCommandFailed(Event):
         pass
 
 
-class RollbackReceiveFundsDebitCommandSucceeded(Event):
+class RollbackReceiveFundsDebitCommandAcknowledged(Event):
     def deserialize(data: any) -> any:
         pass
 
 
 class RequestFundsFromAnotherAccount(Saga):
 
-    @event_receiver(ReceiveFundsRequested, skip_if_any_flags_set=[TryObtainReceiveFundsApprovalCommandSucceeded, NotifyReceiveFundsRejectedCommandSucceeded])
+    @event_receiver(ReceiveFundsRequested, skip_if_any_flags_set=[TryObtainReceiveFundsApprovalCommandSucceeded, NotifyReceiveFundsRejectedCommandAcknowledged])
     async def on_receive_funds_requested(self):
         await self.dispatch_command(
             command=self._make_try_obtain_receive_funds_approval_command,
@@ -71,12 +71,12 @@ class RequestFundsFromAnotherAccount(Saga):
         if self.flags_has_any(TryObtainReceiveFundsApprovalCommandFailed):
             await self.dispatch_command(
                 command=self._make_notify_receive_funds_rejected_command,
-                on_success_event=NotifyReceiveFundsRejectedCommandSucceeded,
-                on_failure_event=NotifyReceiveFundsRejectedCommandSucceeded)
+                on_success_event=NotifyReceiveFundsRejectedCommandAcknowledged,
+                on_failure_event=NotifyReceiveFundsRejectedCommandAcknowledged)
             self.set_complete()
             return
 
-    @event_receiver(ReceiveFundsApproved, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandSucceeded, CreditReceiveFundsCommandSucceeded, RollbackReceiveFundsDebitCommandSucceeded])
+    @event_receiver(ReceiveFundsApproved, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandAcknowledged, CreditReceiveFundsCommandSucceeded, RollbackReceiveFundsDebitCommandAcknowledged])
     async def on_receive_funds_approved(self):
         await self.dispatch_command(
             command=self._make_debit_receive_funds_command,
@@ -87,8 +87,8 @@ class RequestFundsFromAnotherAccount(Saga):
         if self.flags_has_any(DebitReceiveFundsCommandFailed):
             await self.dispatch_command(
                 command=self._make_notify_receive_funds_rejected_command,
-                on_success_event=NotifyReceiveFundsRejectedCommandSucceeded,
-                on_failure_event=NotifyReceiveFundsRejectedCommandSucceeded
+                on_success_event=NotifyReceiveFundsRejectedCommandAcknowledged,
+                on_failure_event=NotifyReceiveFundsRejectedCommandAcknowledged
             )
             self.set_complete()
             return
@@ -106,19 +106,19 @@ class RequestFundsFromAnotherAccount(Saga):
         if self.flags_has_any(CreditReceiveFundsCommandFailed):
             await self.dispatch_command(
                 command=self._make_rollback_receive_funds_debit_command,
-                on_success_event=RollbackReceiveFundsDebitCommandSucceeded,
-                on_failure_event=RollbackReceiveFundsDebitCommandSucceeded
+                on_success_event=RollbackReceiveFundsDebitCommandAcknowledged,
+                on_failure_event=RollbackReceiveFundsDebitCommandAcknowledged
             )
 
-        if self.flags_has_any(RollbackReceiveFundsDebitCommandSucceeded):
+        if self.flags_has_any(RollbackReceiveFundsDebitCommandAcknowledged):
             self.set_complete()
 
-    @event_receiver(ReceiveFundsRejected, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandSucceeded])
+    @event_receiver(ReceiveFundsRejected, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandAcknowledged])
     async def on_receive_funds_rejected(self):
         await self.dispatch_command(
             command=self._make_notify_receive_funds_rejected_command,
-            on_failure_event=NotifyReceiveFundsRejectedCommandSucceeded,
-            on_success_event=NotifyReceiveFundsRejectedCommandSucceeded
+            on_failure_event=NotifyReceiveFundsRejectedCommandAcknowledged,
+            on_success_event=NotifyReceiveFundsRejectedCommandAcknowledged
         )
         self.set_complete()
 
@@ -140,15 +140,19 @@ class RequestFundsFromAnotherAccount(Saga):
         pass
 
     @reconstitute_saga_state(TryObtainReceiveFundsApprovalCommandSucceeded)
-    def from_try_obtain_receive_funds_approval_command_received(self, event: TryObtainReceiveFundsApprovalCommandSucceeded):
+    def from_try_obtain_receive_funds_approval_command_succeeded(self, event: TryObtainReceiveFundsApprovalCommandSucceeded):
+        pass
+
+    @reconstitute_saga_state(TryObtainReceiveFundsApprovalCommandFailed)
+    def from_try_obtain_receive_funds_approval_command_failed(self, event: TryObtainReceiveFundsApprovalCommandFailed):
         pass
 
     @reconstitute_saga_state(CreditReceiveFundsCommandFailed)
     def from_try_obtain_receive_funds_approval_command_received(self, event: CreditReceiveFundsCommandFailed):
         pass
 
-    @reconstitute_saga_state(NotifyReceiveFundsRejectedCommandSucceeded)
-    def from_notify_receive_funds_rejected_command_received(self, event: NotifyReceiveFundsRejectedCommandSucceeded):
+    @reconstitute_saga_state(NotifyReceiveFundsRejectedCommandAcknowledged)
+    def from_notify_receive_funds_rejected_command_received(self, event: NotifyReceiveFundsRejectedCommandAcknowledged):
         pass
 
     @reconstitute_saga_state(DebitReceiveFundsCommandSucceeded)
@@ -163,8 +167,8 @@ class RequestFundsFromAnotherAccount(Saga):
     def from_debit_receive_funds_command_failed(self, event: DebitReceiveFundsCommandFailed):
         pass
 
-    @reconstitute_saga_state(RollbackReceiveFundsDebitCommandSucceeded)
-    def from_rollback_receive_funds_debit_command_recived(self, event: RollbackReceiveFundsDebitCommandSucceeded):
+    @reconstitute_saga_state(RollbackReceiveFundsDebitCommandAcknowledged)
+    def from_rollback_receive_funds_debit_command_recived(self, event: RollbackReceiveFundsDebitCommandAcknowledged):
         pass
 
     def _make_try_obtain_receive_funds_approval_command(self):
