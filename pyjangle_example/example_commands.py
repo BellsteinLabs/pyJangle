@@ -91,7 +91,7 @@ class RequestForgiveness(Command):
     This request will only be allowed twice during the lifetime of the 
     account.
     """
-    account_id: uuid.UUID
+    account_id: str
 
     def get_aggregate_id(self):
         return self.account_id
@@ -103,7 +103,7 @@ class DeleteAccount(Command):
 
     Deletes are soft meaning that the account will be marked as deleted,
     but it will remain in the system."""
-    account_id: uuid.UUID
+    account_id: str
 
     def get_aggregate_id(self):
         return self.account_id
