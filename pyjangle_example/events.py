@@ -44,6 +44,7 @@ class FundsDeposited(VersionedEvent):
     balance: Decimal
     transaction_id: str = dataclasses.field(
         default_factory=lambda: str(uuid.uuid4()))
+
     def deserialize(data: any) -> any:
         pass
 
@@ -134,6 +135,7 @@ class ReceiveFundsDebited(VersionedEvent):
     """Funds sent to the account that requested them."""
     funding_account_id: str
     balance: Decimal
+    amount: Decimal
     transaction_id: str
 
     def deserialize(data: any) -> any:
@@ -146,6 +148,7 @@ class ReceiveFundsDebitedRolledBack(VersionedEvent):
     funding_account_id: str
     transaction_id: str
     balance: Decimal
+    amount: Decimal
 
     def deserialize(data: any) -> any:
         pass
@@ -157,6 +160,7 @@ class ReceiveFundsCredited(VersionedEvent):
     funded_account_id: str
     transaction_id: str
     balance: Decimal
+    amount: Decimal
 
     def deserialize(data: any) -> any:
         pass

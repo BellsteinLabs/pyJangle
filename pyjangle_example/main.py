@@ -1,12 +1,12 @@
 import decimal
 import os
 from pyjangle.command.command_handler import handle_command
-from pyjangle_example.example_commands import AcceptReceiveFundsRequest, CreateAccount, DeleteAccount, DepositFunds, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, SendFunds, WithdrawFunds
+from pyjangle_example.commands import AcceptReceiveFundsRequest, CreateAccount, DeleteAccount, DepositFunds, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, SendFunds, WithdrawFunds
 from pyjangle_example.terminal_context import InputSpec
 from terminal_context import TerminalContext
 
 from pyjangle.query.handlers import handle_query
-from pyjangle_example.example_queries import AccountLedger, AccountSummary, BankStats, BankSummary
+from pyjangle_example.queries import AccountLedger, AccountSummary, BankStats, BankSummary
 
 ACCOUNT_ID = "account_id"
 ACCOUNT_SUMMARY = "account_summary"
@@ -340,7 +340,7 @@ class ViewAccountLedgerContext(TerminalContext):
         print(f"Ledger:")
         headers = [{"index": "#", "initiated_at": "Initiated At",
                     "amount": "Amount", "description": "Description"}]
-        transactions: list[dict] = headers + self.account_summary
+        transactions: list[dict] = headers + self.ledger
         for row in transactions:
             print("  {0[index]!s: >{index_width}} {0[initiated_at]!s: >{initiated_at_width}} {0[amount]!s: >0{amount_width},.2} {0[description]!s: >{description_width}}".format(
                 row, index_width=index_width, initiated_at_width=initiated_at_width, amount_width=amount_width, description_width=description_width))
@@ -363,7 +363,7 @@ class ViewStatisticsContext(TerminalContext):
         half_display_width = display_width // 2
         for stat in stats:
             print("{0[description]: >{half_display_width}}:  {0[value]: <{half_display_width}}".format(
-                stat, display_width=display_width))
+                stat, display_width=display_width, half_display_width=half_display_width))
 
     @property
     def input_spec(self) -> list[InputSpec]:

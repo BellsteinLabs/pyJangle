@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from pyjangle_example.example_commands import CreateAccount
-from pyjangle_example.example_events import AccountCreated, AccountIdProvisioned, FundsDeposited
+from pyjangle_example.commands import CreateAccount
+from pyjangle_example.events import AccountCreated, AccountIdProvisioned, FundsDeposited
 
 from pyjangle import (Aggregate, CommandResponse, RegisterAggregate,
                       reconstitute_aggregate_state, validate_command)

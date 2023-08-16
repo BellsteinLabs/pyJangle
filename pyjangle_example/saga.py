@@ -3,12 +3,12 @@ from datetime import datetime, timedelta
 import logging
 from typing import List
 from pyjangle import command_dispatcher_instance
-from pyjangle_example.example_commands import *
-from pyjangle_example.example_events import ReceiveFundsApproved, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested
+from pyjangle_example.commands import *
+from pyjangle_example.events import ReceiveFundsApproved, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested
 from pyjangle import Event
 from pyjangle import Saga, event_receiver, reconstitute_saga_state
 from pyjangle.logging.logging import log
-from pyjangle_example.example_events import SendFundsDebited
+from pyjangle_example.events import SendFundsDebited
 
 RETRY_TIMEOUT_LENGTH = timedelta(seconds=15)
 

@@ -7,21 +7,21 @@ from pyjangle.command.command_dispatcher import RegisterCommandDispatcher, comma
 from pyjangle.command.command_response import CommandResponse
 from pyjangle.saga.saga_daemon import begin_retry_sagas_loop
 
-import pyjangle_example.example_account_aggregate
-import pyjangle_example.example_account_creation_aggregate
+import pyjangle_example.aggregates.account_aggregate
+import pyjangle_example.aggregates.account_creation_aggregate
 from pyjangle import begin_processing_committed_events
 from pyjangle import handle_event, has_registered_event_handler
 from pyjangle import RegisterEventRepository
 from pyjangle.logging import MESSAGE
 from pyjangle import RegisterSagaRepository
 from pyjangle.test.transient_saga_repository import TransientSagaRepository
-from pyjangle_example.example_commands import AcceptReceiveFundsRequest, CreateAccount, DeleteAccount, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, SendFunds, WithdrawFunds
+from pyjangle_example.commands import AcceptReceiveFundsRequest, CreateAccount, DeleteAccount, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, SendFunds, WithdrawFunds
 
 from pyjangle import VersionedEvent, RegisterEventDispatcher, handle_command, tasks
 from pyjangle.test.transient_event_repository import TransientEventRepository
-from pyjangle_example.example_commands import DepositFunds
-from pyjangle_example.example_events import AccountCreated, AccountDeleted, AccountIdProvisioned, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
-import pyjangle_example.example_event_handlers
+from pyjangle_example.commands import DepositFunds
+from pyjangle_example.events import AccountCreated, AccountDeleted, AccountIdProvisioned, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
+import pyjangle_example.event_handlers
 from pyjangle_json.logging import initialize_jangle_logging
 
 event_queue = Queue(maxsize=1)

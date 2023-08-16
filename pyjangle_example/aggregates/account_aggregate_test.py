@@ -4,11 +4,11 @@ from unittest import IsolatedAsyncioTestCase, TestCase
 from unittest.mock import Mock, patch
 from uuid import uuid4
 from pyjangle import Aggregate, Event
-from pyjangle_example.example_account_aggregate import AccountAggregate
+from pyjangle_example.aggregates.account_aggregate import AccountAggregate
 
-from pyjangle_example.example_account_creation_aggregate_test import KNOWN_UUID
-from pyjangle_example.example_commands import AcceptReceiveFundsRequest, CreditReceiveFunds, CreditSendFunds, DebitReceiveFunds, DeleteAccount, DepositFunds, NotifyReceiveFundsRejected, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, RollbackReceiveFundsDebit, RollbackSendFundsDebit, SendFunds, TryObtainReceiveFundsApproval, WithdrawFunds
-from pyjangle_example.example_events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
+from pyjangle_example.aggregates.account_creation_aggregate_test import KNOWN_UUID
+from pyjangle_example.commands import AcceptReceiveFundsRequest, CreditReceiveFunds, CreditSendFunds, DebitReceiveFunds, DeleteAccount, DepositFunds, NotifyReceiveFundsRejected, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, RollbackReceiveFundsDebit, RollbackSendFundsDebit, SendFunds, TryObtainReceiveFundsApproval, WithdrawFunds
+from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
 from pyjangle_example.test_helpers import CREATED_AT_FLD, FAKE_CURRENT_TIME, FUNDING_ACCOUNT_ID_FLD, FUNDED_ACCOUNT_ID_FLD, ACCOUNT_ID, ACCOUNT_ID_FLD, ACCOUNT_NAME, AMOUNT_FLD, BALANCE_FLD, THIRTY_MINUTES_FROM_FAKE_NOW, LARGE_AMOUNT, OTHER_ACCOUNT_ID, SMALL_AMOUNT, TIMEOUT_AT_FLD, TRANSACTION_ID_FLD, ExpectedEvent, verify_events, datetime_mock
 
 account_created_event = AccountCreated(
@@ -40,7 +40,7 @@ receive_funds_approved_event = ReceiveFundsApproved(
 notified_receive_funds_rejected_event = NotifiedReceivedFundsRejected(
     funded_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID, version=3)
 receive_funds_debited_event = ReceiveFundsDebited(
-    version=5, funding_account_id=ACCOUNT_ID, balance=0, transaction_id=KNOWN_UUID)
+    version=5, funding_account_id=ACCOUNT_ID, balance=0, transaction_id=KNOWN_UUID, amount=LARGE_AMOUNT)
 
 
 @patch(f"{AccountAggregate.__module__}.datetime", new=datetime_mock)
@@ -145,7 +145,8 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
             ExpectedEvent(ReceiveFundsCredited, agg_id=ACCOUNT_ID, version=self.aggregate.version + 1, attributes={
                 FUNDED_ACCOUNT_ID_FLD: ACCOUNT_ID,
                 TRANSACTION_ID_FLD: KNOWN_UUID,
-                BALANCE_FLD: LARGE_AMOUNT
+                BALANCE_FLD: LARGE_AMOUNT,
+                AMOUNT_FLD: LARGE_AMOUNT
             })
         ])
 
@@ -316,7 +317,8 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
             ExpectedEvent(event_type=ReceiveFundsDebited, agg_id=ACCOUNT_ID, version=self.aggregate.version + 1, attributes={
                 FUNDING_ACCOUNT_ID_FLD: ACCOUNT_ID,
                 BALANCE_FLD: 0,
-                TRANSACTION_ID_FLD: KNOWN_UUID
+                TRANSACTION_ID_FLD: KNOWN_UUID,
+                AMOUNT_FLD: LARGE_AMOUNT
             })
         ])
 
@@ -345,13 +347,14 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
             ExpectedEvent(event_type=ReceiveFundsCredited, agg_id=ACCOUNT_ID, version=3, attributes={
                 FUNDED_ACCOUNT_ID_FLD: ACCOUNT_ID,
                 TRANSACTION_ID_FLD: KNOWN_UUID,
-                BALANCE_FLD: LARGE_AMOUNT
+                BALANCE_FLD: LARGE_AMOUNT,
+                AMOUNT_FLD: LARGE_AMOUNT
             })
         ])
 
     def test_when_credit_receive_funds_duplicate_then_command_succeeds_and_no_new_events(self, *_):
         receive_funds_credited_event = ReceiveFundsCredited(
-            version=3, funded_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID, balance=LARGE_AMOUNT)
+            version=3, funded_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID, balance=LARGE_AMOUNT, amount=LARGE_AMOUNT)
         c = CreditReceiveFunds(
             funded_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID)
         self.aggregate.apply_events(
@@ -436,7 +439,7 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
         receive_funds_approved_event = ReceiveFundsApproved(
             version=3, funding_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID)
         receive_funds_debited_event = ReceiveFundsDebited(
-            version=5, funding_account_id=ACCOUNT_ID, balance=0, transaction_id=KNOWN_UUID)
+            version=5, funding_account_id=ACCOUNT_ID, balance=0, transaction_id=KNOWN_UUID, amount=LARGE_AMOUNT)
         c = RollbackReceiveFundsDebit(
             funding_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID)
         self.aggregate.apply_events([account_created_event, large_funds_deposited_event,
@@ -446,7 +449,8 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
             ExpectedEvent(event_type=ReceiveFundsDebitedRolledBack, agg_id=ACCOUNT_ID, version=self.aggregate.version + 1, attributes={
                 FUNDING_ACCOUNT_ID_FLD: ACCOUNT_ID,
                 TRANSACTION_ID_FLD: KNOWN_UUID,
-                BALANCE_FLD: LARGE_AMOUNT
+                BALANCE_FLD: LARGE_AMOUNT,
+                AMOUNT_FLD: LARGE_AMOUNT,
             })
         ])
 
@@ -454,9 +458,9 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
         receive_funds_approved_event = ReceiveFundsApproved(
             version=3, funding_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID)
         receive_funds_debited_event = ReceiveFundsDebited(
-            version=5, funding_account_id=ACCOUNT_ID, balance=0, transaction_id=KNOWN_UUID)
+            version=5, funding_account_id=ACCOUNT_ID, balance=0, transaction_id=KNOWN_UUID, amount=LARGE_AMOUNT)
         receive_funds_debited_rolled_back = ReceiveFundsDebitedRolledBack(
-            version=6, funding_account_id=ACCOUNT_ID, balance=LARGE_AMOUNT, transaction_id=KNOWN_UUID)
+            version=6, funding_account_id=ACCOUNT_ID, balance=LARGE_AMOUNT, amount=LARGE_AMOUNT, transaction_id=KNOWN_UUID)
         c = RollbackReceiveFundsDebit(
             funding_account_id=ACCOUNT_ID, transaction_id=KNOWN_UUID)
         self.aggregate.apply_events([account_created_event, large_funds_deposited_event,

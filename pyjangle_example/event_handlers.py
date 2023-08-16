@@ -1,7 +1,7 @@
 from pyjangle import register_event_handler
 from pyjangle.saga.saga_handler import handle_saga_event
-from pyjangle_example.example_events import ReceiveFundsApproved, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsDebited
-from pyjangle_example.example_saga import RequestFundsFromAnotherAccount, SendFundsToAnotherAccountSaga
+from pyjangle_example.events import ReceiveFundsApproved, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsDebited
+from pyjangle_example.saga import RequestFundsFromAnotherAccount, SendFundsToAnotherAccountSaga
 
 
 @register_event_handler(SendFundsDebited)

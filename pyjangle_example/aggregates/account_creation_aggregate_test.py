@@ -1,8 +1,8 @@
 from unittest import TestCase
 from unittest.mock import patch
-from pyjangle_example.example_account_creation_aggregate import AccountCreationAggregate
-from pyjangle_example.example_commands import CreateAccount
-from pyjangle_example.example_events import AccountCreated, AccountIdProvisioned, FundsDeposited
+from pyjangle_example.aggregates.account_creation_aggregate import AccountCreationAggregate
+from pyjangle_example.commands import CreateAccount
+from pyjangle_example.events import AccountCreated, AccountIdProvisioned, FundsDeposited
 from pyjangle_example.test_helpers import ACCOUNT_ID_FLD, ACCOUNT_NAME, AGGREGATE_ID, AMOUNT_FLD, BALANCE_FLD, INITIAL_DEPOSIT, KNOWN_UUID, NAME_FLD, TRANSACTION_ID_FLD, ExpectedEvent, get_account_id, verify_events
 
 

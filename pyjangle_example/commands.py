@@ -7,7 +7,7 @@ from decimal import Decimal
 import uuid
 from dataclasses import dataclass
 from pyjangle import Command
-from pyjangle_example.example_static_aggregate_ids import ACCOUNT_CREATION_AGGREGATE_ID
+from pyjangle_example.aggregates.static_aggregate_ids import ACCOUNT_CREATION_AGGREGATE_ID
 
 # --------------
 

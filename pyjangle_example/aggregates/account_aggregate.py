@@ -1,8 +1,8 @@
 from datetime import timedelta
 import functools
 
-from pyjangle_example.example_commands import *
-from pyjangle_example.example_events import *
+from pyjangle_example.commands import *
+from pyjangle_example.events import *
 
 from pyjangle import (Aggregate, CommandResponse, RegisterAggregate,
                       reconstitute_aggregate_state, validate_command)
@@ -168,7 +168,7 @@ class AccountAggregate(Aggregate):
         if self.balance - self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX] < -100:
             return CommandResponse(False, "Insufficient funds")
         self.post_new_event(ReceiveFundsDebited(
-            version=next_version, funding_account_id=command.funding_account_id, transaction_id=command.transaction_id, balance=self.balance - self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX]))
+            version=next_version, funding_account_id=command.funding_account_id, transaction_id=command.transaction_id, balance=self.balance - self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX], amount=self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX]))
 
     @validate_command(CreditReceiveFunds)
     @fail_if_account_deleted_or_not_exists
@@ -179,7 +179,7 @@ class AccountAggregate(Aggregate):
         if self.pending_receive_funds_requests[command.transaction_id][IS_APPROVED_INDEX]:
             return
         self.post_new_event(ReceiveFundsCredited(
-            version=next_version, funded_account_id=command.funded_account_id, transaction_id=command.transaction_id, balance=self.balance + self.pending_receive_funds_requests[command.transaction_id][AMOUNT_INDEX]))
+            version=next_version, funded_account_id=command.funded_account_id, transaction_id=command.transaction_id, balance=self.balance + self.pending_receive_funds_requests[command.transaction_id][AMOUNT_INDEX], amount=self.pending_receive_funds_requests[command.transaction_id][AMOUNT_INDEX]))
 
     @validate_command(CreditSendFunds)
     @fail_if_account_deleted_or_not_exists
@@ -207,7 +207,7 @@ class AccountAggregate(Aggregate):
         if self.pending_receive_funds_approvals[command.transaction_id][IS_FUNDS_TRANSFERRED_INDEX] == None:
             return
         self.post_new_event(ReceiveFundsDebitedRolledBack(
-            version=next_version, funding_account_id=command.funding_account_id, transaction_id=command.transaction_id, balance=self.balance + self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX]))
+            version=next_version, funding_account_id=command.funding_account_id, transaction_id=command.transaction_id, balance=self.balance + self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX], amount=self.pending_receive_funds_approvals[command.transaction_id][AMOUNT_INDEX]))
 
     @reconstitute_aggregate_state(AccountCreated)
     def account_created(self, event: AccountCreated):
@@ -265,14 +265,14 @@ class AccountAggregate(Aggregate):
 
     @reconstitute_aggregate_state(ReceiveFundsDebited)
     def receive_funds_debited(self, event: ReceiveFundsDebited):
-        self.balance -= self.pending_receive_funds_approvals[event.transaction_id][AMOUNT_INDEX]
+        self.balance -= event.amount
         t = self.pending_receive_funds_approvals[event.transaction_id]
         self.pending_receive_funds_approvals[event.transaction_id] = (
             t[0], t[1], t[2], t[3], True)
 
     @reconstitute_aggregate_state(ReceiveFundsCredited)
     def receive_funds_credited(self, event: ReceiveFundsCredited):
-        self.balance += self.pending_receive_funds_requests[event.transaction_id][AMOUNT_INDEX]
+        self.balance += event.amount
         t = self.pending_receive_funds_requests[event.transaction_id]
         self.pending_receive_funds_requests[event.transaction_id] = (
             t[0], t[1], True)
@@ -294,7 +294,7 @@ class AccountAggregate(Aggregate):
 
     @reconstitute_aggregate_state(ReceiveFundsDebitedRolledBack)
     def rollback_receive_funds_debited(self, event: ReceiveFundsDebitedRolledBack):
-        self.balance += self.pending_receive_funds_approvals[event.transaction_id][AMOUNT_INDEX]
+        self.balance += event.amount
         t = self.pending_receive_funds_approvals[event.transaction_id]
         self.pending_receive_funds_approvals[event.transaction_id] = (
             t[0], t[1], t[2], t[3], None)

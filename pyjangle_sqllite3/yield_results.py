@@ -13,7 +13,7 @@ def yield_results(db_path: str, batch_size: int, query: str, params: tuple[any],
             else:
                 cursor.execute(query)
             while True:
-                rows = cursor.fetchmany(size=cursor.arraysize)
+                rows = cursor.fetchmany()
                 if not len(rows):
                     break
                 for row in rows:
