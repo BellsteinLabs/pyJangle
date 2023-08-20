@@ -1,27 +1,28 @@
 import abc
 from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
+from pyjangle_example.query_responses import AccountResponse, AccountSummaryResponse, BankStatsResponse, TransactionResponse
 
 
 class BankDataAccessObject(metaclass=abc.ABCMeta):
 
     @staticmethod
     @abc.abstractmethod
-    async def bank_summary() -> list[dict[str, str]]:
+    async def bank_summary() -> list[AccountResponse]:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def bank_stats():
+    async def bank_stats() -> BankStatsResponse:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def account_summary(account_id: str):
+    async def account_summary(account_id: str) -> AccountSummaryResponse:
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def account_ledger(account_id: str):
+    async def account_ledger(account_id: str) -> list[TransactionResponse]:
         pass
 
     @staticmethod

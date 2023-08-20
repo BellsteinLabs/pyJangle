@@ -16,8 +16,11 @@ class SqlLite3QueryBuilder:
         return self
 
     def upsert(self, column_name: str, value: any, version_column_name: str = None, version_column_value: int = None):
-        self._upsert.append(
-            (column_name, value, version_column_name, version_column_value))
+        if version_column_name:
+            self._upsert.append(
+                (column_name, value, version_column_name, version_column_value))
+        else:
+            self._upsert.append((column_name, value))
         return self
 
     def upsert_if_greater(self, column_name: str, value: any):
@@ -29,15 +32,14 @@ class SqlLite3QueryBuilder:
         query = ""
         params = ()
         # INSERT INTO
-        query += "INSERT INTO ? "
-        params += (self.table_name,)
+        query += f"INSERT INTO {self.table_name} "
         # ([col1],[col2],...[colN]) VALUES
         primary_key_column_names = reduce(
             lambda a, b: a + b, [(at_tuple[0],) for at_tuple in self._at])
         upsert_column_names = reduce(
-            lambda a, b: a + b, [(upsert_tuple[0], upsert_tuple[2]) for upsert_tuple in self._upsert])
+            lambda a, b: a + b, [(upsert_tuple[0], upsert_tuple[2]) if len(upsert_tuple) == 4 else (upsert_tuple[0],) for upsert_tuple in self._upsert])
         upsert_if_greater_column_names = reduce(
-            lambda a, b: a + b, [(upsert_tuple[0],) for upsert_tuple in self._upsert_if_greater])
+            lambda a, b: a + b, [(upsert_tuple[0],) for upsert_tuple in self._upsert_if_greater]) if self._upsert_if_greater else tuple()
         all_column_names = primary_key_column_names + \
             upsert_column_names + upsert_if_greater_column_names
         with_commas_parenthesis_and_values = "(" + \
@@ -48,9 +50,9 @@ class SqlLite3QueryBuilder:
         primary_key_column_values = reduce(
             lambda a, b: a + b, [(at_tuple[1],) for at_tuple in self._at])
         upsert_column_values = reduce(
-            lambda a, b: a + b, [(upsert_tuple[1], upsert_tuple[3]) for upsert_tuple in self._upsert])
+            lambda a, b: a + b, [(upsert_tuple[1], upsert_tuple[3]) if len(upsert_tuple) == 4 else (upsert_tuple[1],) for upsert_tuple in self._upsert])
         upsert_if_greater_column_values = reduce(
-            lambda a, b: a + b, [(upsert_tuple[1],) for upsert_tuple in self._upsert_if_greater])
+            lambda a, b: a + b, [(upsert_tuple[1],) for upsert_tuple in self._upsert_if_greater]) if self._upsert_if_greater else tuple()
         params += primary_key_column_values + \
             upsert_column_values + upsert_if_greater_column_values
         # ON CONFLICT DO UPDATE SET
@@ -61,29 +63,29 @@ class SqlLite3QueryBuilder:
         #   [ver_col_name] = CASE WHEN [ver_col_name] < [ver_col_value] OR [ver_col_name] IS NULL THEN [ver_col_value] ELSE [col_name] END
         #   OR
         #   [col_name] = [col_val]
-        for tuple in self._upsert:
-            col_name = tuple[0]
-            col_value = tuple[1]
-            ver_col_name = tuple[2]
-            ver_col_value = tuple[3]
+        for tpl in self._upsert:
+            col_name = tpl[0]
+            col_value = tpl[1]
+            ver_col_name = tpl[2] if len(tpl) > 2 else None
+            ver_col_value = tpl[3] if len(tpl) > 2 else None
             if ver_col_name:
                 query += col_name + " = CASE WHEN " + ver_col_name + " < ? OR " + \
-                    ver_col_name + " IS NULL THEN ? ELSE " + col_name + " END "
+                    ver_col_name + " IS NULL THEN ? ELSE " + col_name + " END, "
                 query += ver_col_name + " = CASE WHEN " + ver_col_name + " < ? OR " + \
-                    ver_col_name + " IS NULL THEN ? ELSE " + ver_col_name + " END "
+                    ver_col_name + " IS NULL THEN ? ELSE " + ver_col_name + " END, "
                 params += (ver_col_value, col_value,
                            ver_col_value, ver_col_value)
             else:
-                query += col_name + " = ?"
-                params += (col_value)
+                query += col_name + " = ?, "
+                params += (col_value,)
 
         # for each upsert column
         #   [col_name] = CASE WHEN [col_name] < [col_value] OR [col_name] IS NULL THEN [col_value] ELSE [col_name] END
-        for tuple in self._upsert_if_greater:
-            col_name = tuple[0]
-            col_value = tuple[1]
+        for tpl in self._upsert_if_greater:
+            col_name = tpl[0]
+            col_value = tpl[1]
             query += col_name + " = CASE WHEN " + col_name + " < ? OR " + \
                 col_name + " IS NULL THEN ? ELSE " + col_name + " END "
             params += (col_value, col_value)
 
-        return (query, params)
+        return (query.strip().rstrip(','), params)

@@ -29,7 +29,7 @@ class TABLES:
     TRANSACTIONS = "transactions"
     DEPOSITS = "deposits"
     WITHDRAWALS = "withdrawals"
-    TRANSFERS = "transfer"
+    TRANSFERS = "transfers"
     TRANSFER_REQUESTS = "transfer_requests"
     DEBTS_FORGIVEN = "debts_forgiven"
     TRANSACTION_TYPES = "transaction_types"
@@ -45,11 +45,12 @@ class COLUMNS:
         IS_DELETED = "is_deleted"
 
     class TRANSACTIONS:
+        EVENT_ID = "event_id"
         TRANSACTION_ID = "transaction_id"
         ACCOUNT_ID = "account_id"
         INITIATED_AT = "initiated_at"
         AMOUNT = "amount"
-        DESCRIPTION = "description"
+        TRANSACTION_TYPE = "transaction_type"
 
     class DEPOSITS:
         TRANSACTION_ID = "transaction_id"
