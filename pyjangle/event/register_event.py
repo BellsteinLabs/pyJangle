@@ -3,7 +3,7 @@ import inspect
 import logging
 from typing import Any
 from pyjangle import JangleError
-from pyjangle.event.event import VersionedEvent
+from pyjangle.event.event import Event, VersionedEvent
 from pyjangle.logging.logging import LogToggles, log
 
 __name_to_event_type_map = dict()
@@ -64,7 +64,7 @@ def RegisterEvent(name: str = None):
         global __event_type_to_name_map
         event_name = ".".join(
             [cls.__module__, cls.__name__]) if not name else name
-        if not issubclass(cls, VersionedEvent):
+        if not issubclass(cls, Event):
             raise EventRegistrationError("Decorated member is not an event")
         if event_name in __name_to_event_type_map:
             raise EventRegistrationError("Name already registered", {"name": event_name, "current_registrant": str(

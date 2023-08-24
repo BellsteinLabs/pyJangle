@@ -41,9 +41,9 @@ async def handle_command(command: Command) -> CommandResponse:
             aggregate = await _apply_snapshotting_to_aggregate(aggregate, command)
             event_repository = event_repository_instance()
             # get post-snapshot events for aggregate (it's why the version is passed in as an argument)
-            events = await event_repository.get_events(aggregate_id, aggregate.version)
+            events = list(await event_repository.get_events(aggregate_id, aggregate.version))
             log(LogToggles.retrieved_aggregate_events, "Retrieved aggregate events", {
-                "aggregate_id": aggregate_id, "aggregate_type": str(type(aggregate)), "event_count": len(list(events))})
+                "aggregate_id": aggregate_id, "aggregate_type": str(type(aggregate)), "event_count": len(events)})
             aggregate.apply_events(events)
             command_response = aggregate.validate(command)
             if command_response.is_success:

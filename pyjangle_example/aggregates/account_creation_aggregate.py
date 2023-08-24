@@ -16,7 +16,7 @@ class AccountCreationAggregate(Aggregate):
     def handle_create_account_command(self, command: CreateAccount, next_version: int) -> CommandResponse:
         next_account_id = "{:06d}".format(next_version)
         account_id_incremented_event = AccountIdProvisioned(
-            version=next_version, created_at=datetime.now())
+            version=next_version)
         self.post_new_event(account_id_incremented_event)
         account_created_event = AccountCreated(
             version=1, account_id=next_account_id, name=command.name)

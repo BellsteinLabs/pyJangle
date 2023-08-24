@@ -23,10 +23,10 @@ def RegisterSnapshotRepository(cls):
     global _registered_snapshot_repository
     if _registered_snapshot_repository != None:
         raise SnapshotRepositoryError(
-            "Cannot register multiple snapshot repositories: " + str(type(_registered_snapshot_repository)) + ", " + str(cls))
+            "Cannot register multiple snapshot repositories: " + str(_registered_snapshot_repository) + ", " + str(cls))
     _registered_snapshot_repository = cls()
     log(LogToggles.snapshot_repository_registration, "Snapshot repository registered", {
-        "snapshot_repository_type": str(type(cls))})
+        "snapshot_repository_type": str(cls)})
     return cls
 
 

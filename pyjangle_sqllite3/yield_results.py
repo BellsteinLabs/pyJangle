@@ -18,5 +18,6 @@ def yield_results(db_path: str, batch_size: int, query: str, params: tuple[any],
                     break
                 for row in rows:
                     yield deserializer(row)
+            conn.commit()
     finally:
         conn.close()

@@ -11,7 +11,7 @@ from .aggregate.aggregate import Aggregate, AggregateError, register_methods, re
 from .event.event import EventError, Event, VersionedEvent
 from .event.register_event import EventRegistrationError, RegisterEvent, get_event_name, get_event_type
 from .event.event_repository import RegisterEventRepository, EventRepository, event_repository_instance, EventRepositoryError, DuplicateKeyError
-from .event.event_handler import EventHandlerError, EventHandlerRegistrationError, register_event_handler, handle_event, has_registered_event_handler
+from .event.event_handler import EventHandlerError, EventHandlerRegistrationError, register_event_handler, handle_event, has_registered_event_handler, handle_event_with_blacklist
 from .event.event_dispatcher import begin_processing_committed_events, enqueue_committed_event_for_dispatch, EventDispatcherError, RegisterEventDispatcher, event_dispatcher_instance
 from .event.event_daemon import retry_failed_events, begin_retry_failed_events_loop
 

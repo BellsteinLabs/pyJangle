@@ -9,12 +9,12 @@ from pyjangle.saga.saga import Saga
 from pyjangle_sqllite3.symbols import FIELDS
 
 
-def serialize_event(event: VersionedEvent) -> any:
+def serialize_event(event: VersionedEvent, json_encoder: json.JSONEncoder = None) -> any:
     as_dict = dataclasses.asdict(event)
     return {
         FIELDS.EVENT_STORE.EVENT_ID: as_dict.pop("id"),
         FIELDS.EVENT_STORE.AGGREGATE_VERSION: as_dict.pop("version"),
-        FIELDS.EVENT_STORE.DATA: json.dumps(as_dict),
+        FIELDS.EVENT_STORE.DATA: json.dumps(as_dict, cls=json_encoder),
         FIELDS.EVENT_STORE.CREATED_AT: as_dict.pop("created_at"),
         FIELDS.EVENT_STORE.TYPE: get_event_name(type(event))
     }
@@ -34,8 +34,8 @@ def serialize_saga(saga: Saga) -> tuple[dict, list[dict]]:
     saga_metadata = {
         FIELDS.SAGA_METADATA.SAGA_ID: saga.saga_id,
         FIELDS.SAGA_METADATA.SAGA_TYPE: get_saga_name(type(saga)),
-        FIELDS.SAGA_METADATA.RETRY_AT: saga.retry_at.isoformat() if saga.retry_at else None,
-        FIELDS.SAGA_METADATA.TIMEOUT_AT: saga.timeout_at.isoformat() if saga.timeout_at else None,
+        FIELDS.SAGA_METADATA.RETRY_AT: saga.retry_at,
+        FIELDS.SAGA_METADATA.TIMEOUT_AT: saga.timeout_at,
         FIELDS.SAGA_METADATA.IS_COMPLETE: 1 if saga.is_complete else 0,
         FIELDS.SAGA_METADATA.IS_TIMED_OUT: 1 if saga.is_timed_out else 0,
     }

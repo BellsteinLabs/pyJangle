@@ -13,21 +13,23 @@ from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH
 
 SAGA_ID = "42"
 
-@patch(SAGA_DESERIALIZER, new_callable=lambda : deserialize_saga)
-@patch(SAGA_SERIALIZER, new_callable=lambda : serialize_saga)
+
+@patch(SAGA_DESERIALIZER, new_callable=lambda: deserialize_saga)
+@patch(SAGA_SERIALIZER, new_callable=lambda: serialize_saga)
 class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
-    
+
     def setUp(self) -> None:
-        if os.path.exists(DB_SAGA_STORE_PATH):#pragma no cover
-            os.remove(DB_SAGA_STORE_PATH) #pragma no cover
+        if os.path.exists(DB_SAGA_STORE_PATH):  # pragma no cover
+            os.remove(DB_SAGA_STORE_PATH)  # pragma no cover
         self.sql_lite_saga_repo = SqlLiteSagaRepository()
-    
+
     def tearDown(self) -> None:
-        if os.path.exists(DB_SAGA_STORE_PATH):#pragma no cover
+        if os.path.exists(DB_SAGA_STORE_PATH):  # pragma no cover
             os.remove(DB_SAGA_STORE_PATH)
 
     async def test_when_saga_committed_then_can_be_retrieved(self, *_):
-        saga = SagaForTesting(saga_id=SAGA_ID, retry_at=datetime.min, timeout_at=datetime.min, is_complete=True)
+        saga = SagaForTesting(saga_id=SAGA_ID, retry_at=datetime.min,
+                              timeout_at=datetime.min, is_complete=True)
         await self.sql_lite_saga_repo.commit_saga(saga)
         retrieved_saga = await self.sql_lite_saga_repo.get_saga(SAGA_ID)
         self.assertSetEqual(saga.flags, retrieved_saga.flags)
@@ -47,13 +49,17 @@ class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
             await self.sql_lite_saga_repo.commit_saga(retrieved_saga)
 
     async def test_when_saga_not_found_then_return_none(self, *_):
-            self.assertIsNone(await self.sql_lite_saga_repo.get_saga(SAGA_ID))
+        self.assertIsNone(await self.sql_lite_saga_repo.get_saga(SAGA_ID))
 
     async def test_when_saga_needs_retry_then_is_returned_from_get_retry_saga_metadata_method(self, *_):
-        saga_needs_retry = SagaForTesting(saga_id=SAGA_ID, retry_at=datetime.min, timeout_at=None, is_complete=False)
-        saga_completed = SagaForTesting(saga_id=SAGA_ID + "1", retry_at=datetime.min, timeout_at=None, is_complete=True)
-        saga_timed_out = SagaForTesting(saga_id=SAGA_ID + "2", retry_at=datetime.min, timeout_at=None, is_complete=False, is_timed_out=True)
-        saga_pre_timed_out = SagaForTesting(saga_id=SAGA_ID + "3", retry_at=datetime.min, timeout_at=datetime.min, is_complete=False)
+        saga_needs_retry = SagaForTesting(
+            saga_id=SAGA_ID, retry_at=datetime.min, timeout_at=None, is_complete=False)
+        saga_completed = SagaForTesting(
+            saga_id=SAGA_ID + "1", retry_at=datetime.min, timeout_at=None, is_complete=True)
+        saga_timed_out = SagaForTesting(
+            saga_id=SAGA_ID + "2", retry_at=datetime.min, timeout_at=None, is_complete=False, is_timed_out=True)
+        saga_pre_timed_out = SagaForTesting(
+            saga_id=SAGA_ID + "3", retry_at=datetime.min, timeout_at=datetime.min, is_complete=False)
         await self.sql_lite_saga_repo.commit_saga(saga_needs_retry)
         await self.sql_lite_saga_repo.commit_saga(saga_completed)
         await self.sql_lite_saga_repo.commit_saga(saga_timed_out)

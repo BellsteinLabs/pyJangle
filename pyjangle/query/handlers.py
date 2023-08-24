@@ -46,7 +46,7 @@ def register_query_handler(query_type: any):
                              str(_query_type_to_query_handler_map[query_type]) + "'")
         _query_type_to_query_handler_map[query_type] = wrapped
         log(LogToggles.query_handler_registration, "Query handler registered", {
-            "query_type": str(query_type), "query_handler_type": str(type(wrapped))})
+            "query_type": str(query_type), "query_handler_type": str(wrapped)})
         return wrapped
     return decorator
 

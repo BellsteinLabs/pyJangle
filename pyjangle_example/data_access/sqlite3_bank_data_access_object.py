@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import reduce
 import sqlite3
 from pyjangle.event.event_handler import register_event_handler
@@ -20,6 +21,7 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             create_tables_sql_script = create_tables_file.read()
         with sqlite3.connect(DB_JANGLE_BANKING_PATH) as conn:
             conn.executescript(create_tables_sql_script)
+            conn.commit()
         conn.close()
 
     @staticmethod
@@ -59,9 +61,31 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
     @fetch_multiple_rows
     async def account_summary(query: AccountSummary) -> AccountSummaryResponse:
         return [
-            f"SELECT {COLUMNS.BANK_SUMMARY.ACCOUNT_ID}, {COLUMNS.BANK_SUMMARY.NAME}, {COLUMNS.BANK_SUMMARY.BALANCE} FROM {TABLES.BANK_SUMMARY} WHERE {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.ACCOUNT_ID} = '{query.account_id}' AND {COLUMNS.BANK_SUMMARY.IS_DELETED} <> 1",
-            f"SELECT {COLUMNS.TRANSFER_REQUESTS.FUNDED_ACCOUNT}, {COLUMNS.TRANSFER_REQUESTS.AMOUNT}, {TABLES.TRANSACTION_STATES}.{COLUMNS.TRANSACTION_STATES.DESCRIPTION} as 'state' FROM {TABLES.TRANSFER_REQUESTS} LEFT JOIN {TABLES.BANK_SUMMARY} on {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.ACCOUNT_ID} = {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.FUNDING_ACCOUNT} LEFT JOIN {TABLES.TRANSACTION_STATES} on {TABLES.TRANSACTION_STATES}.{COLUMNS.TRANSACTION_STATES.VALUE} = {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.STATE} WHERE {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.FUNDING_ACCOUNT} = '{query.account_id}' AND {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.IS_DELETED} <> 1"
-        ], lambda q_result: AccountSummaryResponse(account_id=q_result[0]["account_id"], name=q_result[0]["name"], balance=q_result[0]["balance"], transfer_requests=[TransferResponse(funded_account=d["funded_account"], amount=d["amount"], state=d["state"]) for d in q_result[1:]]) if q_result else None
+            f"""SELECT 
+                {COLUMNS.BANK_SUMMARY.ACCOUNT_ID}, 
+                {COLUMNS.BANK_SUMMARY.NAME}, 
+                {COLUMNS.BANK_SUMMARY.BALANCE} 
+            FROM {TABLES.BANK_SUMMARY} 
+            WHERE 
+                {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.ACCOUNT_ID} = '{query.account_id}' 
+            AND 
+                {COLUMNS.BANK_SUMMARY.IS_DELETED} <> 1""",
+            f"""SELECT 
+                {COLUMNS.TRANSFER_REQUESTS.FUNDED_ACCOUNT}, 
+                {COLUMNS.TRANSFER_REQUESTS.AMOUNT}, 
+                {TABLES.TRANSACTION_STATES}.{COLUMNS.TRANSACTION_STATES.DESCRIPTION} as 'state',
+                {COLUMNS.TRANSFER_REQUESTS.TIMEOUT_AT},
+                {COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID}
+            FROM {TABLES.TRANSFER_REQUESTS} 
+            LEFT JOIN {TABLES.BANK_SUMMARY} 
+            ON {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.ACCOUNT_ID} = {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.FUNDING_ACCOUNT} 
+            LEFT JOIN {TABLES.TRANSACTION_STATES} 
+            ON {TABLES.TRANSACTION_STATES}.{COLUMNS.TRANSACTION_STATES.VALUE} = {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.STATE} 
+            WHERE {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.FUNDING_ACCOUNT} = '{query.account_id}' 
+            AND {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.IS_DELETED} <> 1
+            AND {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.STATE} = 2
+            """
+        ], lambda q_result: AccountSummaryResponse(account_id=q_result[0]["account_id"], name=q_result[0]["name"], balance=q_result[0]["balance"], transfer_requests=[TransferResponse(funded_account=d["funded_account"], amount=d["amount"], state=d["state"], timeout_at=datetime.fromisoformat(d["timeout_at"]).isoformat(), transaction_id=d["transaction_id"]) for d in q_result[1:]]) if q_result else None
 
     @staticmethod
     @register_query_handler(AccountLedger)

@@ -32,6 +32,7 @@ def fetch_multiple_rows(wrapped):
                             if not len(row_dicts):
                                 break
                             result += row_dicts
+                conn.commit()
         finally:
             conn.close()
         return transform(result)
@@ -47,6 +48,7 @@ def fetch_single_row(wrapped):
                 cursor = conn.cursor()
                 cursor.arraysize = BATCH_SIZE
                 cursor.execute(q)
+                conn.commit()
         finally:
             conn.close()
         return cursor.fetchone()
@@ -61,6 +63,7 @@ def upsert_single_row(wrapped):
                 conn.row_factory = dict_row_factory
                 cursor = conn.cursor()
                 cursor.execute(q, p)
+                conn.commit()
         finally:
             conn.close()
     return wrapper
@@ -75,6 +78,7 @@ def upsert_multiple_rows(wrapped):
                 cursor = conn.cursor()
                 for tupe in tupes:
                     cursor.execute(tupe[0], tupe[1])
+                conn.commit()
         finally:
             conn.close()
     return wrapper

@@ -42,7 +42,7 @@ def register_snapshot_serializer(wrapped: Callable[[any], None]):
             "@register_snapshot_serializer must decorate a method with 1 parameters: snapshot: Snapshot")
     if __snapshot_serializer:
         raise SnapshotSerializerRegistrationError(
-            f"A serializer is already registered: {str(type(__snapshot_serializer))}")
+            f"A serializer is already registered: {str(__snapshot_serializer)}")
     __snapshot_serializer = wrapped
     log(LogToggles.serializer_registered, "Serializer registered", {
         "serializer", wrapped.__module__ + "." + wrapped.__name__})

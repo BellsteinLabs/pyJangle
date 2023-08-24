@@ -1,7 +1,7 @@
 import sqlite3
 
 from pyjangle.serialization.snapshot_serialization_registration import (get_snapshot_deserializer,
-                                             get_snapshot_serializer)
+                                                                        get_snapshot_serializer)
 from pyjangle.snapshot.snapshot_repository import SnapshotRepository
 from pyjangle_sqllite3.symbols import DB_SNAPSHOTS_PATH, FIELDS, TABLES
 
@@ -13,6 +13,7 @@ class SqliteSnapshotRepository(SnapshotRepository):
             script = script_file.read()
         with sqlite3.connect(DB_SNAPSHOTS_PATH) as conn:
             conn.executescript(script)
+            conn.commit()
         conn.close()
 
     async def get_snapshot(self, aggregate_id: str) -> tuple[int, any] | None:
@@ -31,6 +32,7 @@ class SqliteSnapshotRepository(SnapshotRepository):
                 if not result_set:
                     return None
                 row = result_set[0]
+                conn.commit()
                 return get_snapshot_deserializer()(row)
         finally:
             conn.close()
@@ -53,6 +55,7 @@ class SqliteSnapshotRepository(SnapshotRepository):
         try:
             with sqlite3.connect(DB_SNAPSHOTS_PATH) as conn:
                 conn.execute(q, p)
+                conn.commit()
         finally:
             conn.close()
 
@@ -62,5 +65,6 @@ class SqliteSnapshotRepository(SnapshotRepository):
         try:
             with sqlite3.connect(DB_SNAPSHOTS_PATH) as conn:
                 conn.execute(q, p)
+                conn.commit()
         finally:
             conn.close()

@@ -42,7 +42,7 @@ def register_saga_serializer(wrapped: Callable[[any], None]):
             "@register_saga_serializer must decorate a method with 1 parameters: saga: Saga")
     if __saga_serializer:
         raise SagaSerializerRegistrationError(
-            f"A serializer is already registered: {str(type(__saga_serializer))}")
+            f"A serializer is already registered: {str(__saga_serializer)}")
     __saga_serializer = wrapped
     log(LogToggles.serializer_registered, "Serializer registered", {
         "serializer", wrapped.__module__ + "." + wrapped.__name__})

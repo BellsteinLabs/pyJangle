@@ -30,7 +30,7 @@ def RegisterSagaRepository(cls):
             type(__registered_saga_repository)) + ", " + str(cls))
     __registered_saga_repository = cls()
     log(LogToggles.saga_repository_registration,
-        "Saga repository registered", {"saga_repository_type": str(type(cls))})
+        "Saga repository registered", {"saga_repository_type": str(cls)})
 
     @functools.wraps(cls)
     def wrapper(*args, **kwargs):

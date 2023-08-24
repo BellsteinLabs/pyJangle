@@ -20,10 +20,9 @@ class Event(metaclass=abc.ABCMeta):
         default_factory=lambda: datetime.now().isoformat())
 
     @classmethod
-    @abc.abstractmethod
-    def deserialize(data: any) -> any:
+    def deserialize(cls, data: any) -> any:
         """Converts serialized representation to an Event."""
-        pass
+        return cls(**data)
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True,)

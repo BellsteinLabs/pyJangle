@@ -19,6 +19,7 @@ class SqlLiteEventRepository(EventRepository):
             create_event_store_sql_script = create_event_store_sql_file.read()
         with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
             conn.executescript(create_event_store_sql_script)
+            conn.commit()
         conn.close()
 
     async def get_events(self, aggregate_id: any, batch_size: int = 100, current_version=0) -> Iterator[VersionedEvent]:
@@ -31,21 +32,21 @@ class SqlLiteEventRepository(EventRepository):
         params = (aggregate_id, current_version)
         return yield_results(db_path=DB_EVENT_STORE_PATH, query=q, params=params, batch_size=batch_size, deserializer=get_event_deserializer())
 
-    async def get_unhandled_events(self, batch_size: int, time_since_published: timedelta) -> Iterator[VersionedEvent]:
+    async def get_unhandled_events(self, batch_size: int, time_delta: timedelta) -> Iterator[VersionedEvent]:
         q = f"""
-            SELECT {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}
+            SELECT {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.EVENT_ID}, {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.AGGREGATE_ID}, {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.DATA}, {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.CREATED_AT}, {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.TYPE}
             FROM {TABLES.PENDING_EVENTS}
             INNER JOIN {TABLES.EVENT_STORE} ON {TABLES.PENDING_EVENTS}.{FIELDS.PENDING_EVENTS.EVENT_ID} = {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.EVENT_ID}
-            WHERE {FIELDS.PENDING_EVENTS.PUBLISHED_AT} >= datetime(CURRENT_TIMESTAMP, '+{time_since_published.total_seconds()} seconds') 
+            WHERE {TABLES.PENDING_EVENTS}.{FIELDS.PENDING_EVENTS.PUBLISHED_AT} <= datetime(CURRENT_TIMESTAMP, '+{time_delta.total_seconds()} seconds') 
         """
         return yield_results(db_path=DB_EVENT_STORE_PATH, batch_size=batch_size, query=q, params=None, deserializer=get_event_deserializer())
 
     async def commit_events(self, aggregate_id_and_event_tuples: list[tuple[any, VersionedEvent]]):
         q_insert_event_store = f"""
-            INSERT INTO {TABLES.EVENT_STORE} ({FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}) VALUES (?,?,?,?,?,?);
+            INSERT INTO {TABLES.EVENT_STORE} ({FIELDS.EVENT_STORE.EVENT_ID}, {FIELDS.EVENT_STORE.AGGREGATE_ID}, {FIELDS.EVENT_STORE.AGGREGATE_VERSION}, {FIELDS.EVENT_STORE.DATA}, {FIELDS.EVENT_STORE.CREATED_AT}, {FIELDS.EVENT_STORE.TYPE}) VALUES (?,?,?,?,?,?)
         """
         q_insert_pending_events = f"""
-            INSERT INTO {TABLES.PENDING_EVENTS} ({FIELDS.PENDING_EVENTS.EVENT_ID}) VALUES (?);
+            INSERT INTO {TABLES.PENDING_EVENTS} ({FIELDS.PENDING_EVENTS.EVENT_ID}) VALUES (?)
         """
         data_insert_event_store = [
             (aggregate_id_and_serialized_event_tuple[1][FIELDS.EVENT_STORE.EVENT_ID],
@@ -63,16 +64,18 @@ class SqlLiteEventRepository(EventRepository):
                 conn.executemany(q_insert_event_store, data_insert_event_store)
                 conn.executemany(q_insert_pending_events,
                                  data_insert_pending_events)
+                conn.commit()
         except sqlite3.IntegrityError as e:
             raise DuplicateKeyError(e)
         finally:
             conn.close()
 
     async def mark_event_handled(self, id: any):
-        q = f"DELETE FROM {TABLES.EVENT_STORE} WHERE {FIELDS.EVENT_STORE.EVENT_ID} = ?"
+        q = f"DELETE FROM {TABLES.PENDING_EVENTS} WHERE {FIELDS.EVENT_STORE.EVENT_ID} = ?"
         params = (id,)
         try:
             with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
                 conn.execute(q, params)
+                conn.commit()
         finally:
             conn.close()

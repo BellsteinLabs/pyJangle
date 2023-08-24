@@ -20,7 +20,7 @@ async def retry_sagas(max_batch_size: int):
     use the max_batch_size parameter to process only 
     a few at a time."""
     repo = saga_repository_instance()
-    saga_ids: list[str] = await repo.get_retry_saga_metadata(max_batch_size)
+    saga_ids: list[str] = list(await repo.get_retry_saga_metadata(max_batch_size))
     count = len(saga_ids)
     log(LogToggles.retrying_sagas,
         f"Retrying {count} sagas." if count else "Retryable sagas not found.")

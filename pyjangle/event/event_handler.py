@@ -101,5 +101,12 @@ async def handle_event(event: VersionedEvent):
             await handler(event)
     except Exception as e:
         log(LogToggles.event_handler_failed, "Event handler failed", {"event_type": str(
-            event_type), "event_handler_type": str(type(handler)), "event": event.__dict__}, exc_info=e)
+            event_type), "event_handler_type": str(handler), "event": event.__dict__}, exc_info=e)
+        raise
     return
+
+
+def handle_event_with_blacklist(*blacklisted_event_types: type):
+    async def wrapper(event: VersionedEvent):
+        return await handle_event(event) if not type(event) in blacklisted_event_types else None
+    return wrapper

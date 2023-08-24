@@ -25,6 +25,8 @@ class TransferResponse:
     funded_account: str
     amount: str
     state: str
+    timeout_at: str
+    transaction_id: str
 
 
 @dataclass(frozen=True, kw_only=True)

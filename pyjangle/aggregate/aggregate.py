@@ -155,6 +155,8 @@ class Aggregate:
                     f"Missing @reconstitute_aggregate_state method for {str(type(event))}") from ke
             try:
                 state_reconstitutor(event)
+                log(LogToggles.aggregate_event_applied, "Event reconstituted aggregate state.", {
+                    "aggregate_type": str(type(self)), "event_type": str(type(event)), "event": event.__dict__})
             except Exception as e:
                 log(LogToggles.aggregate_event_application_failed, "Error when applying event to aggregate", {
                     "aggregate_type": str(type(self)), "event_type": str(type(event)), "event": event.__dict__})

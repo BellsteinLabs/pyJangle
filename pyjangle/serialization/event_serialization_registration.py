@@ -42,7 +42,7 @@ def register_event_serializer(wrapped: Callable[[any], None]):
             "@register_event_serializer must decorate a method with 1 parameters: event: Event")
     if __event_serializer:
         raise EventSerializerRegistrationError(
-            f"A serializer is already registered: {str(type(__event_serializer))}")
+            f"A serializer is already registered: {str(__event_serializer)}")
     __event_serializer = wrapped
     log(LogToggles.serializer_registered, "Serializer registered", {
         "serializer", wrapped.__module__ + "." + wrapped.__name__})

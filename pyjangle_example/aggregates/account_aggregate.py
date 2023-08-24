@@ -89,7 +89,7 @@ class AccountAggregate(Aggregate):
     @fail_if_account_deleted_or_not_exists
     def receive_funds(self, command: ReceiveFunds, next_version: int) -> CommandResponse:
         self.post_new_event(ReceiveFundsRequested(version=next_version, funding_account_id=command.funding_account_id,
-                                                  funded_account_id=command.funded_account_id, amount=command.amount, timeout_at=(datetime.now() + timedelta(minutes=30)), transaction_id=uuid.uuid4()))
+                                                  funded_account_id=command.funded_account_id, amount=command.amount, timeout_at=((datetime.now() + timedelta(minutes=30))).isoformat(), transaction_id=str(uuid.uuid4())))
 
     @validate_command(CreditSendFunds)
     @fail_if_account_deleted_or_not_exists

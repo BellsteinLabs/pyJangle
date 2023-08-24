@@ -52,7 +52,7 @@ def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
             "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher_instance)) + ", " + wrapped.__name__)
     _command_dispatcher_instance = wrapped
     log(LogToggles.command_dispatcher_registration, "Registering command dispatcher", {
-        "command_dispatcher_type": str(type(wrapped))})
+        "command_dispatcher_type": str(wrapped)})
     return wrapped
 
 

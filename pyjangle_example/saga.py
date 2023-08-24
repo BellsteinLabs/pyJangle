@@ -3,6 +3,8 @@ from datetime import datetime, timedelta
 import logging
 from typing import List
 from pyjangle import command_dispatcher_instance
+from pyjangle import RegisterSaga
+from pyjangle.event.register_event import RegisterEvent
 from pyjangle_example.commands import *
 from pyjangle_example.events import ReceiveFundsApproved, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested
 from pyjangle import Event
@@ -19,46 +21,47 @@ FIELD_AMOUNT = "amount"
 FIELD_TIMEOUT_AT = "timeout_at"
 
 
+@RegisterEvent
 class TryObtainReceiveFundsApprovalCommandSucceeded(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class TryObtainReceiveFundsApprovalCommandFailed(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class NotifyReceiveFundsRejectedCommandAcknowledged(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class DebitReceiveFundsCommandSucceeded(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class DebitReceiveFundsCommandFailed(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class CreditReceiveFundsCommandSucceeded(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class CreditReceiveFundsCommandFailed(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterEvent
 class RollbackReceiveFundsDebitCommandAcknowledged(Event):
-    def deserialize(data: any) -> any:
-        pass
+    pass
 
 
+@RegisterSaga
 class RequestFundsFromAnotherAccount(Saga):
 
     @event_receiver(ReceiveFundsRequested, skip_if_any_flags_set=[TryObtainReceiveFundsApprovalCommandSucceeded, NotifyReceiveFundsRejectedCommandAcknowledged])
@@ -129,7 +132,7 @@ class RequestFundsFromAnotherAccount(Saga):
         setattr(self, FIELD_FUNDED_ACCOUNT_ID, event.funded_account_id)
         setattr(self, FIELD_AMOUNT, event.amount)
         setattr(self, FIELD_TIMEOUT_AT, event.timeout_at)
-        self.timeout_at = event.timeout_at
+        self.set_timeout(event.timeout_at)
 
     @reconstitute_saga_state(ReceiveFundsApproved)
     def handle_receive_funds_transfer_approved(self, event: ReceiveFundsApproved):

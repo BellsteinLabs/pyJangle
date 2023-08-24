@@ -4,7 +4,13 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
+        {
+            "name": "Console App",
+            "type": "python",
+            "request": "launch",
+            "module": "pyjangle_example.main",
+            "justMyCode": true
+        },
         {
             "name": "Dart: Attach to Process",
             "type": "dart",

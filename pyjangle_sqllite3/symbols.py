@@ -1,8 +1,10 @@
 import os
 
-DB_EVENT_STORE_PATH = os.getenv("JANGLE_EVENT_STORE_PATH", "jangle.db")
-DB_SAGA_STORE_PATH = os.getenv("JANGLE_SAGA_STORE_PATH", "jangle.db")
-DB_SNAPSHOTS_PATH = os.getenv("JANGLE_SNAPSHOTS_PATH", "jangle.db")
+DEFAULT_DB_PATH = "DELETE_ME_NO_DB_PATH_SET.db"
+DB_EVENT_STORE_PATH = os.getenv("JANGLE_EVENT_STORE_PATH", DEFAULT_DB_PATH)
+DB_SAGA_STORE_PATH = os.getenv("JANGLE_SAGA_STORE_PATH", DEFAULT_DB_PATH)
+DB_SNAPSHOTS_PATH = os.getenv("JANGLE_SNAPSHOTS_PATH", DEFAULT_DB_PATH)
+
 
 class TABLES:
     EVENT_STORE = "event_store"
@@ -10,6 +12,7 @@ class TABLES:
     SAGA_EVENTS = "saga_events"
     SAGA_METADATA = "saga_metadata"
     SNAPSHOTS = "snapshots"
+
 
 class FIELDS:
     class EVENT_STORE:
@@ -19,15 +22,18 @@ class FIELDS:
         DATA = "data"
         CREATED_AT = "created_at"
         TYPE = "type"
+
     class PENDING_EVENTS:
         EVENT_ID = "event_id"
         PUBLISHED_AT = "published_at"
+
     class SAGA_EVENTS:
         SAGA_ID = "saga_id"
         EVENT_ID = "event_id"
         DATA = "data"
         CREATED_AT = "created_at"
         TYPE = "type"
+
     class SAGA_METADATA:
         SAGA_ID = "saga_id"
         SAGA_TYPE = "saga_type"
@@ -35,6 +41,7 @@ class FIELDS:
         TIMEOUT_AT = "timeout_at"
         IS_COMPLETE = "is_complete"
         IS_TIMED_OUT = "is_timed_out"
+
     class SNAPSHOTS:
         AGGREGATE_ID = "aggregate_id"
         VERSION = "version"

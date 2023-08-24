@@ -123,7 +123,7 @@ class TestAccountAggregate(IsolatedAsyncioTestCase):
                 FUNDING_ACCOUNT_ID_FLD: OTHER_ACCOUNT_ID,
                 AMOUNT_FLD: LARGE_AMOUNT,
                 TRANSACTION_ID_FLD: KNOWN_UUID,
-                TIMEOUT_AT_FLD: THIRTY_MINUTES_FROM_FAKE_NOW
+                TIMEOUT_AT_FLD: THIRTY_MINUTES_FROM_FAKE_NOW.isoformat()
             })
         ])
 

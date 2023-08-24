@@ -43,9 +43,10 @@ class TestEventHandler(IsolatedAsyncioTestCase):
             class Foo:
                 pass
 
-    async def test_failed_event_handler_catches_exception(self, *_):
+    async def test_failed_event_handler_reraises_exception(self, *_):
         @register_event_handler(EventA)
         async def foo(event):
             raise Exception
 
-        await handle_event(EventA(id=1, version=1, created_at=None))
+        with self.assertRaises(Exception):
+            await handle_event(EventA(id=1, version=1, created_at=None))

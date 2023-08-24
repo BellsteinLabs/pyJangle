@@ -52,6 +52,7 @@ class LogToggles:
     aggregate_created = DEBUG
     aggregate_cant_find_state_reconstitutor = ERROR
     aggregate_event_application_failed = ERROR
+    aggregate_event_applied = DEBUG
     command_validator_method_name_caching = INFO
     state_reconstitutor_method_name_caching = INFO
     command_dispatcher_registration = INFO
@@ -71,6 +72,7 @@ class LogToggles:
     command_registered_to_aggregate = INFO
     retrying_sagas = INFO
     retrying_failed_events = INFO
+    retrying_failed_events_error = ERROR
     snapshot_deleted = INFO
     snapshot_taken = INFO
     committed_event = INFO

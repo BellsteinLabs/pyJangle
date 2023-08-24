@@ -33,7 +33,7 @@ async def _dispatch_event(event: VersionedEvent):
         await _event_dispatcher(event)
         await event_repo.mark_event_handled(event.id)
     except Exception as e:
-        log(LogToggles.event_dispatching_error, "Encountered an error while dispatching event", {
+        log(LogToggles.event_dispatching_error, "Encountered an error while dispatching event", {"event_type": str(type(event)),
             "event": event.__dict__}, exc_info=e)
 
 # holds the registered singleton event dispatcher.
@@ -83,7 +83,7 @@ def RegisterEventDispatcher(wrapped: Callable):
     global _event_dispatcher
     if _event_dispatcher != None:
         raise EventDispatcherError(
-            "Cannot register multiple event dispatchers: " + str(type(_event_dispatcher)) + ", " + str(wrapped))
+            "Cannot register multiple event dispatchers: " + str(_event_dispatcher) + ", " + str(wrapped))
     _event_dispatcher = wrapped
     log(LogToggles.event_dispatcher_registration, "Event dispatcher registered", {
         "event_dispatcher_type": wrapped.__module__ + "." + wrapped.__name__})

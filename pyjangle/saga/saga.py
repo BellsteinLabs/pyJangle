@@ -239,7 +239,7 @@ class Saga:
     # type.
     _saga_type_to_event_receiver_method_names = dict()
 
-    def __init__(self, saga_id: any, events: List[Event] = [], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
+    def __init__(self, saga_id: any, events: List[Event] = [], retry_at: datetime | str = None, timeout_at: datetime | str = None, is_complete: bool = False, is_timed_out: bool = False):
         saga_type = type(self)
 
         # Update the cache with method names if needed.
@@ -257,8 +257,10 @@ class Saga:
 
         self.saga_id = saga_id
         self.flags = set()
-        self.retry_at = retry_at
-        self.timeout_at = timeout_at
+        self.retry_at = None if retry_at == None else retry_at if isinstance(
+            retry_at, datetime) else datetime.fromisoformat(retry_at)
+        self.timeout_at = None if timeout_at == None else timeout_at if isinstance(
+            timeout_at, datetime) else datetime.fromisoformat(timeout_at)
         self.is_timed_out = is_timed_out
         self.is_complete = is_complete
         self.new_events: list[VersionedEvent] = []
@@ -330,6 +332,8 @@ class Saga:
 
     def set_timeout(self, timeout_at: datetime):
         """Call from evaluate() to specify a timeout for the saga."""
+        if isinstance(timeout_at, str):
+            timeout_at = datetime.fromisoformat(timeout_at)
         if not self.timeout_at != timeout_at:
             self.is_dirty = True
         self.timeout_at = timeout_at

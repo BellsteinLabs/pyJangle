@@ -172,7 +172,7 @@ class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
             bank_stats=BankStatsResponse(active_accounts_count=1, deleted_accounts_count=0, net_account_balance=0,
                                          transaction_count=0, average_deposit_amount=0, average_withdrawal_amount=0, debt_forgiven_amount=0),
             account_summary=AccountSummaryResponse(
-                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[TransferResponse(funded_account=OTHER_ACCOUNT_ID, amount=AMOUNT, state="request_received")]),
+                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[TransferResponse(funded_account=OTHER_ACCOUNT_ID, amount=AMOUNT, state="request_received", timeout_at=FAKE_CURRENT_TIME_PLUS.isoformat(), transaction_id=TRANSACTION_ID_1)]),
             account_ledger=[]
         )
 
@@ -191,7 +191,7 @@ class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
             bank_stats=BankStatsResponse(active_accounts_count=1, deleted_accounts_count=0, net_account_balance=0,
                                          transaction_count=0, average_deposit_amount=0, average_withdrawal_amount=0, debt_forgiven_amount=0),
             account_summary=AccountSummaryResponse(
-                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[TransferResponse(funded_account=OTHER_ACCOUNT_ID, amount=AMOUNT, state="request_accepted")]),
+                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[]),
             account_ledger=[]
         )
 
@@ -210,7 +210,7 @@ class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
             bank_stats=BankStatsResponse(active_accounts_count=1, deleted_accounts_count=0, net_account_balance=0,
                                          transaction_count=0, average_deposit_amount=0, average_withdrawal_amount=0, debt_forgiven_amount=0),
             account_summary=AccountSummaryResponse(
-                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[TransferResponse(funded_account=OTHER_ACCOUNT_ID, amount=AMOUNT, state="request_rejected")]),
+                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[]),
             account_ledger=[]
         )
 
@@ -237,7 +237,7 @@ class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
             bank_stats=BankStatsResponse(active_accounts_count=2, deleted_accounts_count=0, net_account_balance=0,
                                          transaction_count=0, average_deposit_amount=0, average_withdrawal_amount=0, debt_forgiven_amount=0),
             account_summary=AccountSummaryResponse(
-                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[TransferResponse(funded_account=ACCOUNT_ID, amount=AMOUNT, state="rejection_received")]),
+                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[]),
             account_ledger=[]
         )
 
@@ -258,7 +258,7 @@ class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
             bank_stats=BankStatsResponse(active_accounts_count=1, deleted_accounts_count=0, net_account_balance=-AMOUNT,
                                          transaction_count=1, average_deposit_amount=0, average_withdrawal_amount=0, debt_forgiven_amount=0),
             account_summary=AccountSummaryResponse(
-                account_id=ACCOUNT_ID, name=NAME, balance=-AMOUNT, transfer_requests=[TransferResponse(funded_account=OTHER_ACCOUNT_ID, amount=AMOUNT, state="request_debited")]),
+                account_id=ACCOUNT_ID, name=NAME, balance=-AMOUNT, transfer_requests=[]),
             account_ledger=[TransactionResponse(
                 initiated_at=FAKE_CURRENT_TIME, amount=AMOUNT, transaction_type="request_debit")]
         )
@@ -282,7 +282,7 @@ class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
             bank_stats=BankStatsResponse(active_accounts_count=1, deleted_accounts_count=0, net_account_balance=0,
                                          transaction_count=2, average_deposit_amount=0, average_withdrawal_amount=0, debt_forgiven_amount=0),
             account_summary=AccountSummaryResponse(
-                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[TransferResponse(funded_account=OTHER_ACCOUNT_ID, amount=AMOUNT, state="request_debit_rollback")]),
+                account_id=ACCOUNT_ID, name=NAME, balance=0, transfer_requests=[]),
             account_ledger=[
                 TransactionResponse(initiated_at=FAKE_CURRENT_TIME,
                                     amount=AMOUNT, transaction_type="request_debit"),

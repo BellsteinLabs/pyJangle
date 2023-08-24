@@ -48,7 +48,7 @@ class TestSqlLiteEventRepository(unittest.IsolatedAsyncioTestCase):
         events = [EventA(version=1), EventA(version=2),
                   EventA(version=3), EventA(version=4)]
         await self.sql_lite_event_repo.commit_events([(42, event) for event in events])
-        unhandled_events = await self.sql_lite_event_repo.get_unhandled_events(100, time_since_published=timedelta(seconds=0))
+        unhandled_events = await self.sql_lite_event_repo.get_unhandled_events(100, time_delta=timedelta(seconds=0))
         self.assertListEqual(sorted(events, key=lambda x: x.version), sorted(
             unhandled_events, key=lambda x: x.version))
 
