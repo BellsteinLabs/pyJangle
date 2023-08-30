@@ -4,7 +4,7 @@ from typing import Callable, Iterator
 
 def yield_results(db_path: str, batch_size: int, query: str, params: tuple[any], deserializer: Callable[[dict], any]) -> Iterator:
     try:
-        with sqlite3.connect(db_path) as conn:
+        with sqlite3.connect(db_path, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
             cursor.arraysize = batch_size

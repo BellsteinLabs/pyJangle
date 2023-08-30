@@ -20,8 +20,8 @@ def serialize_event(event: VersionedEvent, json_encoder: json.JSONEncoder = None
     }
 
 
-def deserialize_event(fields: sqlite3.Row) -> VersionedEvent:
-    data_dict = json.loads(fields[FIELDS.EVENT_STORE.DATA])
+def deserialize_event(fields: sqlite3.Row, json_decoder: json.JSONDecoder) -> VersionedEvent:
+    data_dict = json.loads(fields[FIELDS.EVENT_STORE.DATA], cls=json_decoder)
     data_dict["id"] = fields[FIELDS.EVENT_STORE.EVENT_ID]
     data_dict["created_at"] = fields[FIELDS.EVENT_STORE.CREATED_AT]
     data_dict["version"] = fields[FIELDS.EVENT_STORE.AGGREGATE_VERSION]
@@ -30,7 +30,7 @@ def deserialize_event(fields: sqlite3.Row) -> VersionedEvent:
     return event_class_instance.deserialize(data_dict)
 
 
-def serialize_saga(saga: Saga) -> tuple[dict, list[dict]]:
+def serialize_saga(saga: Saga, json_encoder: json.JSONEncoder = None) -> tuple[dict, list[dict]]:
     saga_metadata = {
         FIELDS.SAGA_METADATA.SAGA_ID: saga.saga_id,
         FIELDS.SAGA_METADATA.SAGA_TYPE: get_saga_name(type(saga)),
@@ -42,14 +42,14 @@ def serialize_saga(saga: Saga) -> tuple[dict, list[dict]]:
     saga_events = [{
         FIELDS.SAGA_EVENTS.SAGA_ID: saga.saga_id,
         FIELDS.SAGA_EVENTS.EVENT_ID: event.id,
-        FIELDS.SAGA_EVENTS.DATA: json.dumps(dataclasses.asdict(event)),
+        FIELDS.SAGA_EVENTS.DATA: json.dumps(dataclasses.asdict(event), cls=json_encoder),
         FIELDS.SAGA_EVENTS.CREATED_AT: event.created_at,
         FIELDS.SAGA_EVENTS.TYPE: get_event_name(type(event)),
     } for event in saga.new_events]
     return (saga_metadata, saga_events)
 
 
-def deserialize_saga(serialized: tuple[dict, list[dict]]) -> Saga:
+def deserialize_saga(serialized: tuple[dict, list[dict]], json_decoder: json.JSONDecoder = None) -> Saga:
     metadata_dict = serialized[0]
     saga_type = get_saga_type(metadata_dict[FIELDS.SAGA_METADATA.SAGA_TYPE])
     saga_id = metadata_dict[FIELDS.SAGA_METADATA.SAGA_ID]
@@ -61,7 +61,7 @@ def deserialize_saga(serialized: tuple[dict, list[dict]]) -> Saga:
     saga_is_timed_out = bool(metadata_dict[FIELDS.SAGA_METADATA.IS_TIMED_OUT])
     events = list()
     for serialized_event in serialized[1]:
-        data_dict = json.loads(serialized_event[FIELDS.EVENT_STORE.DATA])
+        data_dict = json.loads(serialized_event[FIELDS.EVENT_STORE.DATA], cls=json_decoder)
         data_dict["id"] = serialized_event[FIELDS.EVENT_STORE.EVENT_ID]
         data_dict["created_at"] = serialized_event[FIELDS.EVENT_STORE.CREATED_AT]
         event_class_instance: type[VersionedEvent] = get_event_type(

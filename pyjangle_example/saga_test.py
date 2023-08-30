@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Callable
 from unittest import IsolatedAsyncioTestCase, TestCase
 import unittest
@@ -9,19 +10,19 @@ from pyjangle.command.command_response import CommandResponse
 from pyjangle import Saga
 from pyjangle import Event, VersionedEvent
 from pyjangle.test.registration_paths import COMMAND_DISPATCHER
-from pyjangle_example.commands import CreditReceiveFunds, DebitReceiveFunds, NotifyReceiveFundsRejected, RollbackReceiveFundsDebit, TryObtainReceiveFundsApproval
-from pyjangle_example.events import ReceiveFundsApproved, ReceiveFundsRejected, ReceiveFundsRequested
+from pyjangle_example.commands import CreditRequest, DebitRequest, NotifyRequestRejected, RollbackRequestDebit, GetRequestApproval
+from pyjangle_example.events import RequestApproved, RequestRejected, RequestCreated
 
-from pyjangle_example.saga import CreditReceiveFundsCommandFailed, CreditReceiveFundsCommandSucceeded, DebitReceiveFundsCommandFailed, DebitReceiveFundsCommandSucceeded, NotifyReceiveFundsRejectedCommandAcknowledged, RequestFundsFromAnotherAccount, RollbackReceiveFundsDebitCommandAcknowledged, TryObtainReceiveFundsApprovalCommandFailed, TryObtainReceiveFundsApprovalCommandSucceeded
+from pyjangle_example.saga import CreditRequestCommandFailed, CreditRequestCommandSucceeded, DebitRequestCommandFailed, DebitRequestCommandSucceeded, NotifyRequestRejectedCommandAcknowledged, RequestSaga, RollbackRequestCommandAcknowledged, GetRequestApprovalCommandFailed, GetRequestApprovalCommandSucceeded
 
 
 @patch(COMMAND_DISPATCHER, new=None)
-class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRequestedEventReceived(IsolatedAsyncioTestCase):
+class TestRequestSaga_RequestCreatedEventReceived(IsolatedAsyncioTestCase):
 
     async def test_happy_path(self, *_):
         await saga_state_verifier(test_case=self, incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandSucceeded],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandSucceeded],
+            SAGA_FLD_NEW_EVENTS: [RequestCreated, GetRequestApprovalCommandSucceeded],
+            SAGA_FLD_FLAGS: [RequestCreated, GetRequestApprovalCommandSucceeded],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -29,10 +30,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRequestedEventReceived(
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_TryObtainReceiveFundsApproval_exception(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[], exception_commands=[TryObtainReceiveFundsApproval], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRequested],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested],
+    async def test_get_request_approval_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[], commands_that_will_throw_an_exception=[GetRequestApproval], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestCreated],
+            SAGA_FLD_FLAGS: [RequestCreated],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -40,10 +41,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRequestedEventReceived(
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejected_exception(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[TryObtainReceiveFundsApproval], exception_commands=[NotifyReceiveFundsRejected], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandFailed],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandFailed],
+    async def test_get_request_approval_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[GetRequestApproval], commands_that_will_throw_an_exception=[NotifyRequestRejected], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestCreated, GetRequestApprovalCommandFailed],
+            SAGA_FLD_FLAGS: [RequestCreated, GetRequestApprovalCommandFailed],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -51,10 +52,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRequestedEventReceived(
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_TryObtainReceiveFundsApproval_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[TryObtainReceiveFundsApproval], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
+    async def test_get_request_approval_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[GetRequestApproval], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestCreated, GetRequestApprovalCommandFailed, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, GetRequestApprovalCommandFailed, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -62,10 +63,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRequestedEventReceived(
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejected_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[TryObtainReceiveFundsApproval, NotifyReceiveFundsRejected], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, TryObtainReceiveFundsApprovalCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
+    async def test_notify_request_rejected_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[GetRequestApproval, NotifyRequestRejected], incoming_event=receive_funds_requested_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestCreated, GetRequestApprovalCommandFailed, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, GetRequestApprovalCommandFailed, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -75,11 +76,11 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRequestedEventReceived(
 
 
 @patch(COMMAND_DISPATCHER, new=None)
-class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsyncioTestCase):
+class TestRequestSaga_RequestApproved(IsolatedAsyncioTestCase):
     async def test_happy_path(self, *_):
         await saga_state_verifier(test_case=self, preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandSucceeded],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandSucceeded],
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandSucceeded],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandSucceeded],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -87,10 +88,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_DebitReceiveFundsCommandSucceeded_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[DebitReceiveFunds], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
+    async def test_debit_request_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[DebitRequest], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandFailed, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandFailed, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -98,10 +99,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_DebitReceiveFundsCommandSucceeded_exception(self, *_):
-        await saga_state_verifier(test_case=self, exception_commands=[DebitReceiveFunds], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved],
+    async def test_debit_request_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_throw_an_exception=[DebitRequest], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -109,10 +110,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejectedCommandAcknowledged_succeeded(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[DebitReceiveFunds], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
+    async def test_notify_request_rejected_succeeded(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[DebitRequest], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandFailed, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandFailed, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -120,10 +121,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejectedCommandAcknowledged_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[DebitReceiveFunds, NotifyReceiveFundsRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandFailed, NotifyReceiveFundsRejectedCommandAcknowledged],
+    async def test_notify_request_rejected_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[DebitRequest, NotifyRequestRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandFailed, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandFailed, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -131,10 +132,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejectedCommandAcknowledged_exception(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[DebitReceiveFunds], exception_commands=[NotifyReceiveFundsRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandFailed],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandFailed],
+    async def test_notify_request_rejected_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[DebitRequest], commands_that_will_throw_an_exception=[NotifyRequestRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandFailed],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandFailed],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -142,10 +143,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_CreditReceiveFunds_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[CreditReceiveFunds], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed, RollbackReceiveFundsDebitCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed, RollbackReceiveFundsDebitCommandAcknowledged],
+    async def test_credit_request_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[CreditRequest], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed, RollbackRequestCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed, RollbackRequestCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -153,10 +154,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_CreditReceiveFunds_exception(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[], exception_commands=[CreditReceiveFunds], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded],
+    async def test_credit_request_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[], commands_that_will_throw_an_exception=[CreditRequest], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandSucceeded],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandSucceeded],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -164,10 +165,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_RollbackReceiveFundsDebitCommandAcknowledged_succeeded(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[CreditReceiveFunds], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed, RollbackReceiveFundsDebitCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed, RollbackReceiveFundsDebitCommandAcknowledged],
+    async def test_rollback_request_debit_succeeded(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[CreditRequest], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed, RollbackRequestCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed, RollbackRequestCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -175,10 +176,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_RollbackReceiveFundsDebitCommandAcknowledged_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[CreditReceiveFunds, RollbackReceiveFundsDebit], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed, RollbackReceiveFundsDebitCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed, RollbackReceiveFundsDebitCommandAcknowledged],
+    async def test_rollback_request_debit_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[CreditRequest, RollbackRequestDebit], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed, RollbackRequestCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed, RollbackRequestCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -186,10 +187,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_RollbackReceiveFundsDebitCommandAcknowledged_exception(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[CreditReceiveFunds], exception_commands=[RollbackReceiveFundsDebit], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsApproved, DebitReceiveFundsCommandSucceeded, CreditReceiveFundsCommandFailed],
+    async def test_rollback_request_debit_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[CreditRequest], commands_that_will_throw_an_exception=[RollbackRequestDebit], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_approved_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestApproved, DebitRequestCommandSucceeded, CreditRequestCommandFailed],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -199,11 +200,11 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsApproved(IsolatedAsynci
 
 
 @patch(COMMAND_DISPATCHER, new=None)
-class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRejected(IsolatedAsyncioTestCase):
+class TestRequestSaga_RequestRejected(IsolatedAsyncioTestCase):
     async def test_happy_path(self, *_):
         await saga_state_verifier(test_case=self, preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_rejected_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRejected, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsRejected, NotifyReceiveFundsRejectedCommandAcknowledged],
+            SAGA_FLD_NEW_EVENTS: [RequestRejected, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestRejected, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -211,10 +212,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRejected(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejected_failed(self, *_):
-        await saga_state_verifier(test_case=self, fail_commands=[NotifyReceiveFundsRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_rejected_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRejected, NotifyReceiveFundsRejectedCommandAcknowledged],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsRejected, NotifyReceiveFundsRejectedCommandAcknowledged],
+    async def test_notify_request_rejected_failed(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_fail=[NotifyRequestRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_rejected_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestRejected, NotifyRequestRejectedCommandAcknowledged],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestRejected, NotifyRequestRejectedCommandAcknowledged],
             SAGA_FLD_IS_COMPLETE: True,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -222,10 +223,10 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRejected(IsolatedAsynci
             SAGA_FLD_TIMEOUT_AT: FAKE_CURRENT_TIME_PLUS_30_MINUTES
         })
 
-    async def test_NotifyReceiveFundsRejected_exception(self, *_):
-        await saga_state_verifier(test_case=self, exception_commands=[NotifyReceiveFundsRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_rejected_event, saga_factory=get_saga, expected_saga_state={
-            SAGA_FLD_NEW_EVENTS: [ReceiveFundsRejected],
-            SAGA_FLD_FLAGS: [ReceiveFundsRequested, ReceiveFundsRejected],
+    async def test_notify_request_rejected_exception(self, *_):
+        await saga_state_verifier(test_case=self, commands_that_will_throw_an_exception=[NotifyRequestRejected], preexisting_saga_events=[receive_funds_requested_event], incoming_event=receive_funds_rejected_event, saga_factory=get_saga, expected_saga_state={
+            SAGA_FLD_NEW_EVENTS: [RequestRejected],
+            SAGA_FLD_FLAGS: [RequestCreated, RequestRejected],
             SAGA_FLD_IS_COMPLETE: False,
             SAGA_FLD_IS_DIRTY: True,
             SAGA_FLD_IS_TIMED_OUT: False,
@@ -234,8 +235,8 @@ class TestRequestFundsFromAnotherAccountSaga_ReceiveFundsRejected(IsolatedAsynci
         })
 
 
-async def saga_state_verifier(test_case: TestCase, incoming_event: VersionedEvent, saga_factory: Callable[[list[Event]], Saga], expected_saga_state: dict[str, any], fail_commands: list = [], exception_commands: list = [], preexisting_saga_events: list[VersionedEvent] = []):
-    with patch(COMMAND_DISPATCHER, new=get_command_dispatcher(fail_commands=fail_commands, exception_commands=exception_commands)):
+async def saga_state_verifier(test_case: TestCase, incoming_event: VersionedEvent, saga_factory: Callable[[list[Event]], Saga], expected_saga_state: dict[str, any], commands_that_will_fail: list = [], commands_that_will_throw_an_exception: list = [], preexisting_saga_events: list[VersionedEvent] = []):
+    with patch(COMMAND_DISPATCHER, new=get_command_dispatcher(fail_commands=commands_that_will_fail, exception_commands=commands_that_will_throw_an_exception)):
         saga = saga_factory(preexisting_saga_events)
         with patch.object(saga, attribute="_get_current_time",
                           return_value=FAKE_CURRENT_TIME):
@@ -265,9 +266,9 @@ async def saga_state_verifier(test_case: TestCase, incoming_event: VersionedEven
                     actual, v, f"Attribute '{k}', expected '{str(v)}', actual '{str(actual)}")
 
 TRANSACTION_ID = str(uuid4())
-FUNDED_ACCOUNT_ID = str(uuid4())
-FUNDING_ACCOUNT_ID = str(uuid4())
-AMOUNT = 50
+FUNDED_ACCOUNT_ID = "000001"
+FUNDING_ACCOUNT_ID = "000002"
+AMOUNT = Decimal(50)
 FAKE_CURRENT_TIME = datetime.min
 FAKE_CURRENT_TIME_PLUS_30_MINUTES = FAKE_CURRENT_TIME + timedelta(minutes=30)
 FAKE_CURRENT_TIME_PLUS_30_SECONDS = FAKE_CURRENT_TIME + timedelta(seconds=30)
@@ -290,12 +291,12 @@ def get_command_dispatcher(fail_commands: tuple[type] = (), exception_commands: 
 
 
 def get_saga(events: list[Event]):
-    return RequestFundsFromAnotherAccount(saga_id=TRANSACTION_ID, events=events)
+    return RequestSaga(saga_id=TRANSACTION_ID, events=events)
 
 
-receive_funds_requested_event = ReceiveFundsRequested(
+receive_funds_requested_event = RequestCreated(
     version=3, funded_account_id=FUNDED_ACCOUNT_ID, funding_account_id=FUNDING_ACCOUNT_ID, amount=AMOUNT, transaction_id=TRANSACTION_ID, timeout_at=FAKE_CURRENT_TIME_PLUS_30_MINUTES)
-receive_funds_approved_event = ReceiveFundsApproved(
+receive_funds_approved_event = RequestApproved(
     version=42, funding_account_id=FUNDING_ACCOUNT_ID, transaction_id=TRANSACTION_ID)
-receive_funds_rejected_event = ReceiveFundsRejected(
+receive_funds_rejected_event = RequestRejected(
     version=42, funding_account_id=FUNDING_ACCOUNT_ID, transaction_id=TRANSACTION_ID)

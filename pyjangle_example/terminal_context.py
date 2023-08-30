@@ -8,9 +8,9 @@ from asyncio import get_event_loop
 from colorama import Fore, Style
 from pyjangle.command.command_handler import handle_command
 from pyjangle.query.handlers import handle_query
-from pyjangle_example.commands import AcceptReceiveFundsRequest, CreateAccount, DeleteAccount, DepositFunds, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, SendFunds, WithdrawFunds
+from pyjangle_example.commands import AcceptRequest, CreateAccount, DeleteAccount, DepositFunds, Request, RejectRequest, ForgiveDebt, Transfer, WithdrawFunds
 
-from pyjangle_example.queries import AccountLedger, AccountSummary, BankStats, BankSummary
+from pyjangle_example.queries import AccountLedger, AccountSummary, BankStats, AccountsList
 
 ACCOUNT_ID = "account_id"
 ACCOUNT_SUMMARY = "account_summary"
@@ -210,11 +210,11 @@ class AccountContext(TerminalContext):
             ("Back", RootContext),
             ("Deposit funds", DepositFundsContext),
             ("Withdraw funds", WithdrawFundsContext),
-            ("Send funds to another account", SendFundsContext),
-            ("Request funds from another account", ReceiveFundsContext),
+            ("Send funds to another account", TransferContext),
+            ("Request funds from another account", RequestContext),
             ("Forgive debt", ForgiveDebtContext),
-            ("Accept funds request", AcceptReceiveFundsContext),
-            ("Reject funds request", RejectReceiveFundsContext),
+            ("Accept funds request", AcceptRequestContext),
+            ("Reject funds request", RejectRequestContext),
             ("View account ledger", ViewAccountLedgerContext),
         ]
 
@@ -279,7 +279,7 @@ class WithdrawFundsContext(TerminalContext):
         return AccountContext({ACCOUNT_ID: self.data[ACCOUNT_ID]})
 
 
-class SendFundsContext(TerminalContext):
+class TransferContext(TerminalContext):
 
     async def show_context(self):
         await show_accounts_summary()
@@ -293,7 +293,7 @@ class SendFundsContext(TerminalContext):
         ]
 
     async def action(self):
-        result = await handle_command(SendFunds(funded_account_id=self.converted_input[0], funding_account_id=self.data[ACCOUNT_ID], amount=self.converted_input[1]))
+        result = await handle_command(Transfer(funded_account_id=self.converted_input[0], funding_account_id=self.data[ACCOUNT_ID], amount=self.converted_input[1]))
         if result.is_success:
             print(
                 f"Sent {str(self.converted_input[1])} to account ID {self.converted_input[0]}.")
@@ -306,7 +306,7 @@ class SendFundsContext(TerminalContext):
         return AccountContext({ACCOUNT_ID: self.data[ACCOUNT_ID]})
 
 
-class ReceiveFundsContext(TerminalContext):
+class RequestContext(TerminalContext):
 
     async def show_context(self):
         await show_accounts_summary()
@@ -321,7 +321,7 @@ class ReceiveFundsContext(TerminalContext):
         ]
 
     async def action(self):
-        result = await handle_command(ReceiveFunds(funded_account_id=self.data[ACCOUNT_ID], funding_account_id=self.converted_input[0], amount=self.converted_input[1]))
+        result = await handle_command(Request(funded_account_id=self.data[ACCOUNT_ID], funding_account_id=self.converted_input[0], amount=self.converted_input[1]))
         if result.is_success:
             print(
                 f"Requested {str(self.converted_input[1])} from account ID {self.converted_input[0]}.")
@@ -341,7 +341,7 @@ class ForgiveDebtContext(TerminalContext):
         return []
 
     async def action(self):
-        result = await handle_command(RequestForgiveness(account_id=self.data[ACCOUNT_ID]))
+        result = await handle_command(ForgiveDebt(account_id=self.data[ACCOUNT_ID]))
         if result.is_success:
             print(f"Your debt has been forgiven!  Balance reset to 0.")
         else:
@@ -352,7 +352,7 @@ class ForgiveDebtContext(TerminalContext):
         return AccountContext({ACCOUNT_ID: self.data[ACCOUNT_ID]})
 
 
-class AcceptReceiveFundsContext(TerminalContext):
+class AcceptRequestContext(TerminalContext):
     @property
     def input_spec(self) -> list[InputSpec]:
         return [
@@ -363,7 +363,7 @@ class AcceptReceiveFundsContext(TerminalContext):
     async def action(self):
         pending_transfer = self.data[ACCOUNT_SUMMARY].transfer_requests[int(
             self.converted_input[0]) - 1]
-        result = await handle_command(AcceptReceiveFundsRequest(funding_account_id=self.data[ACCOUNT_ID], transaction_id=pending_transfer.transaction_id))
+        result = await handle_command(AcceptRequest(funding_account_id=self.data[ACCOUNT_ID], transaction_id=pending_transfer.transaction_id))
         if result.is_success:
             print(
                 f"Accepted request to transfer {pending_transfer.amount} to account ID {pending_transfer.funded_account}")
@@ -376,7 +376,7 @@ class AcceptReceiveFundsContext(TerminalContext):
         return AccountContext({ACCOUNT_ID: self.data[ACCOUNT_ID]})
 
 
-class RejectReceiveFundsContext(TerminalContext):
+class RejectRequestContext(TerminalContext):
     @property
     def input_spec(self) -> list[InputSpec]:
         return [
@@ -387,7 +387,7 @@ class RejectReceiveFundsContext(TerminalContext):
     async def action(self):
         pending_transfer = self.data[ACCOUNT_SUMMARY].transfer_requests[int(
             self.converted_input[0]) - 1]
-        result = await handle_command(RejectReceiveFundsRequest(funding_account_id=self.data[ACCOUNT_ID], transaction_id=pending_transfer.transaction_id))
+        result = await handle_command(RejectRequest(funding_account_id=self.data[ACCOUNT_ID], transaction_id=pending_transfer.transaction_id))
         if result.is_success:
             print(
                 f"Rejected request to transfer {pending_transfer.amount} to account ID {pending_transfer.funded_account}")
@@ -529,7 +529,7 @@ async def show_accounts_summary():
 
     headers = [{"account_id": "ID", "name": "Name", "balance": "Balance",
                 "pending_request_count": "Pending Out"}]
-    bank_summary: list[dict] = headers + await handle_query(BankSummary())
+    bank_summary: list[dict] = headers + await handle_query(AccountsList())
     for row in bank_summary:
         print("{0[account_id]!s: >{id_width}} {0[name]!s: <{name_width}} {0[balance]!s: >0{balance_width}.2} {0[pending_request_count]!s: ^}".format(
             vars(row) if not isinstance(row, dict) else row, id_width=id_width, name_width=name_width, balance_width=balance_width, out_width=out_width, in_width=in_width))

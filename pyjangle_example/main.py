@@ -1,4 +1,5 @@
 from asyncio import create_task, run, sleep
+import os
 from pyjangle import tasks
 from pyjangle.command.command_dispatcher import RegisterCommandDispatcher
 from pyjangle.command.command_handler import handle_command
@@ -14,7 +15,7 @@ from pyjangle.serialization.saga_serialization_registration import register_saga
 from pyjangle.serialization.snapshot_serialization_registration import register_snapshot_deserializer, register_snapshot_serializer
 from pyjangle.snapshot.snapshot_repository import RegisterSnapshotRepository
 from pyjangle.test.serialization import deserialize_event, deserialize_saga, deserialize_snapshot, serialize_event, serialize_saga, serialize_snapshot
-from pyjangle_example.custom_json_encoder import CustomJSONEncoder
+from pyjangle_example.custom_json_encoder import CustomJSONDecoder, CustomJSONEncoder
 from pyjangle_example.events import AccountIdProvisioned
 from pyjangle_example.terminal_context import RootContext
 from pyjangle_example import event_handlers
@@ -38,6 +39,10 @@ async def main():
     while True:
         context = await context.run()
 
+os.environ["DB_JANGLE_BANKING_PATH"] = "jangle.db"
+os.environ["JANGLE_SAGA_STORE_PATH"] = "jangle.db"
+os.environ["JANGLE_SNAPSHOTS_PATH"] = "jangle.db"
+
 initialize_jangle_logging(MESSAGE)
 print("Jangle Banking terminal initializing...")
 sqlite3_bank_data_access_object.Sqlite3BankDataAccessObject.initialize()
@@ -46,7 +51,7 @@ RegisterEventDispatcher(handle_event_with_blacklist(AccountIdProvisioned))
 register_event_deserializer(deserialize_event)
 register_event_serializer(lambda event: serialize_event(
     event, json_encoder=CustomJSONEncoder))
-register_saga_serializer(serialize_saga)
+register_saga_serializer(lambda saga: serialize_saga(saga, CustomJSONDecoder))
 register_saga_deserializer(deserialize_saga)
 register_snapshot_serializer(serialize_snapshot)
 register_snapshot_deserializer(deserialize_snapshot)

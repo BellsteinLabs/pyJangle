@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 
+from pyjangle_example.validation.attributes import AccountId
 
-class BankSummary:
+
+class AccountsList:
     pass
 
 
@@ -9,11 +11,11 @@ class BankStats:
     pass
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class AccountSummary:
-    account_id: str
+    account_id: str = AccountId()
 
 
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class AccountLedger:
-    account_id: str
+    account_id: str = AccountId()

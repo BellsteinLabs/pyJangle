@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS "bank_summary" (
     "account_id"                TEXT NOT NULL UNIQUE,
     "name"                      TEXT,
-    "balance"                   INTEGER,
+    "balance"                   DECIMAL,
     "balance_version"           INTEGER,
     "is_deleted"                INTEGER,
     PRIMARY KEY("account_id")
@@ -11,8 +11,8 @@ CREATE TABLE IF NOT EXISTS "transactions" (
     "event_id"                  TEXT UNIQUE,
     "transaction_id"            TEXT NOT NULL,        
     "account_id"                TEXT NOT NULL,
-    "initiated_at"              TEXT NOT NULL,
-    "amount"                    INTEGER NOT NULL,
+    "initiated_at"              DATETIME NOT NULL,
+    "amount"                    DECIMAL NOT NULL,
     "transaction_type"          INTEGER NOT NULL,
     PRIMARY KEY("event_id")
 );
@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS "transfers" (
     "transaction_id"            TEXT NOT NULL UNIQUE,
     "funding_account"           TEXT NOT NULL,
     "funded_account"            TEXT,
-    "amount"                    INTEGER NOT NULL,
+    "amount"                    DECIMAL NOT NULL,
     "state"                     INTEGER NOT NULL,
     PRIMARY KEY("transaction_id")
 );
@@ -30,27 +30,27 @@ CREATE TABLE IF NOT EXISTS "transfer_requests" (
     "transaction_id"            TEXT NOT NULL UNIQUE,
     "funded_account"            TEXT,
     "funding_account"           TEXT,
-    "amount"                    INTEGER,
+    "amount"                    DECIMAL,
     "state"                     INTEGER NOT NULL,
-    "timeout_at"                TEXT,
+    "timeout_at"                DATETIME,
     PRIMARY KEY("transaction_id")
 );
 
 CREATE TABLE IF NOT EXISTS "deposits" (
     "transaction_id"            TEXT NOT NULL UNIQUE,
-    "amount"                    INTEGER NOT NULL,
+    "amount"                    DECIMAL NOT NULL,
     PRIMARY KEY("transaction_id")
 );
 
 CREATE TABLE IF NOT EXISTS "withdrawals" (
     "transaction_id"            TEXT NOT NULL UNIQUE,
-    "amount"                    INTEGER NOT NULL,
+    "amount"                    DECIMAL NOT NULL,
     PRIMARY KEY("transaction_id")
 );
 
 CREATE TABLE IF NOT EXISTS "debts_forgiven" (
     "transaction_id"            TEXT NOT NULL UNIQUE,
-    "amount"                    INTEGER NOT NULL,
+    "amount"                    DECIMAL NOT NULL,
     PRIMARY KEY("transaction_id")
 );
 

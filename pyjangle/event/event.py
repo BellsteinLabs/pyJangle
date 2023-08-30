@@ -7,17 +7,19 @@ import functools
 import uuid
 
 from pyjangle import JangleError
+from pyjangle.event.register_event_id_factory import event_id_factory_instance
 
 
 class EventError(JangleError):
     pass
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True,)
+@dataclasses.dataclass(kw_only=True,)
 class Event(metaclass=abc.ABCMeta):
-    id: str = dataclasses.field(default_factory=lambda: str(uuid.uuid4()))
-    created_at: str = dataclasses.field(
-        default_factory=lambda: datetime.now().isoformat())
+    id: any = dataclasses.field(
+        default_factory=lambda: event_id_factory_instance()())
+    created_at: datetime = dataclasses.field(
+        default_factory=lambda: datetime.now())
 
     @classmethod
     def deserialize(cls, data: any) -> any:
@@ -25,7 +27,7 @@ class Event(metaclass=abc.ABCMeta):
         return cls(**data)
 
 
-@dataclasses.dataclass(frozen=True, kw_only=True,)
+@dataclasses.dataclass(kw_only=True,)
 class VersionedEvent(Event):
     """Represents an application's change in state.
 

@@ -15,12 +15,12 @@ from pyjangle import RegisterEventRepository
 from pyjangle.logging import MESSAGE
 from pyjangle import RegisterSagaRepository
 from pyjangle.test.transient_saga_repository import TransientSagaRepository
-from pyjangle_example.commands import AcceptReceiveFundsRequest, CreateAccount, DeleteAccount, ReceiveFunds, RejectReceiveFundsRequest, RequestForgiveness, SendFunds, WithdrawFunds
+from pyjangle_example.commands import AcceptRequest, CreateAccount, DeleteAccount, Request, RejectRequest, ForgiveDebt, Transfer, WithdrawFunds
 
 from pyjangle import VersionedEvent, RegisterEventDispatcher, handle_command, tasks
 from pyjangle.test.transient_event_repository import TransientEventRepository
 from pyjangle_example.commands import DepositFunds
-from pyjangle_example.events import AccountCreated, AccountDeleted, AccountIdProvisioned, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
+from pyjangle_example.events import AccountCreated, AccountDeleted, AccountIdProvisioned, DebtForgiven, FundsDeposited, FundsWithdrawn, RequestReceived, RequestRejectionReceived, RequestApproved, RequestCredited, RequestDebited, RequestDebitRolledBack, RequestRejected, RequestCreated, TransferCredited, TransferDebited, TransferDebitRolledBack
 import pyjangle_example.event_handlers
 from pyjangle_json.logging import initialize_jangle_logging
 
@@ -80,119 +80,119 @@ async def main():
     assert int(event.amount) == 150
     assert event.account_id == account_ids[1]
 
-    response = await command_dispatcher(RequestForgiveness(account_id=account_ids[1]))
+    response = await command_dispatcher(ForgiveDebt(account_id=account_ids[1]))
     assert response.is_success
     event: DebtForgiven = await _dequeue_event()
     assert isinstance(event, DebtForgiven)
     assert event.account_id == account_ids[1]
 
-    response = await command_dispatcher(SendFunds(funded_account_id="None", funding_account_id=account_ids[0], amount=20))
+    response = await command_dispatcher(Transfer(funded_account_id="None", funding_account_id=account_ids[0], amount=20))
     assert response.is_success
-    event: SendFundsDebited = await _dequeue_event()
-    assert isinstance(event, SendFundsDebited)
+    event: TransferDebited = await _dequeue_event()
+    assert isinstance(event, TransferDebited)
     assert event.amount == 20
     assert event.funding_account_id == account_ids[0]
     assert event.funded_account_id == "None"
-    event: SendFundsDebitedRolledBack = await _dequeue_event()
-    assert isinstance(event, SendFundsDebitedRolledBack)
+    event: TransferDebitRolledBack = await _dequeue_event()
+    assert isinstance(event, TransferDebitRolledBack)
     assert event.amount == 20
     assert event.funding_account_id == account_ids[0]
 
-    response = await command_dispatcher(SendFunds(funded_account_id=account_ids[1], funding_account_id=account_ids[0], amount=19))
+    response = await command_dispatcher(Transfer(funded_account_id=account_ids[1], funding_account_id=account_ids[0], amount=19))
     assert response.is_success
-    event: SendFundsDebited = await _dequeue_event()
-    assert isinstance(event, SendFundsDebited)
+    event: TransferDebited = await _dequeue_event()
+    assert isinstance(event, TransferDebited)
     assert event.amount == 19
     assert event.funding_account_id == account_ids[0]
     assert event.funded_account_id == account_ids[1]
-    event: SendFundsCredited = await _dequeue_event()
-    assert isinstance(event, SendFundsCredited)
+    event: TransferCredited = await _dequeue_event()
+    assert isinstance(event, TransferCredited)
     assert event.amount == 19
     assert event.funding_account_id == account_ids[0]
     assert event.funded_account_id == account_ids[1]
 
-    response = await command_dispatcher(ReceiveFunds(funded_account_id=account_ids[0], funding_account_id=account_ids[1], amount=15.43))
+    response = await command_dispatcher(Request(funded_account_id=account_ids[0], funding_account_id=account_ids[1], amount=15.43))
     assert response.is_success
-    event: ReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsRequested)
+    event: RequestCreated = await _dequeue_event()
+    assert isinstance(event, RequestCreated)
     assert event.amount == 15.43
     assert event.funded_account_id == account_ids[0]
     assert event.funding_account_id == account_ids[1]
-    event: NotifiedReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, NotifiedReceiveFundsRequested)
+    event: RequestReceived = await _dequeue_event()
+    assert isinstance(event, RequestReceived)
     assert event.amount == 15.43
     assert event.funded_account_id == account_ids[0]
     assert event.funding_account_id == account_ids[1]
 
-    response = await command_dispatcher(AcceptReceiveFundsRequest(funding_account_id=event.funding_account_id, transaction_id="FAKE_ID"))
+    response = await command_dispatcher(AcceptRequest(funding_account_id=event.funding_account_id, transaction_id="FAKE_ID"))
     assert not response.is_success
-    response = await command_dispatcher(AcceptReceiveFundsRequest(funding_account_id=event.funding_account_id, transaction_id=event.transaction_id))
+    response = await command_dispatcher(AcceptRequest(funding_account_id=event.funding_account_id, transaction_id=event.transaction_id))
     assert response.is_success
-    event: ReceiveFundsApproved = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsApproved)
+    event: RequestApproved = await _dequeue_event()
+    assert isinstance(event, RequestApproved)
     assert event.funding_account_id == account_ids[1]
-    event: ReceiveFundsDebited = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsDebited)
+    event: RequestDebited = await _dequeue_event()
+    assert isinstance(event, RequestDebited)
     assert event.funding_account_id == account_ids[1]
     assert event.funding_account_id == account_ids[1]
-    event: ReceiveFundsCredited = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsCredited)
+    event: RequestCredited = await _dequeue_event()
+    assert isinstance(event, RequestCredited)
     assert event.funded_account_id == account_ids[0]
 
-    response = await command_dispatcher(ReceiveFunds(funded_account_id=account_ids[1], funding_account_id=account_ids[0], amount=1000))
+    response = await command_dispatcher(Request(funded_account_id=account_ids[1], funding_account_id=account_ids[0], amount=1000))
     assert response.is_success
-    event: ReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsRequested)
+    event: RequestCreated = await _dequeue_event()
+    assert isinstance(event, RequestCreated)
     assert event.amount == 1000
     assert event.funded_account_id == account_ids[1]
     assert event.funding_account_id == account_ids[0]
-    event: NotifiedReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, NotifiedReceiveFundsRequested)
-    assert event.amount == 1000
-    assert event.funded_account_id == account_ids[1]
-    assert event.funding_account_id == account_ids[0]
-
-    response = await command_dispatcher(AcceptReceiveFundsRequest(funding_account_id=event.funding_account_id, transaction_id=event.transaction_id))
-    assert response.is_success
-    event: ReceiveFundsApproved = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsApproved)
-    assert event.funding_account_id == account_ids[0]
-    event: NotifiedReceivedFundsRejected = await _dequeue_event()
-    assert isinstance(event, NotifiedReceivedFundsRejected)
-    assert event.funded_account_id == account_ids[1]
-
-    response = await command_dispatcher(ReceiveFunds(funded_account_id=account_ids[1], funding_account_id=account_ids[0], amount=1000))
-    assert response.is_success
-    event: ReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsRequested)
-    assert event.amount == 1000
-    assert event.funded_account_id == account_ids[1]
-    assert event.funding_account_id == account_ids[0]
-    event: NotifiedReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, NotifiedReceiveFundsRequested)
+    event: RequestReceived = await _dequeue_event()
+    assert isinstance(event, RequestReceived)
     assert event.amount == 1000
     assert event.funded_account_id == account_ids[1]
     assert event.funding_account_id == account_ids[0]
 
-    response = await command_dispatcher(RejectReceiveFundsRequest(funding_account_id=event.funding_account_id, transaction_id=event.transaction_id))
+    response = await command_dispatcher(AcceptRequest(funding_account_id=event.funding_account_id, transaction_id=event.transaction_id))
     assert response.is_success
-    event: ReceiveFundsRejected = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsRejected)
+    event: RequestApproved = await _dequeue_event()
+    assert isinstance(event, RequestApproved)
     assert event.funding_account_id == account_ids[0]
-    event: NotifiedReceivedFundsRejected = await _dequeue_event()
-    assert isinstance(event, NotifiedReceivedFundsRejected)
+    event: RequestRejectionReceived = await _dequeue_event()
+    assert isinstance(event, RequestRejectionReceived)
+    assert event.funded_account_id == account_ids[1]
+
+    response = await command_dispatcher(Request(funded_account_id=account_ids[1], funding_account_id=account_ids[0], amount=1000))
+    assert response.is_success
+    event: RequestCreated = await _dequeue_event()
+    assert isinstance(event, RequestCreated)
+    assert event.amount == 1000
+    assert event.funded_account_id == account_ids[1]
+    assert event.funding_account_id == account_ids[0]
+    event: RequestReceived = await _dequeue_event()
+    assert isinstance(event, RequestReceived)
+    assert event.amount == 1000
+    assert event.funded_account_id == account_ids[1]
+    assert event.funding_account_id == account_ids[0]
+
+    response = await command_dispatcher(RejectRequest(funding_account_id=event.funding_account_id, transaction_id=event.transaction_id))
+    assert response.is_success
+    event: RequestRejected = await _dequeue_event()
+    assert isinstance(event, RequestRejected)
+    assert event.funding_account_id == account_ids[0]
+    event: RequestRejectionReceived = await _dequeue_event()
+    assert isinstance(event, RequestRejectionReceived)
     assert event.funded_account_id == account_ids[1]
 
     # Receive funds but the credit fails
-    response = await command_dispatcher(ReceiveFunds(funded_account_id=account_ids[0], funding_account_id=account_ids[1], amount=15.43))
+    response = await command_dispatcher(Request(funded_account_id=account_ids[0], funding_account_id=account_ids[1], amount=15.43))
     assert response.is_success
-    event: ReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsRequested)
+    event: RequestCreated = await _dequeue_event()
+    assert isinstance(event, RequestCreated)
     assert event.amount == 15.43
     assert event.funded_account_id == account_ids[0]
     assert event.funding_account_id == account_ids[1]
-    event: NotifiedReceiveFundsRequested = await _dequeue_event()
-    assert isinstance(event, NotifiedReceiveFundsRequested)
+    event: RequestReceived = await _dequeue_event()
+    assert isinstance(event, RequestReceived)
     assert event.amount == 15.43
     assert event.funded_account_id == account_ids[0]
     assert event.funding_account_id == account_ids[1]
@@ -203,17 +203,17 @@ async def main():
     assert isinstance(deleted_event, AccountDeleted)
     assert deleted_event.account_id == account_ids[0]
 
-    response = await command_dispatcher(AcceptReceiveFundsRequest(funding_account_id=account_ids[1], transaction_id=event.transaction_id))
+    response = await command_dispatcher(AcceptRequest(funding_account_id=account_ids[1], transaction_id=event.transaction_id))
     assert response.is_success
-    event: ReceiveFundsApproved = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsApproved)
+    event: RequestApproved = await _dequeue_event()
+    assert isinstance(event, RequestApproved)
     assert event.funding_account_id == account_ids[1]
-    event: ReceiveFundsDebited = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsDebited)
+    event: RequestDebited = await _dequeue_event()
+    assert isinstance(event, RequestDebited)
     assert event.funding_account_id == account_ids[1]
     assert event.funding_account_id == account_ids[1]
-    event: ReceiveFundsDebitedRolledBack = await _dequeue_event()
-    assert isinstance(event, ReceiveFundsDebitedRolledBack)
+    event: RequestDebitRolledBack = await _dequeue_event()
+    assert isinstance(event, RequestDebitRolledBack)
     assert event.funding_account_id == account_ids[1]
 
     print("Waiting...")

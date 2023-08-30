@@ -13,7 +13,7 @@ def fetch_multiple_rows(wrapped):
         q, transform = await wrapped(query)
         result = list()
         try:
-            with sqlite3.connect(DB_JANGLE_BANKING_PATH) as conn:
+            with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.row_factory = dict_row_factory
                 cursor = conn.cursor()
                 cursor.arraysize = BATCH_SIZE
@@ -43,7 +43,7 @@ def fetch_single_row(wrapped):
     async def wrapper(query):
         q = await wrapped(query)
         try:
-            with sqlite3.connect(DB_JANGLE_BANKING_PATH) as conn:
+            with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.row_factory = dict_row_factory
                 cursor = conn.cursor()
                 cursor.arraysize = BATCH_SIZE
@@ -59,7 +59,7 @@ def upsert_single_row(wrapped):
     async def wrapper(query):
         q, p = await wrapped(query)
         try:
-            with sqlite3.connect(DB_JANGLE_BANKING_PATH) as conn:
+            with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.row_factory = dict_row_factory
                 cursor = conn.cursor()
                 cursor.execute(q, p)
@@ -73,7 +73,7 @@ def upsert_multiple_rows(wrapped):
     async def wrapper(query):
         tupes = await wrapped(query)
         try:
-            with sqlite3.connect(DB_JANGLE_BANKING_PATH) as conn:
+            with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.row_factory = dict_row_factory
                 cursor = conn.cursor()
                 for tupe in tupes:

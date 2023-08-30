@@ -6,11 +6,11 @@ from pyjangle import command_dispatcher_instance
 from pyjangle import RegisterSaga
 from pyjangle.event.register_event import RegisterEvent
 from pyjangle_example.commands import *
-from pyjangle_example.events import ReceiveFundsApproved, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested
+from pyjangle_example.events import RequestApproved, RequestDebitRolledBack, RequestRejected, RequestCreated
 from pyjangle import Event
 from pyjangle import Saga, event_receiver, reconstitute_saga_state
 from pyjangle.logging.logging import log
-from pyjangle_example.events import SendFundsDebited
+from pyjangle_example.events import TransferDebited
 
 RETRY_TIMEOUT_LENGTH = timedelta(seconds=15)
 
@@ -22,111 +22,111 @@ FIELD_TIMEOUT_AT = "timeout_at"
 
 
 @RegisterEvent
-class TryObtainReceiveFundsApprovalCommandSucceeded(Event):
+class GetRequestApprovalCommandSucceeded(Event):
     pass
 
 
 @RegisterEvent
-class TryObtainReceiveFundsApprovalCommandFailed(Event):
+class GetRequestApprovalCommandFailed(Event):
     pass
 
 
 @RegisterEvent
-class NotifyReceiveFundsRejectedCommandAcknowledged(Event):
+class NotifyRequestRejectedCommandAcknowledged(Event):
     pass
 
 
 @RegisterEvent
-class DebitReceiveFundsCommandSucceeded(Event):
+class DebitRequestCommandSucceeded(Event):
     pass
 
 
 @RegisterEvent
-class DebitReceiveFundsCommandFailed(Event):
+class DebitRequestCommandFailed(Event):
     pass
 
 
 @RegisterEvent
-class CreditReceiveFundsCommandSucceeded(Event):
+class CreditRequestCommandSucceeded(Event):
     pass
 
 
 @RegisterEvent
-class CreditReceiveFundsCommandFailed(Event):
+class CreditRequestCommandFailed(Event):
     pass
 
 
 @RegisterEvent
-class RollbackReceiveFundsDebitCommandAcknowledged(Event):
+class RollbackRequestCommandAcknowledged(Event):
     pass
 
 
 @RegisterSaga
-class RequestFundsFromAnotherAccount(Saga):
+class RequestSaga(Saga):
 
-    @event_receiver(ReceiveFundsRequested, skip_if_any_flags_set=[TryObtainReceiveFundsApprovalCommandSucceeded, NotifyReceiveFundsRejectedCommandAcknowledged])
+    @event_receiver(RequestCreated, skip_if_any_flags_set=[GetRequestApprovalCommandSucceeded, NotifyRequestRejectedCommandAcknowledged])
     async def on_receive_funds_requested(self):
         await self.dispatch_command(
             command=self._make_try_obtain_receive_funds_approval_command,
-            on_success_event=TryObtainReceiveFundsApprovalCommandSucceeded,
-            on_failure_event=TryObtainReceiveFundsApprovalCommandFailed)
+            on_success_event=GetRequestApprovalCommandSucceeded,
+            on_failure_event=GetRequestApprovalCommandFailed)
 
-        if self.flags_has_any(TryObtainReceiveFundsApprovalCommandFailed):
+        if self.flags_has_any(GetRequestApprovalCommandFailed):
             await self.dispatch_command(
                 command=self._make_notify_receive_funds_rejected_command,
-                on_success_event=NotifyReceiveFundsRejectedCommandAcknowledged,
-                on_failure_event=NotifyReceiveFundsRejectedCommandAcknowledged)
+                on_success_event=NotifyRequestRejectedCommandAcknowledged,
+                on_failure_event=NotifyRequestRejectedCommandAcknowledged)
             self.set_complete()
             return
 
-    @event_receiver(ReceiveFundsApproved, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandAcknowledged, CreditReceiveFundsCommandSucceeded, RollbackReceiveFundsDebitCommandAcknowledged])
+    @event_receiver(RequestApproved, skip_if_any_flags_set=[NotifyRequestRejectedCommandAcknowledged, CreditRequestCommandSucceeded, RollbackRequestCommandAcknowledged])
     async def on_receive_funds_approved(self):
         await self.dispatch_command(
             command=self._make_debit_receive_funds_command,
-            on_success_event=DebitReceiveFundsCommandSucceeded,
-            on_failure_event=DebitReceiveFundsCommandFailed
+            on_success_event=DebitRequestCommandSucceeded,
+            on_failure_event=DebitRequestCommandFailed
         )
 
-        if self.flags_has_any(DebitReceiveFundsCommandFailed):
+        if self.flags_has_any(DebitRequestCommandFailed):
             await self.dispatch_command(
                 command=self._make_notify_receive_funds_rejected_command,
-                on_success_event=NotifyReceiveFundsRejectedCommandAcknowledged,
-                on_failure_event=NotifyReceiveFundsRejectedCommandAcknowledged
+                on_success_event=NotifyRequestRejectedCommandAcknowledged,
+                on_failure_event=NotifyRequestRejectedCommandAcknowledged
             )
             self.set_complete()
             return
 
-        if self.flags_has_any(DebitReceiveFundsCommandSucceeded):
+        if self.flags_has_any(DebitRequestCommandSucceeded):
             await self.dispatch_command(
                 command=self._make_credit_receive_funds_command,
-                on_success_event=CreditReceiveFundsCommandSucceeded,
-                on_failure_event=CreditReceiveFundsCommandFailed,
+                on_success_event=CreditRequestCommandSucceeded,
+                on_failure_event=CreditRequestCommandFailed,
             )
 
-        if self.flags_has_any(CreditReceiveFundsCommandSucceeded):
+        if self.flags_has_any(CreditRequestCommandSucceeded):
             self.set_complete()
 
-        if self.flags_has_any(CreditReceiveFundsCommandFailed):
+        if self.flags_has_any(CreditRequestCommandFailed):
             await self.dispatch_command(
                 command=self._make_rollback_receive_funds_debit_command,
-                on_success_event=RollbackReceiveFundsDebitCommandAcknowledged,
-                on_failure_event=RollbackReceiveFundsDebitCommandAcknowledged
+                on_success_event=RollbackRequestCommandAcknowledged,
+                on_failure_event=RollbackRequestCommandAcknowledged
             )
 
-        if self.flags_has_any(RollbackReceiveFundsDebitCommandAcknowledged):
+        if self.flags_has_any(RollbackRequestCommandAcknowledged):
             self.set_complete()
 
-    @event_receiver(ReceiveFundsRejected, skip_if_any_flags_set=[NotifyReceiveFundsRejectedCommandAcknowledged])
+    @event_receiver(RequestRejected, skip_if_any_flags_set=[NotifyRequestRejectedCommandAcknowledged])
     async def on_receive_funds_rejected(self):
         await self.dispatch_command(
             command=self._make_notify_receive_funds_rejected_command,
-            on_failure_event=NotifyReceiveFundsRejectedCommandAcknowledged,
-            on_success_event=NotifyReceiveFundsRejectedCommandAcknowledged
+            on_failure_event=NotifyRequestRejectedCommandAcknowledged,
+            on_success_event=NotifyRequestRejectedCommandAcknowledged
         )
         self.set_complete()
 
-    @reconstitute_saga_state(ReceiveFundsRequested)
-    def handle_receive_funds_transfer_requested(self, event: ReceiveFundsRequested):
+    @reconstitute_saga_state(RequestCreated)
+    def handle_receive_funds_transfer_requested(self, event: RequestCreated):
         setattr(self, FIELD_TRANSACTION_ID, event.transaction_id)
         setattr(self, FIELD_FUNDING_ACCOUNT_ID, event.funding_account_id)
         setattr(self, FIELD_FUNDED_ACCOUNT_ID, event.funded_account_id)
@@ -134,60 +134,60 @@ class RequestFundsFromAnotherAccount(Saga):
         setattr(self, FIELD_TIMEOUT_AT, event.timeout_at)
         self.set_timeout(event.timeout_at)
 
-    @reconstitute_saga_state(ReceiveFundsApproved)
-    def handle_receive_funds_transfer_approved(self, event: ReceiveFundsApproved):
+    @reconstitute_saga_state(RequestApproved)
+    def handle_receive_funds_transfer_approved(self, event: RequestApproved):
         pass
 
-    @reconstitute_saga_state(ReceiveFundsRejected)
-    def handler_receive_funds_transfer_rejected(self, event: ReceiveFundsRejected):
+    @reconstitute_saga_state(RequestRejected)
+    def handler_receive_funds_transfer_rejected(self, event: RequestRejected):
         pass
 
-    @reconstitute_saga_state(TryObtainReceiveFundsApprovalCommandSucceeded)
-    def from_try_obtain_receive_funds_approval_command_succeeded(self, event: TryObtainReceiveFundsApprovalCommandSucceeded):
+    @reconstitute_saga_state(GetRequestApprovalCommandSucceeded)
+    def from_try_obtain_receive_funds_approval_command_succeeded(self, event: GetRequestApprovalCommandSucceeded):
         pass
 
-    @reconstitute_saga_state(TryObtainReceiveFundsApprovalCommandFailed)
-    def from_try_obtain_receive_funds_approval_command_failed(self, event: TryObtainReceiveFundsApprovalCommandFailed):
+    @reconstitute_saga_state(GetRequestApprovalCommandFailed)
+    def from_try_obtain_receive_funds_approval_command_failed(self, event: GetRequestApprovalCommandFailed):
         pass
 
-    @reconstitute_saga_state(CreditReceiveFundsCommandFailed)
-    def from_try_obtain_receive_funds_approval_command_received(self, event: CreditReceiveFundsCommandFailed):
+    @reconstitute_saga_state(CreditRequestCommandFailed)
+    def from_try_obtain_receive_funds_approval_command_received(self, event: CreditRequestCommandFailed):
         pass
 
-    @reconstitute_saga_state(NotifyReceiveFundsRejectedCommandAcknowledged)
-    def from_notify_receive_funds_rejected_command_received(self, event: NotifyReceiveFundsRejectedCommandAcknowledged):
+    @reconstitute_saga_state(NotifyRequestRejectedCommandAcknowledged)
+    def from_notify_receive_funds_rejected_command_received(self, event: NotifyRequestRejectedCommandAcknowledged):
         pass
 
-    @reconstitute_saga_state(DebitReceiveFundsCommandSucceeded)
-    def from_debit_receive_funds_command_received(self, event: DebitReceiveFundsCommandSucceeded):
+    @reconstitute_saga_state(DebitRequestCommandSucceeded)
+    def from_debit_receive_funds_command_received(self, event: DebitRequestCommandSucceeded):
         pass
 
-    @reconstitute_saga_state(CreditReceiveFundsCommandSucceeded)
-    def from_credit_receive_funds_command_received(self, event: CreditReceiveFundsCommandSucceeded):
+    @reconstitute_saga_state(CreditRequestCommandSucceeded)
+    def from_credit_receive_funds_command_received(self, event: CreditRequestCommandSucceeded):
         pass
 
-    @reconstitute_saga_state(DebitReceiveFundsCommandFailed)
-    def from_debit_receive_funds_command_failed(self, event: DebitReceiveFundsCommandFailed):
+    @reconstitute_saga_state(DebitRequestCommandFailed)
+    def from_debit_receive_funds_command_failed(self, event: DebitRequestCommandFailed):
         pass
 
-    @reconstitute_saga_state(RollbackReceiveFundsDebitCommandAcknowledged)
-    def from_rollback_receive_funds_debit_command_recived(self, event: RollbackReceiveFundsDebitCommandAcknowledged):
+    @reconstitute_saga_state(RollbackRequestCommandAcknowledged)
+    def from_rollback_receive_funds_debit_command_recived(self, event: RollbackRequestCommandAcknowledged):
         pass
 
     def _make_try_obtain_receive_funds_approval_command(self):
-        return TryObtainReceiveFundsApproval(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), funded_account_id=getattr(self, FIELD_FUNDED_ACCOUNT_ID), amount=getattr(self, FIELD_AMOUNT), transaction_id=getattr(self, FIELD_TRANSACTION_ID), timeout_at=getattr(self, FIELD_TIMEOUT_AT))
+        return GetRequestApproval(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), funded_account_id=getattr(self, FIELD_FUNDED_ACCOUNT_ID), amount=getattr(self, FIELD_AMOUNT), transaction_id=getattr(self, FIELD_TRANSACTION_ID), timeout_at=getattr(self, FIELD_TIMEOUT_AT))
 
     def _make_notify_receive_funds_rejected_command(self):
-        return NotifyReceiveFundsRejected(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), funded_account_id=getattr(self, FIELD_FUNDED_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
+        return NotifyRequestRejected(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), funded_account_id=getattr(self, FIELD_FUNDED_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
 
     def _make_debit_receive_funds_command(self):
-        return DebitReceiveFunds(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
+        return DebitRequest(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
 
     def _make_credit_receive_funds_command(self):
-        return CreditReceiveFunds(funded_account_id=getattr(self, FIELD_FUNDED_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
+        return CreditRequest(funded_account_id=getattr(self, FIELD_FUNDED_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
 
     def _make_rollback_receive_funds_debit_command(self):
-        return RollbackReceiveFundsDebit(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
+        return RollbackRequestDebit(funding_account_id=getattr(self, FIELD_FUNDING_ACCOUNT_ID), transaction_id=getattr(self, FIELD_TRANSACTION_ID))
 
 
 class CreditSendFundsSucceeded(Event):
@@ -200,37 +200,37 @@ class CreditSendFundsFailed(Event):
         pass
 
 
-class SendFundsToAnotherAccountSaga(Saga):
+# class SendFundsToAnotherAccountSaga(Saga):
 
-    @event_receiver(SendFundsDebited)
-    async def on_send_funds_debited(self):
-        await self.dispatch_command(
-            command=self._make_credit_send_funds_command,
-            on_success_event=CreditSendFundsSucceeded,
-            on_failure_event=CreditSendFundsFailed)
-        if self.flags_has_any(CreditSendFundsFailed):
-            await self.dispatch_command(self._make_rollback_send_funds_debit_command)
-        self.set_complete()
+#     @event_receiver(TransferDebited)
+#     async def on_send_funds_debited(self):
+#         await self.dispatch_command(
+#             command=self._make_credit_send_funds_command,
+#             on_success_event=CreditSendFundsSucceeded,
+#             on_failure_event=CreditSendFundsFailed)
+#         if self.flags_has_any(CreditSendFundsFailed):
+#             await self.dispatch_command(self._make_rollback_send_funds_debit_command)
+#         self.set_complete()
 
-    @reconstitute_saga_state(SendFundsDebited)
-    def from_send_funds_debited(self, event: SendFundsDebited):
-        self.amount = event.amount
-        self.funded_account_id = event.funded_account_id
-        self.funding_account_id = event.funding_account_id
-        self.transaction_id = event.transaction_id
+#     @reconstitute_saga_state(TransferDebited)
+#     def from_send_funds_debited(self, event: TransferDebited):
+#         self.amount = event.amount
+#         self.funded_account_id = event.funded_account_id
+#         self.funding_account_id = event.funding_account_id
+#         self.transaction_id = event.transaction_id
 
-    @reconstitute_saga_state(CreditSendFundsSucceeded)
-    def from_credit_send_funds_succeeded(self, event: CreditSendFundsSucceeded):
-        pass
+#     @reconstitute_saga_state(CreditSendFundsSucceeded)
+#     def from_credit_send_funds_succeeded(self, event: CreditSendFundsSucceeded):
+#         pass
 
-    @reconstitute_saga_state(CreditSendFundsFailed)
-    def from_credit_send_funds_failed(self, event: CreditSendFundsFailed):
-        pass
+#     @reconstitute_saga_state(CreditSendFundsFailed)
+#     def from_credit_send_funds_failed(self, event: CreditSendFundsFailed):
+#         pass
 
-    def _make_credit_send_funds_command(self):
-        return CreditSendFunds(funding_account_id=self.funding_account_id,
-                               funded_account_id=self.funded_account_id, amount=self.amount, transaction_id=self.transaction_id)
+#     def _make_credit_send_funds_command(self):
+#         return CreditTransfer(funding_account_id=self.funding_account_id,
+#                               funded_account_id=self.funded_account_id, amount=self.amount, transaction_id=self.transaction_id)
 
-    def _make_rollback_send_funds_debit_command(self):
-        return RollbackSendFundsDebit(
-            funding_account_id=self.funding_account_id, amount=self.amount, transaction_id=self.transaction_id)
+#     def _make_rollback_send_funds_debit_command(self):
+#         return RollbackTransferDebit(
+#             funding_account_id=self.funding_account_id, amount=self.amount, transaction_id=self.transaction_id)

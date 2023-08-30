@@ -4,8 +4,8 @@ import sqlite3
 from pyjangle.event.event_handler import register_event_handler
 from pyjangle.query.handlers import register_query_handler
 from pyjangle_example.data_access.bank_data_access_object import BankDataAccessObject
-from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
-from pyjangle_example.queries import AccountLedger, AccountSummary, BankStats, BankSummary
+from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, RequestReceived, RequestRejectionReceived, RequestApproved, RequestCredited, RequestDebited, RequestDebitRolledBack, RequestRejected, RequestCreated, TransferCredited, TransferDebited, TransferDebitRolledBack
+from pyjangle_example.queries import AccountLedger, AccountSummary, BankStats, AccountsList
 from pyjangle_example.query_responses import AccountResponse, AccountSummaryResponse, BankStatsResponse, TransactionResponse, TransferResponse
 from pyjangle_sqllite3.event_handler_query_builder import SqlLite3QueryBuilder as q_bldr
 from pyjangle_example.data_access.db_schema import TABLES, COLUMNS, TRANSACTION_STATES, TRANSACTION_TYPE
@@ -19,15 +19,15 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
     def initialize():
         with open('pyjangle_example/data_access/create_tables.sql', 'r') as create_tables_file:
             create_tables_sql_script = create_tables_file.read()
-        with sqlite3.connect(DB_JANGLE_BANKING_PATH) as conn:
+        with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
             conn.executescript(create_tables_sql_script)
             conn.commit()
         conn.close()
 
     @staticmethod
-    @register_query_handler(BankSummary)
+    @register_query_handler(AccountsList)
     @fetch_multiple_rows
-    async def bank_summary(_: BankSummary) -> list[AccountResponse]:
+    async def bank_summary(_: AccountsList) -> list[AccountResponse]:
         return f"""
             SELECT 
                 {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.ACCOUNT_ID}, 
@@ -40,7 +40,7 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
                 {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.NAME} IS NOT NULL AND
                 {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.BALANCE} IS NOT NULL AND
                 {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.IS_DELETED} = 0
-            """, lambda q_result: [AccountResponse(**account) for account in q_result]
+            """, lambda q_result: [AccountResponse(**{k: v if k != COLUMNS.BANK_SUMMARY.BALANCE else str(v) for k, v in account.items()}) for account in q_result]
 
     @staticmethod
     @register_query_handler(BankStats)
@@ -85,13 +85,21 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             AND {TABLES.BANK_SUMMARY}.{COLUMNS.BANK_SUMMARY.IS_DELETED} <> 1
             AND {TABLES.TRANSFER_REQUESTS}.{COLUMNS.TRANSFERS.STATE} = 2
             """
-        ], lambda q_result: AccountSummaryResponse(account_id=q_result[0]["account_id"], name=q_result[0]["name"], balance=q_result[0]["balance"], transfer_requests=[TransferResponse(funded_account=d["funded_account"], amount=d["amount"], state=d["state"], timeout_at=datetime.fromisoformat(d["timeout_at"]).isoformat(), transaction_id=d["transaction_id"]) for d in q_result[1:]]) if q_result else None
+        ], lambda q_result: AccountSummaryResponse(account_id=q_result[0]["account_id"], name=q_result[0]["name"], balance=str(q_result[0]["balance"]), transfer_requests=[TransferResponse(funded_account=d["funded_account"], amount=str(d["amount"]), state=d["state"], timeout_at=d["timeout_at"].isoformat(), transaction_id=d["transaction_id"]) for d in q_result[1:]]) if q_result else None
 
     @staticmethod
     @register_query_handler(AccountLedger)
     @fetch_multiple_rows
     async def account_ledger(query: AccountLedger) -> list[TransactionResponse]:
-        return f"SELECT {COLUMNS.TRANSACTIONS.ACCOUNT_ID}, {COLUMNS.TRANSACTIONS.INITIATED_AT}, {COLUMNS.TRANSACTIONS.AMOUNT}, {TABLES.TRANSACTION_TYPES}.{COLUMNS.TRANSACTION_TYPES.DESCRIPTION} as {COLUMNS.TRANSACTIONS.TRANSACTION_TYPE} FROM {TABLES.TRANSACTIONS} LEFT JOIN {TABLES.TRANSACTION_TYPES} ON {TABLES.TRANSACTION_TYPES}.{COLUMNS.TRANSACTION_TYPES.VALUE} = {TABLES.TRANSACTIONS}.{COLUMNS.TRANSACTIONS.TRANSACTION_TYPE} WHERE {COLUMNS.TRANSACTIONS.ACCOUNT_ID} = '{query.account_id}'", lambda q_result: [TransactionResponse(initiated_at=row_dict[COLUMNS.TRANSACTIONS.INITIATED_AT], amount=row_dict[COLUMNS.TRANSACTIONS.AMOUNT], transaction_type=row_dict[COLUMNS.TRANSACTIONS.TRANSACTION_TYPE]) for row_dict in q_result]
+        return f"""SELECT 
+        {COLUMNS.TRANSACTIONS.ACCOUNT_ID}, 
+        {COLUMNS.TRANSACTIONS.INITIATED_AT}, 
+        {COLUMNS.TRANSACTIONS.AMOUNT}, 
+        {TABLES.TRANSACTION_TYPES}.{COLUMNS.TRANSACTION_TYPES.DESCRIPTION} as {COLUMNS.TRANSACTIONS.TRANSACTION_TYPE} 
+        FROM {TABLES.TRANSACTIONS} 
+        LEFT JOIN {TABLES.TRANSACTION_TYPES} 
+        ON {TABLES.TRANSACTION_TYPES}.{COLUMNS.TRANSACTION_TYPES.VALUE} = {TABLES.TRANSACTIONS}.{COLUMNS.TRANSACTIONS.TRANSACTION_TYPE} 
+        WHERE {COLUMNS.TRANSACTIONS.ACCOUNT_ID} = '{query.account_id}'""", lambda q_result: [TransactionResponse(initiated_at=row_dict[COLUMNS.TRANSACTIONS.INITIATED_AT].isoformat(), amount=str(row_dict[COLUMNS.TRANSACTIONS.AMOUNT]), transaction_type=row_dict[COLUMNS.TRANSACTIONS.TRANSACTION_TYPE]) for row_dict in q_result]
 
     @staticmethod
     @register_event_handler(AccountCreated)
@@ -165,9 +173,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
         return [(bank_summary_q, bank_summary_p), (transactions_q, transactions_p), (debt_forgive_q, debt_forgive_p)]
 
     @staticmethod
-    @register_event_handler(ReceiveFundsRequested)
+    @register_event_handler(RequestCreated)
     @upsert_single_row
-    async def handle_receive_funds_requested(event: ReceiveFundsRequested):
+    async def handle_receive_funds_requested(event: RequestCreated):
         return q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDED_ACCOUNT, event.funded_account_id) \
@@ -178,9 +186,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             .done()
 
     @staticmethod
-    @register_event_handler(NotifiedReceiveFundsRequested)
+    @register_event_handler(RequestReceived)
     @upsert_single_row
-    async def handle_notified_receive_funds_requested(event: NotifiedReceiveFundsRequested):
+    async def handle_notified_receive_funds_requested(event: RequestReceived):
         return q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDED_ACCOUNT, event.funded_account_id) \
@@ -191,9 +199,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             .done()
 
     @staticmethod
-    @register_event_handler(ReceiveFundsApproved)
+    @register_event_handler(RequestApproved)
     @upsert_single_row
-    async def handle_receive_funds_approved(event: ReceiveFundsApproved):
+    async def handle_receive_funds_approved(event: RequestApproved):
         return q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDING_ACCOUNT, event.funding_account_id) \
@@ -201,9 +209,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             .done()
 
     @staticmethod
-    @register_event_handler(ReceiveFundsRejected)
+    @register_event_handler(RequestRejected)
     @upsert_single_row
-    async def handle_receive_funds_rejected(event: ReceiveFundsRejected):
+    async def handle_receive_funds_rejected(event: RequestRejected):
         return q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDING_ACCOUNT, event.funding_account_id) \
@@ -211,9 +219,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             .done()
 
     @staticmethod
-    @register_event_handler(NotifiedReceivedFundsRejected)
+    @register_event_handler(RequestRejectionReceived)
     @upsert_single_row
-    async def handle_notified_received_funds_rejected(event: NotifiedReceivedFundsRejected):
+    async def handle_notified_received_funds_rejected(event: RequestRejectionReceived):
         return q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDED_ACCOUNT, event.funded_account_id) \
@@ -221,9 +229,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
             .done()
 
     @staticmethod
-    @register_event_handler(ReceiveFundsDebited)
+    @register_event_handler(RequestDebited)
     @upsert_multiple_rows
-    async def handle_receive_funds_debited(event: ReceiveFundsDebited):
+    async def handle_receive_funds_debited(event: RequestDebited):
         transfer_request_q = q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDING_ACCOUNT, event.funding_account_id) \
@@ -238,9 +246,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
         return [transfer_request_q, bank_summary_q, transactions_q]
 
     @staticmethod
-    @register_event_handler(ReceiveFundsDebitedRolledBack)
+    @register_event_handler(RequestDebitRolledBack)
     @upsert_multiple_rows
-    async def handle_receive_funds_debited_rolled_back(event: ReceiveFundsDebitedRolledBack):
+    async def handle_receive_funds_debited_rolled_back(event: RequestDebitRolledBack):
         transfer_request_q = q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDING_ACCOUNT, event.funding_account_id) \
@@ -255,9 +263,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
         return [transfer_request_q, bank_summary_q, transactions_q]
 
     @staticmethod
-    @register_event_handler(ReceiveFundsCredited)
+    @register_event_handler(RequestCredited)
     @upsert_multiple_rows
-    async def handle_receive_funds_credited(event: ReceiveFundsCredited):
+    async def handle_receive_funds_credited(event: RequestCredited):
         transfer_request_q = q_bldr(TABLES.TRANSFER_REQUESTS) \
             .at(COLUMNS.TRANSFER_REQUESTS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFER_REQUESTS.FUNDED_ACCOUNT, event.funded_account_id) \
@@ -272,9 +280,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
         return [transfer_request_q, bank_summary_q, transactions_q]
 
     @staticmethod
-    @register_event_handler(SendFundsCredited)
+    @register_event_handler(TransferCredited)
     @upsert_multiple_rows
-    async def handle_send_funds_credited(event: SendFundsCredited):
+    async def handle_send_funds_credited(event: TransferCredited):
         transfer_q = q_bldr(TABLES.TRANSFERS) \
             .at(COLUMNS.TRANSFERS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFERS.FUNDED_ACCOUNT, event.funded_account_id) \
@@ -290,9 +298,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
         return [transfer_q, bank_summary_q, transactions_q]
 
     @staticmethod
-    @register_event_handler(SendFundsDebited)
+    @register_event_handler(TransferDebited)
     @upsert_multiple_rows
-    async def handle_send_funds_debited(event: SendFundsDebited):
+    async def handle_send_funds_debited(event: TransferDebited):
         transfer_q = q_bldr(TABLES.TRANSFERS) \
             .at(COLUMNS.TRANSFERS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFERS.FUNDED_ACCOUNT, event.funded_account_id) \
@@ -308,9 +316,9 @@ class Sqlite3BankDataAccessObject(BankDataAccessObject):
         return [transfer_q, bank_summary_q, transactions_q]
 
     @staticmethod
-    @register_event_handler(SendFundsDebitedRolledBack)
+    @register_event_handler(TransferDebitRolledBack)
     @upsert_multiple_rows
-    async def handle_send_funds_debited_rolled_back(event: SendFundsDebitedRolledBack):
+    async def handle_send_funds_debited_rolled_back(event: TransferDebitRolledBack):
         transfer_q = q_bldr(TABLES.TRANSFERS) \
             .at(COLUMNS.TRANSFERS.TRANSACTION_ID, event.transaction_id) \
             .upsert(COLUMNS.TRANSFERS.FUNDING_ACCOUNT, event.funding_account_id) \

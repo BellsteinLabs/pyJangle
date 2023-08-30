@@ -1,5 +1,5 @@
 import abc
-from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, NotifiedReceiveFundsRequested, NotifiedReceivedFundsRejected, ReceiveFundsApproved, ReceiveFundsCredited, ReceiveFundsDebited, ReceiveFundsDebitedRolledBack, ReceiveFundsRejected, ReceiveFundsRequested, SendFundsCredited, SendFundsDebited, SendFundsDebitedRolledBack
+from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, RequestReceived, RequestRejectionReceived, RequestApproved, RequestCredited, RequestDebited, RequestDebitRolledBack, RequestRejected, RequestCreated, TransferCredited, TransferDebited, TransferDebitRolledBack
 from pyjangle_example.query_responses import AccountResponse, AccountSummaryResponse, BankStatsResponse, TransactionResponse
 
 
@@ -52,55 +52,55 @@ class BankDataAccessObject(metaclass=abc.ABCMeta):
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_receive_funds_requested(event: ReceiveFundsRequested):
+    async def handle_receive_funds_requested(event: RequestCreated):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_notified_receive_funds_requested(event: NotifiedReceiveFundsRequested):
+    async def handle_notified_receive_funds_requested(event: RequestReceived):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_receive_funds_approved(event: ReceiveFundsApproved):
+    async def handle_receive_funds_approved(event: RequestApproved):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_receive_funds_rejected(event: ReceiveFundsRejected):
+    async def handle_receive_funds_rejected(event: RequestRejected):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_notified_received_funds_rejected(event: NotifiedReceivedFundsRejected):
+    async def handle_notified_received_funds_rejected(event: RequestRejectionReceived):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_receive_funds_debited(event: ReceiveFundsDebited):
+    async def handle_receive_funds_debited(event: RequestDebited):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_receive_funds_debited_rolled_back(event: ReceiveFundsDebitedRolledBack):
+    async def handle_receive_funds_debited_rolled_back(event: RequestDebitRolledBack):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_receive_funds_credited(event: ReceiveFundsCredited):
+    async def handle_receive_funds_credited(event: RequestCredited):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_send_funds_credited(event: SendFundsCredited):
+    async def handle_send_funds_credited(event: TransferCredited):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_send_funds_debited(event: SendFundsDebited):
+    async def handle_send_funds_debited(event: TransferDebited):
         pass
 
     @staticmethod
     @abc.abstractmethod
-    async def handle_send_funds_debited_rolled_back(event: SendFundsDebitedRolledBack):
+    async def handle_send_funds_debited_rolled_back(event: TransferDebitRolledBack):
         pass

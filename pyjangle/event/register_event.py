@@ -66,7 +66,7 @@ def RegisterEvent(name: str = None):
             [cls.__module__, cls.__name__]) if not name else name
         if not issubclass(cls, Event):
             raise EventRegistrationError("Decorated member is not an event")
-        if event_name in __name_to_event_type_map:
+        if event_name in __name_to_event_type_map and __name_to_event_type_map[event_name] != cls:
             raise EventRegistrationError("Name already registered", {"name": event_name, "current_registrant": str(
                 __name_to_event_type_map[event_name]), "duplicate_registrant": str(cls)})
         __name_to_event_type_map[event_name] = cls

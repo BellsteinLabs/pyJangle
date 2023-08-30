@@ -5,15 +5,18 @@ from pyjangle.saga.register_saga import get_saga_name
 from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_repository import SagaRepository
 from pyjangle.serialization.saga_serialization_registration import get_saga_deserializer, get_saga_serializer
+from pyjangle_sqllite3.adapters import register_all
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH, FIELDS, TABLES
 from pyjangle_sqllite3.yield_results import yield_results
+
+register_all()
 
 
 class SqlLiteSagaRepository(SagaRepository):
     def __init__(self) -> None:
         with open('pyjangle_sqllite3/create_saga_store.sql', 'r') as create_saga_store_sql_file:
             script = create_saga_store_sql_file.read()
-        with sqlite3.connect(DB_SAGA_STORE_PATH) as conn:
+        with sqlite3.connect(DB_SAGA_STORE_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
             conn.executescript(script)
             conn.commit()
         conn.close()
@@ -48,7 +51,7 @@ class SqlLiteSagaRepository(SagaRepository):
         metadata_row = None
         event_rows = None
         try:
-            with sqlite3.connect(DB_SAGA_STORE_PATH) as conn:
+            with sqlite3.connect(DB_SAGA_STORE_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute(q_metadata, p)
@@ -117,7 +120,7 @@ class SqlLiteSagaRepository(SagaRepository):
             event_dict[FIELDS.SAGA_EVENTS.TYPE])for event_dict in event_dict_list]
 
         try:
-            with sqlite3.connect(DB_SAGA_STORE_PATH) as conn:
+            with sqlite3.connect(DB_SAGA_STORE_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.execute(q_upsert_metadata, data_metadata)
                 conn.executemany(q_upsert_events, data_events)
                 conn.commit()

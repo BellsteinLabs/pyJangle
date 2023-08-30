@@ -8,8 +8,11 @@ from pyjangle.event.event import VersionedEvent
 from pyjangle.event.event_repository import DuplicateKeyError, EventRepository
 from pyjangle.logging.logging import log
 from pyjangle.serialization.event_serialization_registration import get_event_deserializer, get_event_serializer
+from pyjangle_sqllite3.adapters import register_all
 from pyjangle_sqllite3.symbols import DB_EVENT_STORE_PATH, FIELDS, TABLES
 from pyjangle_sqllite3.yield_results import yield_results
+
+register_all()
 
 
 class SqlLiteEventRepository(EventRepository):
@@ -17,7 +20,7 @@ class SqlLiteEventRepository(EventRepository):
         # Create event store table if it's not already there
         with open('pyjangle_sqllite3/create_event_store.sql', 'r') as create_event_store_sql_file:
             create_event_store_sql_script = create_event_store_sql_file.read()
-        with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
+        with sqlite3.connect(DB_EVENT_STORE_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
             conn.executescript(create_event_store_sql_script)
             conn.commit()
         conn.close()
@@ -39,7 +42,8 @@ class SqlLiteEventRepository(EventRepository):
             INNER JOIN {TABLES.EVENT_STORE} ON {TABLES.PENDING_EVENTS}.{FIELDS.PENDING_EVENTS.EVENT_ID} = {TABLES.EVENT_STORE}.{FIELDS.EVENT_STORE.EVENT_ID}
             WHERE {TABLES.PENDING_EVENTS}.{FIELDS.PENDING_EVENTS.PUBLISHED_AT} <= datetime(CURRENT_TIMESTAMP, '+{time_delta.total_seconds()} seconds') 
         """
-        return yield_results(db_path=DB_EVENT_STORE_PATH, batch_size=batch_size, query=q, params=None, deserializer=get_event_deserializer())
+        for result in yield_results(db_path=DB_EVENT_STORE_PATH, batch_size=batch_size, query=q, params=None, deserializer=get_event_deserializer()):
+            yield result
 
     async def commit_events(self, aggregate_id_and_event_tuples: list[tuple[any, VersionedEvent]]):
         q_insert_event_store = f"""
@@ -60,7 +64,7 @@ class SqlLiteEventRepository(EventRepository):
         data_insert_pending_events = [(row_tuple[0],)
                                       for row_tuple in data_insert_event_store]
         try:
-            with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
+            with sqlite3.connect(DB_EVENT_STORE_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.executemany(q_insert_event_store, data_insert_event_store)
                 conn.executemany(q_insert_pending_events,
                                  data_insert_pending_events)
@@ -74,7 +78,7 @@ class SqlLiteEventRepository(EventRepository):
         q = f"DELETE FROM {TABLES.PENDING_EVENTS} WHERE {FIELDS.EVENT_STORE.EVENT_ID} = ?"
         params = (id,)
         try:
-            with sqlite3.connect(DB_EVENT_STORE_PATH) as conn:
+            with sqlite3.connect(DB_EVENT_STORE_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
                 conn.execute(q, params)
                 conn.commit()
         finally:

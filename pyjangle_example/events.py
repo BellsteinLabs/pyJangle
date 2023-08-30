@@ -1,173 +1,165 @@
-from dataclasses import *
-import dataclasses
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-import json
-from typing import Mapping
-import uuid
-from json import dumps
-
 from pyjangle import VersionedEvent
 from pyjangle.event.register_event import RegisterEvent
+from pyjangle_example.validation.attributes import AccountId, AccountName, Amount, Balance, Timeout, TransactionId
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class AccountIdProvisioned(VersionedEvent):
     """An id was provisioned for a new account on the AccountCreationAggregate."""
+    pass
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class AccountCreated(VersionedEvent):
     """Account was created."""
-    account_id: str
-    name: str
+    account_id: str = AccountId()
+    name: str = AccountName()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class AccountDeleted(VersionedEvent):
     """Account was deleted."""
-    account_id: str
+    account_id: str = AccountId()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class FundsDeposited(VersionedEvent):
     """Funds have been doposited into an account."""
-    account_id: str
-    amount: Decimal
-    balance: Decimal
-    transaction_id: str = dataclasses.field(
-        default_factory=lambda: str(uuid.uuid4()))
+    account_id: str = AccountId()
+    amount: Decimal = Amount()
+    balance: Decimal = Balance()
+    transaction_id: str = TransactionId(create_id=True)
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class FundsWithdrawn(VersionedEvent):
     """Funds have been withdrawn from an account."""
-    account_id: str
-    amount: Decimal
-    balance: Decimal
-    transaction_id: str = dataclasses.field(
-        default_factory=lambda: str(uuid.uuid4()))
+    account_id: str = AccountId()
+    amount: Decimal = Amount()
+    balance: Decimal = Balance()
+    transaction_id: str = TransactionId(create_id=True)
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
+@dataclass(kw_only=True)
 class DebtForgiven(VersionedEvent):
     """Debt up to $100 has been forgiven in an account."""
-    account_id: str
-    amount: Decimal
-    transaction_id: str = dataclasses.field(
-        default_factory=lambda: str(uuid.uuid4()))
+    account_id: str = AccountId()
+    amount: Decimal = Amount()
+    transaction_id: str = TransactionId(create_id=True)
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class ReceiveFundsRequested(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestCreated(VersionedEvent):
     """This account is requesting funds from another account."""
-    funded_account_id: str
-    funding_account_id: str
-    amount: Decimal
-    transaction_id: str
-    timeout_at: datetime
+    funded_account_id: str = AccountId()
+    funding_account_id: str = AccountId()
+    amount: Decimal = Amount()
+    transaction_id: str = TransactionId(create_id=True)
+    timeout_at: datetime = Timeout()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class NotifiedReceiveFundsRequested(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestReceived(VersionedEvent):
     """This account was notified that another account requested ReceiveFunds."""
-    funded_account_id: str
-    funding_account_id: str
-    amount: Decimal
-    transaction_id: str
-    timeout_at: datetime
+    funded_account_id: str = AccountId()
+    funding_account_id: str = AccountId()
+    amount: Decimal = Amount()
+    transaction_id: str = TransactionId()
+    timeout_at: datetime = Timeout()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class ReceiveFundsApproved(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestApproved(VersionedEvent):
     """Funding account has approved a transfer."""
-    funding_account_id: str
-    transaction_id: str
+    funding_account_id: str = AccountId()
+    transaction_id: str = TransactionId()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class ReceiveFundsRejected(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestRejected(VersionedEvent):
     """Funding account has denied a transfer."""
-    funding_account_id: str
-    transaction_id: str
+    funding_account_id: str = AccountId()
+    transaction_id: str = TransactionId()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class NotifiedReceivedFundsRejected(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestRejectionReceived(VersionedEvent):
     """This account was notified that another account rejected ReceiveFunds request."""
-    funded_account_id: str
-    transaction_id: str
+    funded_account_id: str = AccountId()
+    transaction_id: str = TransactionId()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class ReceiveFundsDebited(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestDebited(VersionedEvent):
     """Funds sent to the account that requested them."""
-    funding_account_id: str
-    balance: Decimal
-    amount: Decimal
-    transaction_id: str
+    funding_account_id: str = AccountId()
+    balance: Decimal = Balance()
+    amount: Decimal = Amount()
+    transaction_id: str = TransactionId()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class ReceiveFundsDebitedRolledBack(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestDebitRolledBack(VersionedEvent):
     """Sending funds to another account failed an rolled back."""
-    funding_account_id: str
-    transaction_id: str
-    balance: Decimal
-    amount: Decimal
+    funding_account_id: str = AccountId()
+    transaction_id: str = TransactionId()
+    balance: Decimal = Balance()
+    amount: Decimal = Amount()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class ReceiveFundsCredited(VersionedEvent):
+@dataclass(kw_only=True)
+class RequestCredited(VersionedEvent):
     """Received requested funds."""
-    funded_account_id: str
-    transaction_id: str
-    balance: Decimal
-    amount: Decimal
+    funded_account_id: str = AccountId()
+    transaction_id: str = TransactionId()
+    balance: Decimal = Balance()
+    amount: Decimal = Amount()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class SendFundsCredited(VersionedEvent):
+@dataclass(kw_only=True)
+class TransferCredited(VersionedEvent):
     """Funded account confirms receipt of SendFunds request."""
-    funded_account_id: str
-    funding_account_id: str
-    amount: Decimal
-    balance: Decimal
-    transaction_id: str
+    funded_account_id: str = AccountId()
+    funding_account_id: str = AccountId()
+    amount: Decimal = Amount()
+    balance: Decimal = Balance()
+    transaction_id: str = TransactionId()
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class SendFundsDebited(VersionedEvent):
+@dataclass(kw_only=True)
+class TransferDebited(VersionedEvent):
     """Funds sent to another account."""
-    funding_account_id: str
-    funded_account_id: str
-    amount: Decimal
-    balance: Decimal
-    transaction_id: str = dataclasses.field(
-        default_factory=lambda: str(uuid.uuid4()))
+    funding_account_id: str = AccountId()
+    funded_account_id: str = AccountId()
+    amount: Decimal = Amount()
+    balance: Decimal = Balance()
+    transaction_id: str = TransactionId(create_id=True)
 
 
 @RegisterEvent
-@dataclass(frozen=True, kw_only=True)
-class SendFundsDebitedRolledBack(VersionedEvent):
+@dataclass(kw_only=True)
+class TransferDebitRolledBack(VersionedEvent):
     """Sending funds to another account failed an rolled back."""
-    amount: Decimal
-    funding_account_id: str
-    balance: Decimal
-    transaction_id: str
+    amount: Decimal = Amount()
+    funding_account_id: str = AccountId()
+    balance: Decimal = Balance()
+    transaction_id: str = TransactionId()

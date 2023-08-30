@@ -9,7 +9,13 @@
             "type": "python",
             "request": "launch",
             "module": "pyjangle_example.main",
-            "justMyCode": true
+            "justMyCode": true,
+            "env": {
+                "DB_JANGLE_BANKING_PATH": "jangle.db",
+                "JANGLE_EVENT_STORE_PATH": "jangle.db",
+                "JANGLE_SAGA_STORE_PATH": "jangle.db",
+                "JANGLE_SNAPSHOTS_PATH": "jangle.db"
+            }
         },
         {
             "name": "Dart: Attach to Process",

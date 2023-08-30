@@ -1,4 +1,5 @@
 import datetime
+from decimal import Decimal
 from unittest import TestCase
 from unittest.mock import Mock
 import uuid
@@ -9,9 +10,9 @@ AGGREGATE_ID = "42"
 ACCOUNT_ID = "000042"
 OTHER_ACCOUNT_ID = "000043"
 ACCOUNT_NAME = "TEST_NAME"
-INITIAL_DEPOSIT = 5
-SMALL_AMOUNT = 20
-LARGE_AMOUNT = 150
+INITIAL_DEPOSIT = Decimal(5)
+SMALL_AMOUNT = Decimal(20)
+LARGE_AMOUNT = Decimal(150)
 KNOWN_UUID = str(uuid.uuid4())
 ACCOUNT_ID_FLD = "account_id"
 AMOUNT_FLD = "amount"

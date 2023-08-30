@@ -2,20 +2,23 @@ from datetime import datetime
 import os
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 from pyjangle.event.event_repository import DuplicateKeyError
 from pyjangle.saga.saga import Saga
 from pyjangle.test.events import EventThatCausesDuplicateKeyError, EventThatContinuesSaga, TestSagaEvent
-from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_DISPATCHER, EVENT_SERIALIZER, SAGA_DESERIALIZER, SAGA_SERIALIZER
+from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_DISPATCHER, EVENT_ID_FACTORY, EVENT_SERIALIZER, SAGA_DESERIALIZER, SAGA_SERIALIZER
 from pyjangle.test.sagas import SagaForTesting
 from pyjangle.test.serialization import deserialize_event, deserialize_saga, serialize_event, serialize_saga
+from pyjangle_example.custom_json_encoder import CustomJSONEncoder
 from pyjangle_sqllite3.sql_lite_saga_repository import SqlLiteSagaRepository
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH
 
 SAGA_ID = "42"
 
 
+@patch(EVENT_ID_FACTORY, new=lambda: str(uuid4()))
 @patch(SAGA_DESERIALIZER, new_callable=lambda: deserialize_saga)
-@patch(SAGA_SERIALIZER, new_callable=lambda: serialize_saga)
+@patch(SAGA_SERIALIZER, new_callable=lambda: lambda x: serialize_saga(x, CustomJSONEncoder))
 class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self) -> None:

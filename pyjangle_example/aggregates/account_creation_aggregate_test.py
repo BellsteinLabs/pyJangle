@@ -1,12 +1,18 @@
+from decimal import Decimal
 from unittest import TestCase
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+import uuid
 from pyjangle_example.aggregates.account_creation_aggregate import AccountCreationAggregate
 from pyjangle_example.commands import CreateAccount
 from pyjangle_example.events import AccountCreated, AccountIdProvisioned, FundsDeposited
 from pyjangle_example.test_helpers import ACCOUNT_ID_FLD, ACCOUNT_NAME, AGGREGATE_ID, AMOUNT_FLD, BALANCE_FLD, INITIAL_DEPOSIT, KNOWN_UUID, NAME_FLD, TRANSACTION_ID_FLD, ExpectedEvent, get_account_id, verify_events
+from pyjangle_example.validation.attributes import TransactionId
 
 
-@patch("uuid.uuid4", return_value=KNOWN_UUID)
+uuid_mock = Mock(wraps=uuid.uuid4, return_value=KNOWN_UUID)
+
+
+@patch(f"{TransactionId.__module__}.uuid4", new=uuid_mock)
 class TestExampleAccountCreationAggregate(TestCase):
     def test_when_create_account_command_without_deposit_then_2_events(self, *_):
         a = AccountCreationAggregate(AGGREGATE_ID)
