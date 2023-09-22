@@ -1,6 +1,6 @@
 from pyjangle import JangleError
+from pyjangle import DuplicateKeyError
 from pyjangle.event.event import VersionedEvent
-from pyjangle.event.event_repository import DuplicateKeyError
 from pyjangle.logging.logging import LogToggles, log
 from pyjangle.saga.saga import Saga
 from pyjangle.saga.saga_repository import saga_repository_instance
@@ -10,21 +10,23 @@ class SagaHandlerError(JangleError):
     pass
 
 
-async def handle_saga_event(saga_id: any, event: VersionedEvent, saga_type: type[Saga] | None):
+async def handle_saga_event(
+    saga_id: any, event: VersionedEvent, saga_type: type[Saga] | None
+):
     """Connects events to their respective sagas.
 
     When an event handler for an event related
     to a saga is called, this method facilitates
     retrieving other related events from the saga
-    repository, checking that the saga isn't 
+    repository, checking that the saga isn't
     already completed, and evaluating the new event
-    to progress the saga's state.  Once the saga 
-    has processed the latest event, it is 
+    to progress the saga's state.  Once the saga
+    has processed the latest event, it is
     recommited to the saga store.
 
     THROWS
     ------
-    SagaHandlerError if event is empty and saga_id 
+    SagaHandlerError if event is empty and saga_id
     has no corresponding events.
     """
     saga_repository = saga_repository_instance()
@@ -34,31 +36,60 @@ async def handle_saga_event(saga_id: any, event: VersionedEvent, saga_type: type
     #     return
     if not saga and not event:
         raise SagaHandlerError(
-            f"Tried to restore non-existant saga with id '{saga_id}' and apply no events to it.")
-    if (saga):
-        log(LogToggles.saga_retrieved, "Retrieved saga",
-            {"saga_id": saga_id, "saga":  saga.__dict__})
+            f"Tried to restore non-existant saga with id '{saga_id}' and apply no events to it."
+        )
+    if saga:
+        log(
+            LogToggles.saga_retrieved,
+            "Retrieved saga",
+            {"saga_id": saga_id, "saga": vars(saga)},
+        )
     else:
-        log(LogToggles.saga_new, "Received first event in a new saga",
-            {"saga_id": saga_id})
+        log(
+            LogToggles.saga_new,
+            "Received first event in a new saga",
+            {"saga_id": saga_id},
+        )
         saga = saga_type(saga_id=saga_id)
     if saga and (saga.is_complete or saga.is_timed_out):
         return
     await saga.evaluate(event)
-    log(LogToggles.apply_event_to_saga, "Applied event to saga", {
-        "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__, "event": event.__dict__})
+    log(
+        LogToggles.apply_event_to_saga,
+        "Applied event to saga",
+        {
+            "saga_id": saga_id,
+            "saga_type": str(type(saga)),
+            "saga": vars(saga),
+            "event": vars(event),
+        },
+    )
     if saga.is_dirty:
         try:
             await saga_repository.commit_saga(saga)
         except DuplicateKeyError as e:
-            log(LogToggles.saga_duplicate_key, "Concurrent saga execution detected.  This is unlikely and could indicate an issue.", {
-                "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__, "event": event.__dict__})
+            log(
+                LogToggles.saga_duplicate_key,
+                "Concurrent saga execution detected.  This is unlikely and could indicate an issue.",
+                {
+                    "saga_id": saga_id,
+                    "saga_type": str(type(saga)),
+                    "saga": vars(saga),
+                    "event": vars(event),
+                },
+            )
             return
-        log(LogToggles.saga_committed, "Committed saga to saga store.", {
-            "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+        log(
+            LogToggles.saga_committed,
+            "Committed saga to saga store.",
+            {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": vars(saga)},
+        )
     else:
-        log(LogToggles.saga_nothing_happened, "Saga state was not changed.", {
-            "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+        log(
+            LogToggles.saga_nothing_happened,
+            "Saga state was not changed.",
+            {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": vars(saga)},
+        )
 
 
 async def retry_saga(saga_id: any):
@@ -69,9 +100,13 @@ async def retry_saga(saga_id: any):
     #     return
     if not saga:
         raise SagaHandlerError(
-            f"Attempted to retry non-existent saga with id '{saga_id}'.")
-    log(LogToggles.saga_retrieved, "Retrieved saga",
-        {"saga_id": saga_id, "saga":  saga.__dict__})
+            f"Attempted to retry non-existent saga with id '{saga_id}'."
+        )
+    log(
+        LogToggles.saga_retrieved,
+        "Retrieved saga",
+        {"saga_id": saga_id, "saga": vars(saga)},
+    )
     if saga.is_complete or saga.is_timed_out:
         return
     await saga.evaluate()
@@ -79,11 +114,24 @@ async def retry_saga(saga_id: any):
         try:
             await saga_repository.commit_saga(saga)
         except DuplicateKeyError as e:
-            log(LogToggles.saga_duplicate_key, "Concurrent saga execution detected.  This is unlikely and could indicate an issue.", {
-                "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+            log(
+                LogToggles.saga_duplicate_key,
+                "Concurrent saga execution detected.  This is unlikely and could indicate an issue.",
+                {
+                    "saga_id": saga_id,
+                    "saga_type": str(type(saga)),
+                    "saga": vars(saga),
+                },
+            )
             return
-        log(LogToggles.saga_committed, "Committed saga to saga store.", {
-            "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+        log(
+            LogToggles.saga_committed,
+            "Committed saga to saga store.",
+            {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": vars(saga)},
+        )
     else:
-        log(LogToggles.saga_nothing_happened, "Saga state was not changed.", {
-            "saga_id": saga_id, "saga_type": str(type(saga)), "saga": saga.__dict__})
+        log(
+            LogToggles.saga_nothing_happened,
+            "Saga state was not changed.",
+            {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": vars(saga)},
+        )

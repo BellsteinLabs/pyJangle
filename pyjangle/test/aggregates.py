@@ -3,21 +3,23 @@ from pyjangle import Aggregate, reconstitute_aggregate_state, validate_command
 from pyjangle import CommandResponse
 from pyjangle import RegisterAggregate
 from pyjangle import Snapshottable
-from pyjangle.test.commands import AnotherCommandThatAlwaysSucceeds, CommandThatAlwaysSucceeds, CommandThatFails
+from pyjangle.test.commands import (
+    CommandThatShouldSucceedB,
+    CommandThatShouldSucceedA,
+    CommandThatShouldFail,
+)
 from pyjangle.test.events import EventA
 
 
 @RegisterAggregate
 class SnapshottableTestAggregate(Aggregate, Snapshottable):
-
     def __init__(self, id: any):
         super().__init__(id)
         self.count = 0
 
-    @validate_command(CommandThatAlwaysSucceeds)
-    def validateA(self, command: CommandThatAlwaysSucceeds, next_version: int):
-        self.post_new_event(
-            EventA(version=next_version, created_at=datetime.now()))
+    @validate_command(CommandThatShouldSucceedA)
+    def validateA(self, command: CommandThatShouldSucceedA, next_version: int):
+        self.post_new_event(EventA(version=next_version, created_at=datetime.now()))
 
     @reconstitute_aggregate_state(EventA)
     def from_event_that_continues_saga(self, event: EventA):
@@ -35,21 +37,18 @@ class SnapshottableTestAggregate(Aggregate, Snapshottable):
 
 @RegisterAggregate
 class NotSnapshottableTestAggregate(Aggregate):
-
     def __init__(self, id: any):
         super().__init__(id)
         self.count = 0
 
-    @validate_command(AnotherCommandThatAlwaysSucceeds)
-    def validateA(self, command: AnotherCommandThatAlwaysSucceeds, next_version: int):
-        self.post_new_event(
-            EventA(version=next_version, created_at=datetime.now()))
+    @validate_command(CommandThatShouldSucceedB)
+    def validateA(self, command: CommandThatShouldSucceedB, next_version: int):
+        self.post_new_event(EventA(version=next_version, created_at=datetime.now()))
         return CommandResponse(True, {})
 
-    @validate_command(CommandThatFails)
-    def validateB(self, command: CommandThatFails, next_version: int):
-        self.post_new_event(
-            EventA(version=next_version, created_at=datetime.now()))
+    @validate_command(CommandThatShouldFail)
+    def validateB(self, command: CommandThatShouldFail, next_version: int):
+        self.post_new_event(EventA(version=next_version, created_at=datetime.now()))
         return CommandResponse(False, {})
 
     @reconstitute_aggregate_state(EventA)

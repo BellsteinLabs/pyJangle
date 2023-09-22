@@ -4,19 +4,38 @@ from pyjangle import command_dispatcher_instance
 from pyjangle.event.event import VersionedEvent
 from pyjangle.saga.register_saga import RegisterSaga
 from pyjangle.saga.saga import Saga, event_receiver, reconstitute_saga_state
-from pyjangle.test.commands import CommandThatErrorsTheFirstTime
-from pyjangle.test.events import EventThatCausesDuplicateKeyError, EventThatCausesSagaToRetry, EventThatCompletesACommand, EventThatCompletesSaga, EventThatContinuesSaga, EventThatSetsSagaToTimedOut, EventThatTimesOutSaga, TestSagaEvent
+from pyjangle.test.commands import CommandThatShouldErrorOnlyFirstTime
+from pyjangle.test.events import (
+    EventThatCausesDuplicateKeyError,
+    EventThatCausesSagaToRetry,
+    EventThatCompletesACommand,
+    EventThatCompletesSaga,
+    EventThatContinuesSaga,
+    EventThatSetsSagaToTimedOut,
+    EventThatTimesOutSaga,
+    TestSagaEvent,
+)
 
 
 @RegisterSaga
 class SagaForTestingRetryLogic(Saga):
-    def __init__(self, saga_id: any, events: List[VersionedEvent] = [], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
+    def __init__(
+        self,
+        saga_id: any,
+        events: List[VersionedEvent] = [],
+        retry_at: datetime = None,
+        timeout_at: datetime = None,
+        is_complete: bool = False,
+        is_timed_out: bool = False,
+    ):
         super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
-    @event_receiver(EventThatContinuesSaga, skip_if_any_flags_set=[EventThatCompletesACommand])
+    @event_receiver(
+        EventThatContinuesSaga, skip_if_any_flags_set=[EventThatCompletesACommand]
+    )
     async def on_event_that_continues_saga(self):
         try:
-            await command_dispatcher_instance()(CommandThatErrorsTheFirstTime())
+            await command_dispatcher_instance()(CommandThatShouldErrorOnlyFirstTime())
             self.post_state_change_event(EventThatCompletesACommand(version=1))
         except Exception as e:
             self.set_retry(datetime.min)
@@ -32,11 +51,23 @@ class SagaForTestingRetryLogic(Saga):
 
 @RegisterSaga
 class SagaForTesting(Saga):
-    def __init__(self, saga_id: any, events: List[VersionedEvent] = [], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False, is_timed_out: bool = False):
-        self.calls = {"on_event_that_continues_saga": 0,
-                      "from_event_that_continues_saga": 0}
+    def __init__(
+        self,
+        saga_id: any,
+        events: List[VersionedEvent] = [],
+        retry_at: datetime = None,
+        timeout_at: datetime = None,
+        is_complete: bool = False,
+        is_timed_out: bool = False,
+    ):
+        self.calls = {
+            "on_event_that_continues_saga": 0,
+            "from_event_that_continues_saga": 0,
+        }
         self._used_event_ids = set()
-        super().__init__(saga_id, events, retry_at, timeout_at, is_complete, is_timed_out)
+        super().__init__(
+            saga_id, events, retry_at, timeout_at, is_complete, is_timed_out
+        )
 
     @event_receiver(EventThatContinuesSaga, skip_if_any_flags_set=[TestSagaEvent])
     async def on_event_that_continues_saga(self):
@@ -53,8 +84,7 @@ class SagaForTesting(Saga):
 
     @event_receiver(EventThatCausesDuplicateKeyError)
     async def on_event_that_causes_duplicate_key_error(self):
-        self.post_state_change_event(
-            TestSagaEvent(id=self._used_event_ids.pop()))
+        self.post_state_change_event(TestSagaEvent(id=self._used_event_ids.pop()))
 
     @event_receiver(EventThatSetsSagaToTimedOut)
     async def on_event_that_sets_saga_to_timed_out(self):
@@ -79,7 +109,9 @@ class SagaForTesting(Saga):
         self._used_event_ids.add(event.id)
 
     @reconstitute_saga_state(EventThatCausesDuplicateKeyError)
-    def from_event_that_causes_duplicate_key_error(self, event: EventThatCausesDuplicateKeyError):
+    def from_event_that_causes_duplicate_key_error(
+        self, event: EventThatCausesDuplicateKeyError
+    ):
         self._used_event_ids.add(event.id)
 
     @reconstitute_saga_state(EventThatTimesOutSaga)
@@ -88,7 +120,9 @@ class SagaForTesting(Saga):
         self.set_timeout(datetime.min)
 
     @reconstitute_saga_state(EventThatSetsSagaToTimedOut)
-    def from_event_that_sets_saga_to_timed_out(self, event: EventThatSetsSagaToTimedOut):
+    def from_event_that_sets_saga_to_timed_out(
+        self, event: EventThatSetsSagaToTimedOut
+    ):
         self._used_event_ids.add(event.id)
         self.set_timed_out()
 

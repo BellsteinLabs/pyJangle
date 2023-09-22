@@ -1,50 +1,151 @@
-from asyncio import Queue, sleep, CancelledError
-import asyncio
+from asyncio import Task, create_task, sleep, CancelledError
 from datetime import timedelta
-from pyjangle.event.event_dispatcher import EventDispatcherError, event_dispatcher_instance
-from pyjangle.event.event_repository import event_repository_instance
-from pyjangle.event.event_handler import handle_event
-from pyjangle.logging.logging import LogToggles, log
+from pyjangle import (
+    EventDispatcherMissingError,
+    event_dispatcher_instance,
+    event_repository_instance,
+    LogToggles,
+    JangleError,
+    log,
+    tasks,
+)
 
 
-async def retry_failed_events(batch_size: int = 100, max_age_in_seconds: timedelta = timedelta(seconds=30)):
-    repo = event_repository_instance()
-    unhandled_events = [event async for event in repo.get_unhandled_events(
-        batch_size=batch_size, time_delta=timedelta(seconds=0))]
-    log(LogToggles.retrying_failed_events,
-        f"Retrying {len(unhandled_events)} failed events...")
-    for event in unhandled_events:
-        event_repo = event_repository_instance()
-        await event_dispatcher_instance()(event)
-        await event_repo.mark_event_handled(event.id)
-    log(LogToggles.retrying_failed_events,
-        f"Finished retrying {len(unhandled_events)} failed events")
+class RetryFailedEventsError(JangleError):
+    "An error occurred while retrying failed events."
+    pass
 
 
-async def begin_retry_failed_events_loop(frequency_in_seconds: float, batch_size: int = 100, max_age_in_seconds: timedelta = timedelta(seconds=30)):
-    """Called by daemon to preiodically retry failed events.
+async def retry_failed_events(
+    batch_size: int = 100, max_age_time_delta: timedelta = timedelta(seconds=30)
+):
+    """Retries failed events.
 
-    It happens... the network goes down, a stray cosmic particle
-    accidentally flips a bit.  It's okay if an event handler fails 
-    the first time.  It will not be marked as handled, and you 
-    can create a CRON job, for example, that periodically calls 
-    this method every 30 seconds, 5 minutes, whatever fits
-    your application.
+    When an event handler fails to process an event without an exception, the event is
+    not marked as completed and will be retried.  Event repositories provide an
+    interface by which failed events can be retrieved.  Calling this method retrieves
+    those events and redispatches them.  Each event is guaranteed to be retried once
+    independent of the outcome of other events.
 
-    Be careful of how many events you retry at a time.  The more 
-    events, the more memory you could potentially use."""
+    Regarding the batch_size argument, be sure to specify value that takes system memory
+    into account.  And for the max_age_time_delta argument, keep in mind that just
+    because an event is marked as not completed doesn't mean its completion is not
+    imminent.  However, after some period of time passes, it's very likely that the
+    event dispatch has failed and needs to be retried.  It is possible that
+    circumstances (network intermittency) can delay successful dispatch, and so an event
+    may be retried even if the first attempt is still in progress.  It is important to
+    ensure that all event handlers are idempotent.  Also, ensure that a call to
+    retry_failed_events does *not* overlap a previous one.
+
+    Args:
+        batch_size:
+            The number of events to keep in memory at a time.
+        max_age_in_seconds:
+            Events are retried when this period of time has elapsed since it was
+            published, and it has not been marked as completed.
+
+    Raises:
+        RetryFailedEventsError:
+            An error occurred while retrying failed events.
+    """
+
+    try:
+        repo = event_repository_instance()
+        unhandled_events = [
+            event
+            async for event in repo.get_unhandled_events(
+                batch_size=batch_size, time_delta=max_age_time_delta
+            )
+        ]
+        log(
+            LogToggles.retrying_failed_events,
+            f"Retrying {len(unhandled_events)} failed events...",
+        )
+        for event in unhandled_events:
+            event_repo = event_repository_instance()
+            event_dispatcher = event_dispatcher_instance()
+            try:
+                await event_dispatcher(event, event_repo.mark_event_handled)
+            except Exception as e:
+                log(
+                    LogToggles.event_failed_on_retry,
+                    "An event failed to process on retry.",
+                    {
+                        "event_type": str(type(event)),
+                        "event": vars(event),
+                    },
+                    exc_info=e,
+                )
+        log(
+            LogToggles.retrying_failed_events,
+            f"Finished retrying {len(unhandled_events)} failed events",
+        )
+    except Exception as e:
+        log(
+            LogToggles.retrying_failed_events_error,
+            "Error encountered while retrying failed events.",
+            exc_info=e,
+        )
+        raise RetryFailedEventsError from e
+
+
+def begin_retry_failed_events_loop(
+    frequency_in_seconds: float,
+    batch_size: int = 100,
+    max_age_time_delta: timedelta = timedelta(seconds=30),
+) -> Task:
+    """Calls `retry_failed_events` at a specified interval.
+
+    Instead of having an external daemon periodically retry failed events, calling this
+    method will begin a background task that periodically retry failed events.  A
+    reference to the created task is automatically added to `tasks.background_tasks` in
+    order to prevent it from being garbage collected.  The task is also returned from
+    this function call.  The first retry occurs after `frequency_in_seconds` seconds have
+    elapsed.  Subsequent invocations occurr `frequency_in_seconds` seconds *after* the
+    previous invocation have completed meaning consecutive invocations  will never
+    overlap.
+
+    Args:
+        frequency_in_seconds:
+            The interval *between* invocations of `retry_failed_events`.
+        batch_size:
+            The number of events to keep in memory at a time.
+        max_age_time_delta:
+            Events are retried when this period of time has elapsed since it was
+            published, and it has not been marked as completed.
+
+    Returns:
+        A reference to the background task that is created.
+
+    Raises:
+        EventDispatcherMissingError:
+            Event dispatcher not registered.
+        EventRepositoryMissingError:
+            Event repository not registered.
+
+    Raises (Returned Background Task):
+        CancelledError:
+            The task was cancelled.
+        RetryFailedEventsError:
+            An error occurred while retrying failed events.
+    """
 
     if not event_dispatcher_instance():
-        raise EventDispatcherError("No event dispatcher registered.")
+        raise EventDispatcherMissingError("No event dispatcher registered.")
     event_repository_instance()
-    while True:
-        await sleep(frequency_in_seconds)
-        try:
-            await retry_failed_events(batch_size=batch_size, max_age_in_seconds=max_age_in_seconds)
-        except Exception as e:
-            if isinstance(e, CancelledError):
-                log(LogToggles.cancel_retry_event_loop,
-                    "Ending retry event loop.")
-                raise e
-            log(LogToggles.retrying_failed_events_error,
-                "Error encountered while retrying failed events.", exc_info=e)
+
+    async def _task():
+        while True:
+            await sleep(frequency_in_seconds)
+            try:
+                await retry_failed_events(
+                    batch_size=batch_size, max_age_time_delta=max_age_time_delta
+                )
+            except Exception as e:
+                if isinstance(e, CancelledError):
+                    log(LogToggles.cancel_retry_event_loop, "Ending retry event loop.")
+                    raise e
+
+    task = create_task(_task())
+    tasks.background_tasks.append(task)
+    return task

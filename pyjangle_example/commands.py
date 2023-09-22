@@ -39,8 +39,8 @@ class DepositFunds(Command):
 @dataclass(kw_only=True)
 class WithdrawFunds(Command):
     """Withdraws funds from an account."""
-    account_id: str = AccountId
-    amount: Decimal = Amount
+    account_id: str = AccountId()
+    amount: Decimal = Amount()
 
     def get_aggregate_id(self):
         return self.account_id

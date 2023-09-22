@@ -1,67 +1,77 @@
 import asyncio
 import inspect
 from typing import Awaitable, Callable
-from pyjangle import CommandResponse
+from pyjangle import CommandResponse, JangleError, LogToggles, log
 
-from pyjangle import JangleError
-from pyjangle.logging.logging import LogToggles, log
-
-# This is where the command dispatcher is kept.
-# Access it via command_dispatcher_instance().
+# Registered command dispatcher accessible via `command_dispatcher_instance()`.
 _command_dispatcher_instance = None
 
 
-class CommandDispatcherError(JangleError):
+class CommandDispatcherBadSignatureError(JangleError):
+    "Command dispatcher signature is invalid."
+    pass
+
+
+class DuplicateCommandDispatcherError(JangleError):
+    "Registering multiple command dispatchers is not allowed."
+    pass
+
+
+class CommandDispatcherNotRegisteredError(JangleError):
+    "Command dispatcher has not been registered."
     pass
 
 
 def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
-    """Decorates function that sends commands to wherever they're in a big hurry to get to.
+    """Decorates a function that forwards commands originating from the current process.
 
-    SIGNATURE
-    ---------
-    def command_dispatcher_name(command: Command) -> CommandRepsonse
+    When commands originate within this process, as opposed to external commands, this
+    command dispatcher routes commands appropriately.  The destination could be either
+    remote or local to this process depending on the system design.  In either case, the
+    command could be forwarded directly to another server or to an intermediary such as
+    a durable message queue.  Commonly, this component is leveraged by a saga to forward
+    commands that originate from within the saga.
 
-    This can mean a few things.  Let's say that you have a saga that 
-    needs to dispatch events to progress its state.  It would use the 
-    registered command dispatcher to dispatch those commands.  It could
-    be that the commands are destined to go to the local handle_command
-    method, or maybe they're sent to a durable message bus for some 
-    other process on a remote machine to process.  It all depends on 
-    your architecture, so whatever you need, put that code in the 
-    method decorated with this.  
+    Signature:
+        async def command_dispatcher_func(command: Command) -> CommandRepsonse:
 
-    It MIGHT also be the case that some events are locally dispatched
-    while others are dispatched remotely.  Just put that logic in this 
-    method--for simplicity, this framework only supports a single 
-    command dispatcher per process and leaves anything more 
-    complicated than that as an exercise for the implementor.
-
-    THROWS
-    ------
-    CommandDispatcherError when multiple methods are registered."""
-    if not asyncio.iscoroutinefunction(wrapped):
-        raise CommandDispatcherError(
-            "@RegisterCommandDispatcher must decorate a coroutine (async) method with signature: async def func_name(command: Command) -> CommandResponse")
-    if not len(inspect.signature(wrapped).parameters) == 1:
-        raise CommandDispatcherError(
-            "Command dispatcher function should only have one parameter: async def func_name(command: Command) -> CommandResponse")
+    Raises:
+        DuplicateCommandDispatcher: Registering multiple command dispatchers is not
+          allowed.
+        CommandDispatcherBadSignatureError: Command dispatcher signature is invalid.
+    """
+    if (
+        not asyncio.iscoroutinefunction(wrapped)
+        or not len(inspect.signature(wrapped).parameters) == 1
+    ):
+        raise CommandDispatcherBadSignatureError(
+            """@RegisterCommandDispatcher must decorate a coroutine (async) method with 
+            signature: async def command_dispatcher_func(command: Command) -> 
+            CommandRepsonse:"""
+        )
     global _command_dispatcher_instance
     if _command_dispatcher_instance != None:
-        raise CommandDispatcherError(
-            "Cannot register multiple command dispatchers: " + str(type(_command_dispatcher_instance)) + ", " + wrapped.__name__)
+        raise DuplicateCommandDispatcherError(
+            "Cannot register multiple command dispatchers: "
+            + str(type(_command_dispatcher_instance))
+            + ", "
+            + wrapped.__name__
+        )
     _command_dispatcher_instance = wrapped
-    log(LogToggles.command_dispatcher_registration, "Registering command dispatcher", {
-        "command_dispatcher_type": str(wrapped)})
+    log(
+        LogToggles.command_dispatcher_registration,
+        "Registering command dispatcher",
+        {"command_dispatcher_type": str(wrapped)},
+    )
     return wrapped
 
 
 def command_dispatcher_instance() -> Awaitable[Callable[[any], CommandResponse]]:
-    """Returns the singleton instance of the registered command dispatcher."""
+    """Returns the singleton instance of the registered command dispatcher.
+
+    Raises:
+        CommandDispatcherNotRegisteredError: Command dispatcher has not been registered.
+    """
     if not _command_dispatcher_instance:
-        raise CommandDispatcherError
+        raise CommandDispatcherNotRegisteredError()
     return _command_dispatcher_instance
-
-
-__all__ = [CommandDispatcherError.__name__,
-           RegisterCommandDispatcher.__name__, command_dispatcher_instance.__name__]

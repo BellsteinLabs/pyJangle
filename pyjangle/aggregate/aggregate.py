@@ -1,85 +1,104 @@
-
-from __future__ import annotations
-
-import pyjangle
 import functools
 import inspect
-from typing import TYPE_CHECKING, Callable, List
-from pyjangle import CommandResponse
-from pyjangle import Command
+
+from pyjangle import (
+    Command,
+    CommandResponse,
+    VersionedEvent,
+    LogToggles,
+    log,
+    JangleError,
+    find_decorated_method_names,
+    register_instance_methods,
+)
+
+# References to methods decorated with @reconstitute_aggregate_state map are stored in
+# an attribute on the aggregate with this name.  The attribute contains a map having a
+# key corresponding to the event_type argument of @reconstitute_aggregate_state and a
+# value corresponding to the decorated method.
+EVENT_TO_STATE_RECONSTITUTOR_ATTRIBUTE_NAME = "_event_to_state_reconstitutor"
+
+# References to methods decorated with @validate_command map are stored in an attribute
+# on the aggregate with this name.  The attribute contains a map having a key
+# corresponding to the command_type argument of @validate_command and a value
+# corresponding to the decorated method.
+COMMAND_TYPE_TO_COMMAND_VALIDATOR_ATTRIBUTE_NAME = "_command_type_to_command_validator"
+
+# When a method is decorated with @reconstitute_aggregate_state, an attribute is added
+# to the method with this name.  The attribute contains the type of the event passed
+# in to the event_type parameter of @reconstitute_aggregate_state.
+EVENT_TYPE_ATTRIBUTE_NAME = "_state_reconstitutor_event_type"
+
+# When a method is decorated with @validate_command, an attribute is added to the method
+# with this name.  The attribute contains the type of the command passed to the
+# command_type parameter of @validate_command.
+COMMAND_TYPE_ATTRIBUTE_NAME = "_command_validator_command_type"
 
 
-from pyjangle.event.event import VersionedEvent
-from pyjangle.logging.logging import LogToggles, log
-from pyjangle.registration.utility import (find_decorated_method_names,
-                                           register_methods)
-
-# These constants represent attributes on each aggregate that are used
-# to store method registration info.  Methods are registered using
-# the @validate_command and @reconstitute_aggregate_state decorators.
-EVENT_TO_STATE_RECONSTITUTOR_MAP = "__event_to_state_reconstitutor_map"
-COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP = "__command_type_to_command_validator_map"
-# These constants represent the names of the attributes that decorated
-# methods are tagged with so that they can be discovered for
-# registration.
-STATE_RECONSTITUTOR_TYPE = "__state_reconstitutor_type"
-COMMAND_VALIDATOR_TYPE = "__command_validator_type"
+class CommandValidationRegistrationError(JangleError):
+    "Command validation method has a bad signature."
+    pass
 
 
-def _method_is_command_validator(method: Callable) -> bool:
-    """Looks for decorated methods with an attribute named COMMAND_VALIDATOR_TYPE."""
-    return hasattr(method, COMMAND_VALIDATOR_TYPE)
+class ReconstituteStateMethodMissingError(JangleError):
+    "Couldn't find a method decorated with `reconstitute_aggregate_state`."
+    pass
 
 
-def _method_is_state_reconstitutor(method: Callable) -> bool:
-    """Looks for decorated methods with an attribute named STATE_RECONSTITUTOR_TYPE."""
-    return hasattr(method, STATE_RECONSTITUTOR_TYPE)
+class ValidateCommandMethodMissingError(JangleError):
+    "Couldn't find a method decorated with `validate_command`."
+    pass
 
 
-class AggregateError(Exception):
+class ReconstituteStateError(JangleError):
+    "Reconstituting an aggregate failed."
+    pass
+
+
+class CommandValidationError(JangleError):
+    "Encountered an error while validating a command."
     pass
 
 
 class Aggregate:
-    """An aggregation of domain objects that are treated as a whole.
+    """Validates commands and creates new events.
 
-    Taken from fowler's Domain-Driven-Design, https://martinfowler.com/bliki/DDD_Aggregate.html.  
-    In this context, we refine the definition and say that the aggregate IS its component events.  
-    Without events, there is no aggregate.  It's purpose in this architecture is to validate 
-    commands which results in the creation of new events.  Aggregates are transient and exist in 
-    memory only long enough to validate that a command is valid before attempting to persist the 
-    events resulting from the command to durable storage.
+    ***Do not forget to register aggregates using the `RegisterAggregate` decorator.
+    Failure to do so will prevent commands from being correctly mapped to the
+    appropriate aggregate at runtime.
 
-    When an aggregate is instantiated, it is a blank slate until it processes historical events
-    and possibly snapshots to represent the current state.  Methods decorated with the  
-    @reconstitute_aggregate_state decorator are used to process historical events.  The method
-    signature should include a single parameter corresponding to an event type.  
+    See Fowler's Domain-Driven-Design,
+    https://martinfowler.com/bliki/DDD_Aggregate.html.  For our purposes, it is best to
+    think of an aggregate as a component that reconstitutes its state from persisted
+    events, and uses that state to validate commands.  If the validation succeeds, one
+    or more new events are created--these new events are not official until they are
+    successfully persisted to an event store.
 
-    When an aggregate validates a command, it uses a method decorated with the @validate_command
-    decorator and a matching event type argument.  The method signature should contain two 
-    parameters: the command to be validated, and a second integer argument representing the 
-    value of the next event in the sequence for this aggregate which should be used in the 
-    creation of any new events.  If multiple new events are created from a single command, 
-    increment the version for each of the new events in-turn.  These methods
-    should call _post_new_event(event: Event) to propose any new events for the event store.
-    Methods decorated with @validate_command should return a CommandResponse.  If the method 
-    returns normally (without exception), a CommandResponse(True) is implicitly returned.
-    In the case of a failed command, it is up to the method to explicitly return a 
-    CommandResponse(False, reason: any).
+    Aggregates are ephemeral.  This short, but busy, life-cycle is managed by the
+    `pyjangle.command.command_handler.handle_command` method.  For practical purposes,
+    know that methods decorated with the `reconstitute_aggregate_state` decorator are
+    used to reconstitute the aggregate's current state from the relevant events from the
+    event store.  Commands are then validated against the rebuilt state via methods
+    decorated with the `validate_command` decorator, and shortly thereafter, the
+    aggregate is marked for garbage collection.
 
-    An important note is that command validators should NEVER update the aggregate's state.
-    State changes only ever occur via events.  Otherwise, any state changes will be lost
-    once the aggregate is no longer in memory.  If it's not in an event, IT DIDN'T HAPPEN!
+    It is crucial to know that the aggregate's state should NEVER be modified, only
+    read, from methods decorated with `validate_command`.  The reason for this is that
+    because aggregates are ephemeral, the only changes that will be 'remembered' on the
+    next instantiation of the aggregate will be those changes that result from
+    historical events read from the event store.  In other words, to modify the state of
+    the aggregate, a `validate_command` method must publish new 'event candidates' via
+    the `post_new_event` method.  These published events are not official until they are
+    written to an event store, so it is an error to use them for any processing.
     """
 
-    # cache of method names corresponding to command validators for each type of aggregate
-    # Looking for these each time an aggregate is instantiated would be slow,
-    # so they're cached
+    # Cache of the names of methods decorated with `command_validator` with a key
+    # corresponding to the type of the aggregate, and a value corresponding to a list of
+    # method names as strings.
     _aggregate_type_to_command_validator_method_names = dict()
-    # cache of method names corresponding to state reconstitutors decorated with
-    # reconstitute aggregate state for each type of aggregate.
-    # Looking for these each time an aggregate is instantiated would be slow,
-    # so they're cached
+    # Cache of the names of methods decorated with `reconstitute_aggregate_state` with a
+    # key corresponding to the type of the aggregate, and a value corresponding to a
+    # list of method names as strings.
     _aggregate_type_to_state_reconstitutor_method_names = dict()
 
     def __init__(self, id: any):
@@ -91,40 +110,97 @@ class Aggregate:
         """Registers methods decorated with @validate_command and @reconstitute_aggregate_state."""
         aggregate_type = type(self)
 
-        # Cache method names for CommandValidators and StateReconstitutors for each aggregate type on the first instantiation.
-        if aggregate_type not in Aggregate._aggregate_type_to_command_validator_method_names:
-            Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type] = find_decorated_method_names(
-                self, _method_is_command_validator)
-            log(LogToggles.command_validator_method_name_caching, "Command Validator Method Names Cached", {"aggregate_type": str(
-                aggregate_type), "method_names": Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type]})
-        if aggregate_type not in Aggregate._aggregate_type_to_state_reconstitutor_method_names:
-            Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type] = find_decorated_method_names(
-                self, _method_is_state_reconstitutor)
-            log(LogToggles.state_reconstitutor_method_name_caching, "State Reconstitutor Method Names Cached", {"aggregate_type": str(
-                aggregate_type), "method_names": Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type]})
+        # Cache method names for @command_validator and @reconstitute_aggregate_state
+        # of the first instantiation of each aggregate type.
+        if (
+            aggregate_type
+            not in Aggregate._aggregate_type_to_command_validator_method_names
+        ):
+            Aggregate._aggregate_type_to_command_validator_method_names[
+                aggregate_type
+            ] = find_decorated_method_names(
+                self, lambda method: hasattr(method, COMMAND_TYPE_ATTRIBUTE_NAME)
+            )
+            log(
+                LogToggles.command_validator_method_name_caching,
+                "Command Validator Method Names Cached",
+                {
+                    "aggregate_type": str(aggregate_type),
+                    "method_names": Aggregate._aggregate_type_to_command_validator_method_names[
+                        aggregate_type
+                    ],
+                },
+            )
+        if (
+            aggregate_type
+            not in Aggregate._aggregate_type_to_state_reconstitutor_method_names
+        ):
+            Aggregate._aggregate_type_to_state_reconstitutor_method_names[
+                aggregate_type
+            ] = find_decorated_method_names(
+                self, lambda method: hasattr(method, EVENT_TYPE_ATTRIBUTE_NAME)
+            )
+            log(
+                LogToggles.state_reconstitutor_method_name_caching,
+                "State Reconstitutor Method Names Cached",
+                {
+                    "aggregate_type": str(aggregate_type),
+                    "method_names": Aggregate._aggregate_type_to_state_reconstitutor_method_names[
+                        aggregate_type
+                    ],
+                },
+            )
 
-        register_methods(self, COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP, COMMAND_VALIDATOR_TYPE,
-                         Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type])
-        register_methods(self, EVENT_TO_STATE_RECONSTITUTOR_MAP, STATE_RECONSTITUTOR_TYPE,
-                         Aggregate._aggregate_type_to_state_reconstitutor_method_names[aggregate_type])
+        register_instance_methods(
+            self,
+            COMMAND_TYPE_TO_COMMAND_VALIDATOR_ATTRIBUTE_NAME,
+            COMMAND_TYPE_ATTRIBUTE_NAME,
+            Aggregate._aggregate_type_to_command_validator_method_names[aggregate_type],
+        )
+        register_instance_methods(
+            self,
+            EVENT_TO_STATE_RECONSTITUTOR_ATTRIBUTE_NAME,
+            EVENT_TYPE_ATTRIBUTE_NAME,
+            Aggregate._aggregate_type_to_state_reconstitutor_method_names[
+                aggregate_type
+            ],
+        )
 
     @property
-    def new_events(self) -> List[tuple[any, VersionedEvent]]:
+    def new_events(self) -> list[tuple[any, VersionedEvent]]:
         """New events created from validating commands.
 
-        When an aggregate is instantiated and all of its 
-        historical events have been replayed to rebuild the current state,
-        new_events will correspond to an empty list.  Once
-        commands are validated, any events they create via
-        _post_new_event will show up here."""
+        Returns:
+            A list of tuples.  Each tuple contains an aggregate id, and a
+            corresponding event.  It is not always the case that every event will
+            be owned by this aggregate such as when a new aggregate is created.
+        """
         return self._new_events
 
     def post_new_event(self, event: VersionedEvent, aggregate_id: any = None):
+        """Make an event available to be persisted.
+
+        In the case that an event is created that corresponds to a new aggregate that
+        does not currently exist, use the aggregate_id parameter to specify the new
+        aggregate's id.
+
+        Args:
+            event: Unpersisted event.
+            aggregate_id: The aggregate id of event.
+        """
+
         aggregate_id = self.id if aggregate_id == None else aggregate_id
-        """Advertises new events that should be committed to the event store."""
         self._new_events.append((aggregate_id, event))
-        log(LogToggles.post_new_event, "Posted New Event", {"aggregate_type": str(type(self)),
-            "aggregate_id": aggregate_id, "event_type": str(type(event)), "event": event.__dict__})
+        log(
+            LogToggles.post_new_event,
+            "Posted New Event",
+            {
+                "aggregate_type": str(type(self)),
+                "aggregate_id": aggregate_id,
+                "event_type": str(type(event)),
+                "event": vars(event),
+            },
+        )
 
     @property
     def version(self):
@@ -137,79 +213,186 @@ class Aggregate:
     def version(self, value: int):
         self._version = value
 
-    def apply_events(self, events: List[VersionedEvent]):
-        """Process events to rebuild aggregate state.
+    def apply_events(self, events: list[VersionedEvent]):
+        """Process events to rebuild aggregate's current state.
 
-        THROWS
-        ------
-        AggregateError when missing a corresponding method decorated
-        with @reconstitute_aggregate_state."""
+        Raises:
+            ReconstituteStateMethodMissingError: Expected a method decorated with
+              @reconstitute_aggregate_state.
+            ReconstituteStateError: An error occurred while reconstituting aggregate
+              state.
+        """
         for event in sorted(events, key=lambda x: x.version):
             try:
                 state_reconstitutor = getattr(
-                    self, EVENT_TO_STATE_RECONSTITUTOR_MAP)[type(event)]
+                    self, EVENT_TO_STATE_RECONSTITUTOR_ATTRIBUTE_NAME
+                )[type(event)]
             except KeyError as ke:
-                log(LogToggles.aggregate_cant_find_state_reconstitutor, "Missing state reconstitutor.", {
-                    "aggregate_type": str(type(self)), "event_type": str(type(event))})
-                raise AggregateError(
-                    f"Missing @reconstitute_aggregate_state method for {str(type(event))}") from ke
+                log(
+                    LogToggles.aggregate_cant_find_state_reconstitutor,
+                    "Missing state reconstitutor.",
+                    {"aggregate_type": str(type(self)), "event_type": str(type(event))},
+                )
+                raise ReconstituteStateMethodMissingError(
+                    f"Missing @reconstitute_aggregate_state method for {str(type(event))}"
+                ) from ke
             try:
                 state_reconstitutor(event)
-                log(LogToggles.aggregate_event_applied, "Event reconstituted aggregate state.", {
-                    "aggregate_type": str(type(self)), "event_type": str(type(event)), "event": event.__dict__})
+                log(
+                    LogToggles.aggregate_event_applied,
+                    "Event reconstituted aggregate state.",
+                    {
+                        "aggregate_type": str(type(self)),
+                        "event_type": str(type(event)),
+                        "event": vars(event),
+                    },
+                )
             except Exception as e:
-                log(LogToggles.aggregate_event_application_failed, "Error when applying event to aggregate", {
-                    "aggregate_type": str(type(self)), "event_type": str(type(event)), "event": event.__dict__})
-                raise e
+                log(
+                    LogToggles.aggregate_event_application_failed,
+                    "Error when applying event to aggregate",
+                    {
+                        "aggregate_type": str(type(self)),
+                        "event_type": str(type(event)),
+                        "event": vars(event),
+                    },
+                )
+                raise ReconstituteStateError(
+                    "An error occurred while reconstituting aggregate state."
+                ) from e
 
-    def validate(self, command: Command) -> pyjangle.CommandResponse:
-        """Validates a command for the purpose of creating new events.
+    def validate(self, command: Command) -> CommandResponse:
+        """Validates a command and creates new events if validation succeeds.
 
-        This method forwards to any methods decorated with @validate_command.
+        This method forwards to any methods decorated with `validate_command`.
 
-        THROWS
-        ------
-        AggregateError when command validator is not found."""
+        Raises:
+            ValidateCommandMethodMissingError: "Couldn't find a method decorated with
+              `validate_command`."
+            CommandValidationError: "Encountered an error while validating a command.
+        """
         try:
-            command_validator = getattr(self, COMMAND_TYPE_TO_COMMAND_VALIDATOR_MAP)[
-                type(command)]
+            command_validator = getattr(
+                self, COMMAND_TYPE_TO_COMMAND_VALIDATOR_ATTRIBUTE_NAME
+            )[type(command)]
         except KeyError as ke:
-            log(LogToggles.command_validator_missing, "Missing command validator.", {"aggregate_type": str(type(self)), "command_type": str(
-                type(command))}, exc_info=ke)
-            raise ke
+            log(
+                LogToggles.command_validator_missing,
+                "Missing command validator.",
+                {"aggregate_type": str(type(self)), "command_type": str(type(command))},
+                exc_info=ke,
+            )
+            raise ValidateCommandMethodMissingError(
+                "Couldn't find a method decorated with `validate_command`."
+            ) from ke
         try:
             return command_validator(command)
         except Exception as e:
-            log(LogToggles.command_validation_errored, "An error occurred while validating a command", {"command_type": str(
-                type(command)), "command": command.__dict__, "method": command_validator.__name__}, exc_info=e)
-            raise e
+            log(
+                LogToggles.command_validation_errored,
+                "An error occurred while validating a command",
+                {
+                    "command_type": str(type(command)),
+                    "command": vars(command),
+                    "method": command_validator.__name__,
+                },
+                exc_info=e,
+            )
+            raise CommandValidationError(
+                "Encountered an error while validating a command."
+            ) from e
 
 
 def reconstitute_aggregate_state(event_type: type):
-    """Decorates methods in an aggregate that reconstitute state from historical events."""
+    """Decorates aggregate methods that reconstitute state from events.
+
+    The implementation of the method must modify the aggregate state (self) in whatever
+    way is appropriate to the specified event.  For example, a contrived event called
+    'SignalReceived' might do something like:
+
+        self.isSignalReceived = true
+        self.signalContents = event.signal_data
+
+    This method is called after an aggregate is instantiated and its events are
+    retrieved from the event store.
+
+    Args:
+        event_type:
+            The type of event this method will apply to the aggregate state.
+
+    Signature:
+        def func_name(self: Aggregate, event: VersionedEvent) -> None:
+    """
+
     def decorator(wrapped):
-        # mark methods with this attribute to be found by _method_is_state_reconstitutor()
-        setattr(wrapped, STATE_RECONSTITUTOR_TYPE, event_type)
+        # tag methods with an attribute to find them later
+        setattr(wrapped, EVENT_TYPE_ATTRIBUTE_NAME, event_type)
 
         @functools.wraps(wrapped)
         def wrapper(self: Aggregate, event: VersionedEvent, *args, **kwargs):
-            # update the aggregate version if it is lower than the event version
-            self.version = event.version if event.version > self.version else self.version
-            log(LogToggles.event_applied_to_aggregate, "Reconstituting aggregate state", {"aggregate_type": str(type(self)),
-                "aggregate_id": self.id, "event_type": str(type(event)), "event": event.__dict__})
+            # Events should never be applied to an aggregate out of order, but if they
+            # are, this will ensure the version is set correctly.  The only way this
+            # would happen is if alternative version of the command_handler is used and
+            # contains an error.
+            self.version = (
+                event.version if event.version > self.version else self.version
+            )
+            log(
+                LogToggles.event_applied_to_aggregate,
+                "Reconstituting aggregate state",
+                {
+                    "aggregate_type": str(type(self)),
+                    "aggregate_id": self.id,
+                    "event_type": str(type(event)),
+                    "event": vars(event),
+                },
+            )
             return wrapped(self, event, *args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
 def validate_command(command_type: type):
-    """Decorates methods in an aggregate that validate commands to produce events."""
+    """Decorates methods in an aggregate that validate commands to produce events.
+
+    In short, the method implementation must do three things:
+    - Verify the command is valid against the current aggregate state
+    - Post new events if the command succeeded
+    - Return the appropriate CommandResponse.
+
+    For example, a contrived command called
+    ClearSignal might do something like:
+
+        if not self.isSignalReceived:
+            return CommandResponse(False, "The signal was not set.")
+        signal_reset_event = SignalReset(version=next_version)
+        self.post_new_event(signal_reset_event)
+        return CommandResponse(True, "Command Succeeded!")
+
+    If the method does not return a value, a CommandResponse(True, None) is assumed and
+    automatically returned.  If a more specific CommandResponse with data is desired,
+    that must be done explicitly.
+
+    Args:
+        command_type:
+            The type of command this method will validate.
+
+    Signature:
+        def func_name(
+            self: Aggregate,
+            command: Command,
+            next_version: int) -> CommandResponse:
+    """
+
     def decorator(wrapped):
-        # mark methods with this attribute to be found by _method_is_command_validator()
-        setattr(wrapped, COMMAND_VALIDATOR_TYPE, command_type)
+        # tag methods with this attribute to find them later
+        setattr(wrapped, COMMAND_TYPE_ATTRIBUTE_NAME, command_type)
         if len(inspect.signature(wrapped).parameters) != 3:
-            raise AggregateError(
-                "@validate_command must decorate a method with 3 parameters: self, command: Command, next_version: int")
+            raise CommandValidationRegistrationError(
+                "@validate_command must decorate a method with 3 parameters: self, command: Command, next_version: int"
+            )
 
         @functools.wraps(wrapped)
         def wrapper(self: Aggregate, *args, **kwargs):
@@ -218,18 +401,33 @@ def validate_command(command_type: type):
             next_aggregate_version = self.version + 1
             command = args[0]
             retVal = wrapped(self, command, next_aggregate_version)
-            # if the command validator returns nothing, assume success.  It's a convenience feature.
+            # if the command validator returns nothing, assume success.
+            # It's a convenience feature.
             response = CommandResponse(True) if retVal == None else retVal
             if not response.is_success:
-                log(LogToggles.command_validation_errored, "Command validation failed", {"aggregate_type": str(type(self)),
-                    "aggregate_id": self.id, "command_type": str(type(command)), "command": command.__dict__})
+                log(
+                    LogToggles.command_validation_errored,
+                    "Command validation failed",
+                    {
+                        "aggregate_type": str(type(self)),
+                        "aggregate_id": self.id,
+                        "command_type": str(type(command)),
+                        "command": vars(command),
+                    },
+                )
             if response.is_success:
-                log(LogToggles.command_validation_succeeded, "Command validation succeeded", {"aggregate_type": str(type(self)),
-                    "aggregate_id": self.id, "command_type": str(type(command)), "command": command.__dict__})
+                log(
+                    LogToggles.command_validation_succeeded,
+                    "Command validation succeeded",
+                    {
+                        "aggregate_type": str(type(self)),
+                        "aggregate_id": self.id,
+                        "command_type": str(type(command)),
+                        "command": vars(command),
+                    },
+                )
             return response
+
         return wrapper
+
     return decorator
-
-
-__all__ = [AggregateError.__name__, Aggregate.__name__,
-           reconstitute_aggregate_state.__name__, validate_command.__name__]

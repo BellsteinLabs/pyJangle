@@ -12,15 +12,22 @@ from pyjangle_example.data_access.db_schema import TABLES, COLUMNS, TRANSACTION_
 from pyjangle_example.data_access.db_settings import DB_JANGLE_BANKING_PATH
 from pyjangle_example.data_access.db_utility import fetch_multiple_rows, upsert_multiple_rows, upsert_single_row, make_update_balance_query, make_update_transactions_query
 
+with open('pyjangle_example/data_access/create_tables.sql', 'r') as create_tables_file:
+    create_tables_sql_script = create_tables_file.read()
+with open('pyjangle_example/data_access/clear_tables.sql', 'r') as clear_tables_file:
+    clear_tables_sql_script = clear_tables_file.read()
+with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
+    conn.executescript(create_tables_sql_script)
+    conn.commit()
+conn.close()
+
 
 class Sqlite3BankDataAccessObject(BankDataAccessObject):
 
     @staticmethod
     def initialize():
-        with open('pyjangle_example/data_access/create_tables.sql', 'r') as create_tables_file:
-            create_tables_sql_script = create_tables_file.read()
         with sqlite3.connect(DB_JANGLE_BANKING_PATH, detect_types=sqlite3.PARSE_DECLTYPES) as conn:
-            conn.executescript(create_tables_sql_script)
+            conn.executescript(clear_tables_sql_script)
             conn.commit()
         conn.close()
 

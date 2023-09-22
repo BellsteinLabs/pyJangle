@@ -1,4 +1,3 @@
-
 import logging
 
 
@@ -32,7 +31,6 @@ def log(log_key, *args, **kwargs):
 
 
 class LogToggles:
-
     post_new_event = DEBUG
     event_applied_to_aggregate = DEBUG
     saga_new = DEBUG
@@ -47,7 +45,7 @@ class LogToggles:
     is_snapshot_found = DEBUG
     snapshot_applied = DEBUG
     snapshot_not_needed = DEBUG
-    dispatched_event_locally = DEBUG
+    queued_event_for_local_dispatch = DEBUG
     retrieved_aggregate_events = DEBUG
     aggregate_created = DEBUG
     aggregate_cant_find_state_reconstitutor = ERROR
@@ -57,6 +55,7 @@ class LogToggles:
     state_reconstitutor_method_name_caching = INFO
     command_dispatcher_registration = INFO
     event_handler_failed = ERROR
+    event_failed_on_retry = ERROR
     event_dispatching_error = ERROR
     event_registered = INFO
     event_dispatcher_registration = INFO
@@ -107,4 +106,5 @@ __all__ = [
     "PROCESS",
     "MESSAGE",
     log.__name__,
-    LogToggles.__name__]
+    LogToggles.__name__,
+]

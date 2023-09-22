@@ -2,19 +2,24 @@ import abc
 
 
 class Command(metaclass=abc.ABCMeta):
-    """Represents an intent to change the state of the system.
+    """An intent to change the state of a domain.
 
-    Events are immutable objects that represent potential 
-    state changes.  Ues names like "UpdateName" rather than
-    "NameUpdated".  "NameUpdated" would be a good name for 
-    #the corresponsing event.  The only requirement is that 
-    a command can be mapped to an aggregate via an ID.
+    A command is a request to change the state of the domain, and consequently, it can
+    either be accepted or denied.  This determination is typically made by an aggregate.
+    Commands should use imperative naming (ex: TurnRight, DepositFunds, CancelRequest).
+    Because commands are mapped to aggregates, they require an implementation of
+    `get_aggregate_id` to map to a specific aggregate instance.
 
-    It's also worth noting that when this class is extended,
-    things like correlation ids and user ids are a good thing
-    to tack on so that they can be passed to the corresponding 
-    events that are created.  Makes for a great audit trail."""
+    Extending this class provides a natural place for tacking on correlation IDs and
+    user IDs since the command is a natural entry-point into the system, and those IDs
+    can be easily trickled down to all derivative events and commands.
+
+    While the aggregate ID maps the command to a specific type, the `RegisterAggregate`
+    class decorator on the corresponding aggregate class ensures the command is mapped
+    to the correct *type* of aggregate.
+    """
+
     @abc.abstractmethod
     def get_aggregate_id(self):
-        """An id used to associate the command to an aggregate."""
+        """An id used to associate the command to an aggregate instance."""
         pass

@@ -1,8 +1,12 @@
 {
     "[python]": {
-        "editor.defaultFormatter": "ms-python.autopep8"
+        "editor.defaultFormatter": "ms-python.black-formatter",
     },
-    "python.formatting.provider": "none",
+    "black-formatter.args": ["--line-length", "88"],
+    //"autopep8.args": ["--max-line-length", "80"],
+    "editor.formatOnType": true,
+    "editor.formatOnSave": false,
+    "editor.rulers": [88],
     // "python.analysis.extraPaths": [
     //     "./event",
     //     "./snapshot",
@@ -21,5 +25,5 @@
     "triggerTaskOnSave.tasks": {
         "coverage_": ["*.py"]
     },
-    "triggerTaskOnSave.on": true
+    "triggerTaskOnSave.on": true,
 }

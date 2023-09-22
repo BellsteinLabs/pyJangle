@@ -1,28 +1,26 @@
-
-
 from pyjangle import Command
 
 
-class CommandThatAlwaysSucceeds(Command):
+class CommandThatShouldSucceedA(Command):
     def get_aggregate_id(self):
         return 1
 
 
-class CommandThatFails(Command):
+class CommandThatShouldFail(Command):
     def get_aggregate_id(self):
         return 1
 
 
-class AnotherCommandThatAlwaysSucceeds(Command):
+class CommandThatShouldSucceedB(Command):
     def get_aggregate_id(self):
         return 1
 
 
-class CommandB(Command):
+class CommandThatShouldSucceedC(Command):
     def get_aggregate_id(self):
-        pass
+        return 1
 
 
-class CommandThatErrorsTheFirstTime(Command):
+class CommandThatShouldErrorOnlyFirstTime(Command):
     def get_aggregate_id(self):
         return 1
