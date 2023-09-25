@@ -35,8 +35,13 @@ EVENT_TYPE_ATTRIBUTE_NAME = "_state_reconstitutor_event_type"
 COMMAND_TYPE_ATTRIBUTE_NAME = "_command_validator_command_type"
 
 
-class CommandValidationRegistrationError(JangleError):
+class CommandValidatorBadSignatureError(JangleError):
     "Command validation method has a bad signature."
+    pass
+
+
+class ReconstituteStateBadSignatureError(JangleError):
+    "Reconstitute state method has a bad signature."
     pass
 
 
@@ -322,11 +327,22 @@ def reconstitute_aggregate_state(event_type: type):
 
     Signature:
         def func_name(self: Aggregate, event: VersionedEvent) -> None:
+        
+    Raises:
+        CommandValidatorBadSignatureError:
+            Command validation method has a bad signature.
     """
 
     def decorator(wrapped):
         # tag methods with an attribute to find them later
         setattr(wrapped, EVENT_TYPE_ATTRIBUTE_NAME, event_type)
+
+        if len(inspect.signature(wrapped).parameters) != 2:
+            raise CommandValidatorBadSignatureError(
+                """@reconstitute_aggregate_state must decorate a method with 2 
+                parameters: 
+                def func_name(self: Aggregate, event: VersionedEvent) -> None"""
+            )
 
         @functools.wraps(wrapped)
         def wrapper(self: Aggregate, event: VersionedEvent, *args, **kwargs):
@@ -384,13 +400,17 @@ def validate_command(command_type: type):
             self: Aggregate,
             command: Command,
             next_version: int) -> CommandResponse:
+
+    Raises:
+        CommandValidatorBadSignatureError:
+            Command validation method has a bad signature.
     """
 
     def decorator(wrapped):
         # tag methods with this attribute to find them later
         setattr(wrapped, COMMAND_TYPE_ATTRIBUTE_NAME, command_type)
         if len(inspect.signature(wrapped).parameters) != 3:
-            raise CommandValidationRegistrationError(
+            raise CommandValidatorBadSignatureError(
                 "@validate_command must decorate a method with 3 parameters: self, command: Command, next_version: int"
             )
 

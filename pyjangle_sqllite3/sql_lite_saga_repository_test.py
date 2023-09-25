@@ -105,7 +105,7 @@ class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
         await self.sql_lite_saga_repo.commit_saga(saga_timed_out)
         await self.sql_lite_saga_repo.commit_saga(saga_pre_timed_out)
         saga_id_list = list(
-            await self.sql_lite_saga_repo.get_retry_saga_metadata(max_count=100)
+            await self.sql_lite_saga_repo.get_retry_saga_ids(batch_size=100)
         )
         self.assertEqual(len(saga_id_list), 1)
         self.assertEqual(saga_id_list[0], SAGA_ID)

@@ -1,10 +1,11 @@
 import sqlite3
-from pyjangle import DuplicateKeyError
-from pyjangle import get_event_name
-from pyjangle import get_saga_name
-from pyjangle import Saga
-from pyjangle import SagaRepository
-from pyjangle import get_saga_deserializer, get_saga_serializer
+from pyjangle import (
+    DuplicateKeyError,
+    Saga,
+    SagaRepository,
+    get_saga_deserializer,
+    get_saga_serializer,
+)
 from pyjangle_sqllite3.adapters import register_all
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH, FIELDS, TABLES
 from pyjangle_sqllite3.yield_results import yield_results
@@ -142,7 +143,7 @@ class SqlLiteSagaRepository(SagaRepository):
         finally:
             conn.close()
 
-    async def get_retry_saga_metadata(self, max_count: int) -> list[any]:
+    async def get_retry_saga_ids(self, batch_size: int) -> list[any]:
         # get not complete, not timed_out, retry not null
         q_metadata = f"""
             SELECT 

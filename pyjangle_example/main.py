@@ -48,10 +48,8 @@ from pyjangle_sqllite3.sql_lite_snapshot_repository import SqliteSnapshotReposit
 
 async def main():
     begin_processing_committed_events()
-    tasks.background_tasks.append(create_task(begin_retry_sagas_loop(120)))
-    tasks.background_tasks.append(
-        create_task(begin_retry_failed_events_loop(frequency_in_seconds=10))
-    )
+    begin_retry_sagas_loop(120)
+    begin_retry_failed_events_loop(frequency_in_seconds=10)
 
     context = RootContext()
 

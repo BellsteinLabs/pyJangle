@@ -37,6 +37,9 @@ async def retry_failed_events(
     ensure that all event handlers are idempotent.  Also, ensure that a call to
     retry_failed_events does *not* overlap a previous one.
 
+    Calling this method will probably involve using an external daemon, or by using
+    `begin_retry_failed_events_loop`.
+
     Args:
         batch_size:
             The number of events to keep in memory at a time.
@@ -51,17 +54,14 @@ async def retry_failed_events(
 
     try:
         repo = event_repository_instance()
-        unhandled_events = [
-            event
-            async for event in repo.get_unhandled_events(
-                batch_size=batch_size, time_delta=max_age_time_delta
-            )
-        ]
+        unhandled_events = repo.get_unhandled_events(
+            batch_size=batch_size, time_delta=max_age_time_delta
+        )
         log(
             LogToggles.retrying_failed_events,
-            f"Retrying {len(unhandled_events)} failed events...",
+            f"Retrying failed events...",
         )
-        for event in unhandled_events:
+        async for event in unhandled_events:
             event_repo = event_repository_instance()
             event_dispatcher = event_dispatcher_instance()
             try:
@@ -78,7 +78,7 @@ async def retry_failed_events(
                 )
         log(
             LogToggles.retrying_failed_events,
-            f"Finished retrying {len(unhandled_events)} failed events",
+            f"Finished retrying failed events",
         )
     except Exception as e:
         log(
@@ -101,8 +101,8 @@ def begin_retry_failed_events_loop(
     reference to the created task is automatically added to `tasks.background_tasks` in
     order to prevent it from being garbage collected.  The task is also returned from
     this function call.  The first retry occurs after `frequency_in_seconds` seconds have
-    elapsed.  Subsequent invocations occurr `frequency_in_seconds` seconds *after* the
-    previous invocation have completed meaning consecutive invocations  will never
+    elapsed.  Subsequent invocations occur `frequency_in_seconds` seconds *after* the
+    previous invocation has completed meaning consecutive invocations will never
     overlap.
 
     Args:
@@ -124,8 +124,6 @@ def begin_retry_failed_events_loop(
             Event repository not registered.
 
     Raises (Returned Background Task):
-        CancelledError:
-            The task was cancelled.
         RetryFailedEventsError:
             An error occurred while retrying failed events.
     """
@@ -144,7 +142,6 @@ def begin_retry_failed_events_loop(
             except Exception as e:
                 if isinstance(e, CancelledError):
                     log(LogToggles.cancel_retry_event_loop, "Ending retry event loop.")
-                    raise e
 
     task = create_task(_task())
     tasks.background_tasks.append(task)

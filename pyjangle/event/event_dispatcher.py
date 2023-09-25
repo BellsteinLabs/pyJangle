@@ -21,6 +21,28 @@ EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE = int(
     os.getenv("EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE", "200")
 )
 
+# Registered event dispatcher singleton.
+_event_dispatcher = None
+
+# Queue of events that have been committed to the event store and are ready to
+# dispatched elsewhere within the current process.
+_committed_event_queue = Queue(maxsize=EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE)
+
+
+class EventDispatcherBadSignatureError(JangleError):
+    "Event dispatcher signature is invalid."
+    pass
+
+
+class EventDispatcherMissingError(JangleError):
+    "Event dispatcher not registered."
+    pass
+
+
+class DuplicateEventDispatcherError(JangleError):
+    "Attempted to register multiple event dispatchers."
+    pass
+
 
 def begin_processing_committed_events() -> Task:
     """Begins processing events that are ready to be dispatched.
@@ -68,32 +90,9 @@ async def _invoke_registered_event_dispatcher(event: VersionedEvent):
         )
 
 
-# Registered event dispatcher singleton.
-_event_dispatcher = None
-
-# Queue of events that have been committed to the event store and are ready to
-# dispatched elsewhere within the current process.
-_committed_event_queue = Queue(maxsize=EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE)
-
-
 async def enqueue_committed_event_for_dispatch(event: VersionedEvent):
     "Enqueues a committed event for dispatch."
     await _committed_event_queue.put(event)
-
-
-class EventDispatcherBadSignatureError(JangleError):
-    "Event dispatcher signature is invalid."
-    pass
-
-
-class EventDispatcherMissingError(JangleError):
-    "Event dispatcher not registered."
-    pass
-
-
-class DuplicateEventDispatcherError(JangleError):
-    "Attempted to register multiple event dispatchers."
-    pass
 
 
 def RegisterEventDispatcher(wrapped: Callable):
@@ -198,7 +197,9 @@ async def default_event_dispatcher(
     return
 
 
-def default_event_dispatcher_with_blacklist(*blacklisted_event_types: type):
+def default_event_dispatcher_with_blacklist(
+    *blacklisted_event_types: type,
+) -> Awaitable:
     """Invokes the default event handler while ignoring blacklisted events.
 
     If an event is committed, and no event handlers are regsitered, an

@@ -38,7 +38,7 @@ class TransientSagaRepository(SagaRepository):
         for event in saga.new_events:
             self.events[saga.saga_id][event.id] = event
 
-    async def get_retry_saga_metadata(self, max_count: int) -> list[any]:
+    async def get_retry_saga_ids(self, batch_size: int) -> list[any]:
         current_time = datetime.now()
         return [
             saga_id

@@ -7,7 +7,7 @@ from pyjangle import (
     ValidateCommandMethodMissingError,
     CommandResponse,
     ReconstituteStateMethodMissingError,
-    CommandValidationRegistrationError,
+    CommandValidatorBadSignatureError,
 )
 from pyjangle.test.commands import CommandThatShouldSucceedA, CommandThatShouldSucceedB
 from pyjangle.test.events import EventA
@@ -44,7 +44,7 @@ class TestAggregate(unittest.TestCase):
         self.assertTrue(hasattr(a, ATTR_NAME))
 
     def test_validate_command_decorated_method_wrong_signature(self):
-        with self.assertRaises(CommandValidationRegistrationError):
+        with self.assertRaises(CommandValidatorBadSignatureError):
 
             class A(Aggregate):
                 @validate_command(CommandThatShouldSucceedA)

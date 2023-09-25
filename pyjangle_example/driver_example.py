@@ -58,8 +58,8 @@ event_queue = Queue(maxsize=1)
 
 
 async def main():
-    create_task(begin_processing_committed_events())
-    tasks.background_tasks.append(create_task(begin_retry_sagas_loop(3)))
+    begin_processing_committed_events()
+    begin_retry_sagas_loop(3)
 
     global event_queue
     account_ids = []

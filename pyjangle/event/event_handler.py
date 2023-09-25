@@ -1,15 +1,10 @@
 import functools
 import inspect
-import logging
-from typing import Awaitable, Callable, List, Type
+from typing import Callable, List, Type
 
-from pyjangle import JangleError
-from pyjangle import VersionedEvent
-from pyjangle import LogToggles, log
+from pyjangle import JangleError, VersionedEvent, LogToggles, log
 
-# contains the singleton that maps event types to
-# event handlers.  You shouldn't need to access
-# this directly.
+# Registered event handlers singleton instance.
 _event_type_to_event_handler_handler_map: dict[
     type, List[Callable[[VersionedEvent], None]]
 ] = dict()
@@ -25,45 +20,49 @@ class EventHandlerError(JangleError):
     pass
 
 
-class EventHandlerRegistrationError(JangleError):
+class EventHandlerBadSignatureError(JangleError):
+    "Event handler signature is invalid."
     pass
 
 
 def register_event_handler(event_type: any):
-    """Registers a function that handles an event.
+    """Decorates a function that handles a type of event.
 
-    This could mean a lot of things, but the decorated
-    function should answer the question, "Here's an event...
-    now what?
+    The default event dispatcher, `default_event_dispatcher` in the `event_dispatcher`
+    module, dispatches events to functions that are decorated with this decorator based
+    on `event_type`.  If the implementation of the handler executes without error, the
+    dispatcher will mark the event as completed.  If an exception is thrown, the event
+    will not be marked completed.  Multiple event handlers *can* be registered to the
+    same type.  Multiple logical event handlers could also be combined into a single
+    event handler.
 
-    The signature for the wrapped function is:
+    The most common implementations of event handlers will:
+    - Upsert data into a database based on the payload of the event.  That data is
+      eventually retrieved by a query.
+    - Instantiates a saga to facilitate a distributed transaction between aggregates.
+    - Execute a very simple transaction where a proper saga is not needed.
 
-        def func_name(event: Event) -> None:
+    An event handler that is not idempotent is an error.  There are several reasons why
+    an event handler might be executed multiple times or even concurrently on a single
+    unique event:
+    - The handler's execution is sufficiently long that the event appears to need to be
+      retried based on the timeout passed to `begin_retry_failed_events_loop` in the
+      `event_daemon` module.
+    - A message queue generally does not have a guarantee that you won't receive a
+      message more that once under certain conditions.  This is rare, but it will happen
+      eventually.
+    - A system update or outage necessitates an event replay, so the event handler
+      might execute upsert code even though a record already exists.
+    - Trigger some action such as an e-mail or SMS.
 
-    A common case is that the event handler
-    update database tables to reflect the information
-    in the event.  These handlers should be idempotent
-    because there is generally never a guarantee that
-    an event won't be received more that once (even
-    if it's a rare occurrence) in a distributed system.
+    Event handlers should also assume that it may not receive events in order.  This is
+    expected in an asynchronous distributed environment.
 
-    Another common case is that the event is to be used
-    to drive a state change in a saga.  If that's the
-    case, the handler can call handle_saga_event() in
-    the saga_handler module.
-
-    Another case might involve dispatching a command
-    and commiting an event once the command is
-    responded to.
-
-    The bottom-line is that this is a very extensible
-    point in the framework.
-
-    If the handler is completed without an exception
-    having been thrown, the event is automatically
-    marked as completed on the durable event storage.
-
-    Seriously, don't forget to make these IDEMPOTENT.
+    Args:
+        event_type:
+            The type of event the handler is mapped to.
+    Signature:
+        async def func_name(event: Event) -> None:
     """
 
     def decorator(wrapped: Callable[[VersionedEvent], None]):
@@ -73,8 +72,10 @@ def register_event_handler(event_type: any):
             or len(inspect.signature(wrapped).parameters) != 1
             or not inspect.iscoroutinefunction(wrapped)
         ):
-            raise EventHandlerRegistrationError(
-                "@register_event_handler should decoratate a function with signature: async def func_name(event: Event) -> None"
+            raise EventHandlerBadSignatureError(
+                """@register_event_handler should decoratate a function with signature: 
+                async def func_name(event: Event) -> None
+                """
             )
         if not event_type in _event_type_to_event_handler_handler_map:
             _event_type_to_event_handler_handler_map[event_type] = []
@@ -108,9 +109,11 @@ def register_event_handler(event_type: any):
 
 
 def has_registered_event_handler(event_type: Type) -> bool:
+    "Returns true if the type has a registered event handler.  False otherwise."
     global _event_type_to_event_handler_handler_map
     return event_type in _event_type_to_event_handler_handler_map
 
 
 def event_type_to_handler_instance():
+    "Returns the singleton instance of the mapping of event types to event handlers."
     return _event_type_to_event_handler_handler_map

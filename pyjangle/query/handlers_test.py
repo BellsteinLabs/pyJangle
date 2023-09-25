@@ -1,14 +1,20 @@
 import unittest
-from unittest.mock import patch
 
-from pyjangle import QueryError, QueryRegistrationError, handle_query, register_query_handler
-from pyjangle.test.registration_paths import QUERY_TYPE_TO_QUERY_HANDLER_MAP
+from pyjangle import (
+    QueryHandlerRegistrationBadSignatureError,
+    DuplicateQueryRegistrationError,
+    QueryHandlerMissingError,
+    handle_query,
+    register_query_handler,
+)
+from pyjangle.test.reset import ResetPyJangleState
 
 
-@patch.dict(QUERY_TYPE_TO_QUERY_HANDLER_MAP)
+@ResetPyJangleState
 class TestHandlers(unittest.IsolatedAsyncioTestCase):
     async def test_cant_register_multiple_handlers_for_same_query(self, *_):
-        with self.assertRaises(QueryError):
+        with self.assertRaises(DuplicateQueryRegistrationError):
+
             @register_query_handler(int)
             async def foo(query: int):
                 pass
@@ -26,23 +32,26 @@ class TestHandlers(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(self.called)
 
     async def test_no_handler_registered(self, *_):
-        with self.assertRaises(QueryError):
+        with self.assertRaises(QueryHandlerMissingError):
             await handle_query(1)
 
     async def test_handler_is_not_function(self, *_):
-        with self.assertRaises(QueryRegistrationError):
+        with self.assertRaises(QueryHandlerRegistrationBadSignatureError):
+
             @register_query_handler(int)
             class Foo:
                 pass
 
     async def test_handler_is_not_coroutine(self, *_):
-        with self.assertRaises(QueryRegistrationError):
+        with self.assertRaises(QueryHandlerRegistrationBadSignatureError):
+
             @register_query_handler(int)
             def foo(query):
                 pass
 
     async def test_handler_has_wrong_params_count(self, *_):
-        with self.assertRaises(QueryRegistrationError):
+        with self.assertRaises(QueryHandlerRegistrationBadSignatureError):
+
             @register_query_handler(int)
             async def foo(query, something_else):
                 pass

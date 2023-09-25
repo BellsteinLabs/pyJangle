@@ -145,7 +145,7 @@ class TestCommandHandler(unittest.IsolatedAsyncioTestCase):
             for _ in range(100):
                 await handle_command(CommandThatShouldSucceedA())
 
-    async def test_retry_after_duplicate_key_exception(self, _, event_repo, __):
+    async def test_retry_after_duplicate_key_exception(self, _, event_repo, *__):
         def dupliate_key_error_on_2nd_call_side_effect(real_function, *args):
             dupliate_key_error_on_2nd_call_side_effect.counter = (
                 0

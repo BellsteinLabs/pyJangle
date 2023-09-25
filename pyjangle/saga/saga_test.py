@@ -2,8 +2,16 @@ import unittest
 from datetime import datetime
 from typing import List
 
-from pyjangle import (VersionedEvent, Saga, SagaError, event_receiver,
-                      reconstitute_saga_state)
+from pyjangle import (
+    VersionedEvent,
+    Saga,
+    event_receiver,
+    reconstitute_saga_state,
+    ReconstituteSagaStateBadSignatureError,
+    ReconstituteSagaStateMissingError,
+    EventReceiverBadSignatureError,
+    EventRceiverMissingError,
+)
 from pyjangle.test.events import EventThatCompletesSaga, EventThatContinuesSaga
 from pyjangle.test.sagas import SagaForTesting
 
@@ -15,27 +23,45 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(foo.calls["on_event_that_continues_saga"], 1)
 
     def test_exception_when_event_receiver_on_wrong_method_signature(self):
-        with self.assertRaises(SagaError):
-            class A(Saga):
+        with self.assertRaises(EventReceiverBadSignatureError):
 
-                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                    super().__init__(saga_id, events, retry_at,
-                                     timeout_at, is_complete)  # pragma no cover
+            class A(Saga):
+                def __init__(
+                    self,
+                    saga_id: any,
+                    events: List[VersionedEvent],
+                    retry_at: datetime = None,
+                    timeout_at: datetime = None,
+                    is_complete: bool = False,
+                ):
+                    super().__init__(
+                        saga_id, events, retry_at, timeout_at, is_complete
+                    )  # pragma no cover
 
                 @event_receiver(EventThatContinuesSaga)
-                async def from_event_that_continues_saga(self, event, next_version: int):
+                async def from_event_that_continues_saga(
+                    self, event, next_version: int
+                ):
                     pass
 
                 def evaluate_hook(self):  # pragma no cover
                     pass
 
     def test_exception_when_event_receiver_not_coroutine(self):
-        with self.assertRaises(SagaError):
-            class A(Saga):
+        with self.assertRaises(EventReceiverBadSignatureError):
 
-                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                    super().__init__(saga_id, events, retry_at,
-                                     timeout_at, is_complete)  # pragma no cover
+            class A(Saga):
+                def __init__(
+                    self,
+                    saga_id: any,
+                    events: List[VersionedEvent],
+                    retry_at: datetime = None,
+                    timeout_at: datetime = None,
+                    is_complete: bool = False,
+                ):
+                    super().__init__(
+                        saga_id, events, retry_at, timeout_at, is_complete
+                    )  # pragma no cover
 
                 @event_receiver(EventThatContinuesSaga)
                 def from_event_that_continues_saga(self, event):
@@ -45,10 +71,17 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
                     pass
 
     async def test_exception_when_missing_event_receiver(self):
-        with self.assertRaises(SagaError):
-            class A(Saga):
+        with self.assertRaises(EventRceiverMissingError):
 
-                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            class A(Saga):
+                def __init__(
+                    self,
+                    saga_id: any,
+                    events: List[VersionedEvent],
+                    retry_at: datetime = None,
+                    timeout_at: datetime = None,
+                    is_complete: bool = False,
+                ):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
                 @reconstitute_saga_state(EventThatContinuesSaga)
@@ -58,21 +91,34 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
                 def evaluate_hook(self):
                     pass
 
-            await A(saga_id=1, events=[]).evaluate(EventThatContinuesSaga(id=42, version=1))
+            await A(saga_id=1, events=[]).evaluate(
+                EventThatContinuesSaga(id=42, version=1)
+            )
 
     async def test_register_state_reconstitutor(self):
         foo: Saga = SagaForTesting(
-            saga_id=1, events=[EventThatContinuesSaga(id=1, version=1)])
+            saga_id=1, events=[EventThatContinuesSaga(id=1, version=1)]
+        )
         await foo.evaluate()
         self.assertEqual(foo.calls["from_event_that_continues_saga"], 1)
 
-    def test_exception_when_register_state_reconstitutor_on_wrong_method_signature(self):
-        with self.assertRaises(SagaError):
-            class A(Saga):
+    def test_exception_when_register_state_reconstitutor_on_wrong_method_signature(
+        self,
+    ):
+        with self.assertRaises(ReconstituteSagaStateBadSignatureError):
 
-                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
-                    super().__init__(saga_id, events, retry_at,
-                                     timeout_at, is_complete)  # pragma no cover
+            class A(Saga):
+                def __init__(
+                    self,
+                    saga_id: any,
+                    events: List[VersionedEvent],
+                    retry_at: datetime = None,
+                    timeout_at: datetime = None,
+                    is_complete: bool = False,
+                ):
+                    super().__init__(
+                        saga_id, events, retry_at, timeout_at, is_complete
+                    )  # pragma no cover
 
                 @reconstitute_saga_state(EventThatContinuesSaga)
                 def from_event_that_continues_saga(self):
@@ -87,22 +133,40 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
                     pass
 
     def test_exception_when_missing_state_reconstitutor(self):
-        with self.assertRaises(SagaError):
-            class A(Saga):
+        with self.assertRaises(ReconstituteSagaStateMissingError):
 
-                def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            class A(Saga):
+                def __init__(
+                    self,
+                    saga_id: any,
+                    events: List[VersionedEvent],
+                    retry_at: datetime = None,
+                    timeout_at: datetime = None,
+                    is_complete: bool = False,
+                ):
                     super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
                 @event_receiver(EventThatContinuesSaga)
-                async def on_event_that_continues_saga(self, next_version: int):
+                async def on_event_that_continues_saga(self):
                     pass
 
-            a = A(saga_id=1, events=[EventThatContinuesSaga(
-                id=1, version=1, created_at=datetime.now())])
+            a = A(
+                saga_id=1,
+                events=[
+                    EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())
+                ],
+            )
 
-    def test_when_add_event_type_to_flags_is_false_on_reconstitue_saga_state_then_flag_not_set(self, *_):
-        a = SagaForTesting(saga_id=1, events=[EventThatContinuesSaga(
-            version=41), EventThatCompletesSaga(version=42)])
+    def test_when_add_event_type_to_flags_is_false_on_reconstitue_saga_state_then_flag_not_set(
+        self, *_
+    ):
+        a = SagaForTesting(
+            saga_id=1,
+            events=[
+                EventThatContinuesSaga(version=41),
+                EventThatCompletesSaga(version=42),
+            ],
+        )
         self.assertTrue(EventThatContinuesSaga in a.flags)
         self.assertFalse(EventThatCompletesSaga in a.flags)
 
@@ -118,13 +182,21 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
 
     async def test_evaluate_short_circuits_on_timeout(self):
         a = SagaForTesting(saga_id=1, events=[], timeout_at=datetime.min)
-        await a.evaluate(EventThatContinuesSaga(id=1, version=1, created_at=datetime.now()))
+        await a.evaluate(
+            EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())
+        )
         self.assertEqual(len(a.new_events), 0)
 
     def test_init(self):
         class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(
+                self,
+                saga_id: any,
+                events: List[VersionedEvent],
+                retry_at: datetime = None,
+                timeout_at: datetime = None,
+                is_complete: bool = False,
+            ):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -138,8 +210,10 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
             def evaluate_hook(self):
                 pass
 
-        a = A(saga_id=1, events=[EventThatContinuesSaga(
-            id=1, version=1, created_at=datetime.now())])
+        a = A(
+            saga_id=1,
+            events=[EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())],
+        )
         self.assertEqual(None, a.retry_at)
         self.assertEqual(None, a.timeout_at)
         self.assertFalse(a.is_complete)
@@ -147,8 +221,14 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
 
     def test_set_retry(self):
         class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(
+                self,
+                saga_id: any,
+                events: List[VersionedEvent],
+                retry_at: datetime = None,
+                timeout_at: datetime = None,
+                is_complete: bool = False,
+            ):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -162,15 +242,23 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
             def evaluate_hook(self):
                 pass
 
-        a = A(saga_id=1, events=[EventThatContinuesSaga(
-            id=1, version=1, created_at=datetime.now())])
+        a = A(
+            saga_id=1,
+            events=[EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())],
+        )
         a.set_retry(datetime.min)
         self.assertEqual(datetime.min, a.retry_at)
 
     def test_set_complete(self):
         class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(
+                self,
+                saga_id: any,
+                events: List[VersionedEvent],
+                retry_at: datetime = None,
+                timeout_at: datetime = None,
+                is_complete: bool = False,
+            ):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -184,15 +272,23 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
             def evaluate_hook(self):
                 pass
 
-        a = A(saga_id=1, events=[EventThatContinuesSaga(
-            id=1, version=1, created_at=datetime.now())])
+        a = A(
+            saga_id=1,
+            events=[EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())],
+        )
         a.set_complete()
         self.assertTrue(a.is_complete)
 
     def test_set_timeout(self):
         class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(
+                self,
+                saga_id: any,
+                events: List[VersionedEvent],
+                retry_at: datetime = None,
+                timeout_at: datetime = None,
+                is_complete: bool = False,
+            ):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -212,8 +308,14 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
 
     def test_set_timed_out(self):
         class A(Saga):
-
-            def __init__(self, saga_id: any, events: List[VersionedEvent], retry_at: datetime = None, timeout_at: datetime = None, is_complete: bool = False):
+            def __init__(
+                self,
+                saga_id: any,
+                events: List[VersionedEvent],
+                retry_at: datetime = None,
+                timeout_at: datetime = None,
+                is_complete: bool = False,
+            ):
                 super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
 
             @reconstitute_saga_state(EventThatContinuesSaga)
@@ -227,7 +329,9 @@ class TestSaga(unittest.IsolatedAsyncioTestCase):
             def evaluate_hook(self):
                 pass
 
-        a = A(saga_id=1, events=[EventThatContinuesSaga(
-            id=1, version=1, created_at=datetime.now())])
+        a = A(
+            saga_id=1,
+            events=[EventThatContinuesSaga(id=1, version=1, created_at=datetime.now())],
+        )
         a.set_timed_out()
         self.assertTrue(a.is_timed_out)

@@ -7,7 +7,7 @@ from unittest.mock import patch
 import pyjangle
 from pyjangle import (
     VersionedEvent,
-    EventRepositoryError,
+    EventRepositoryMissingError,
     EventDispatcherMissingError,
     RegisterEventDispatcher,
     begin_processing_committed_events,
@@ -85,7 +85,7 @@ class TestEventDaemon(IsolatedAsyncioTestCase):
             pass
 
         with patch(EVENT_REPO, None):
-            with self.assertRaises(EventRepositoryError):
+            with self.assertRaises(EventRepositoryMissingError):
                 begin_retry_failed_events_loop(frequency_in_seconds=0)
 
     async def test_when_no_event_dispatcher_then_exception(self, *_):

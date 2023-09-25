@@ -1,12 +1,14 @@
 import logging
 
 
+# Logging levels
 DEBUG = "debug"
 INFO = "info"
 WARNING = "warning"
 ERROR = "error"
 FATAL = "fatal"
 
+# Fields that can be included in a log message.
 NAME = 1
 LEVELNO = 2
 LEVELNAME = 3
@@ -25,9 +27,32 @@ PROCESS = 15
 MESSAGE = 16
 
 
-def log(log_key, *args, **kwargs):
+def log(log_key, msg, *args, **kwargs):
+    """Logs a message.
+
+    For details on the msg, *args, and **kwargs arguments, see
+    https://docs.python.org/3/library/logging.html#logging.debug.
+
+    Args:
+        log_key:
+            A constant from the `LogToggles` class.  Associates a specific type of log
+            event to a logging level.
+
+        msg:
+            A log message.
+
+        *args:
+
+        **kwargs:
+            exc_info:
+                If not false, exception is added to log message.
+            stack_info:
+                If true, stack information is added to log message.
+            extra:
+                Dictionary with user-defined attributes for `LogRecord`.
+    """
     logger = getattr(logging, log_key)
-    logger(*args, **kwargs)
+    logger(msg, *args, **kwargs)
 
 
 class LogToggles:
@@ -70,6 +95,7 @@ class LogToggles:
     command_validator_missing = ERROR
     command_registered_to_aggregate = INFO
     retrying_sagas = INFO
+    retrying_sagas_error = ERROR
     retrying_failed_events = INFO
     retrying_failed_events_error = ERROR
     snapshot_deleted = INFO
@@ -81,30 +107,3 @@ class LogToggles:
     deserializer_registered = INFO
     cancel_retry_saga_loop = ERROR
     cancel_retry_event_loop = ERROR
-
-
-__all__ = [
-    "DEBUG",
-    "INFO",
-    "WARNING",
-    "ERROR",
-    "FATAL",
-    "NAME",
-    "LEVELNO",
-    "LEVELNAME",
-    "PATHNAME",
-    "FILENAME",
-    "MODULE",
-    "LINENO",
-    "FUNCNAME",
-    "CREATED",
-    "ASCTIME",
-    "MSECS",
-    "RELATIVE_CREATED",
-    "THREAD",
-    "THREADNAME",
-    "PROCESS",
-    "MESSAGE",
-    log.__name__,
-    LogToggles.__name__,
-]

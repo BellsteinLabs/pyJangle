@@ -1,41 +1,41 @@
-from pyjangle import JangleError
-from pyjangle import DuplicateKeyError
-from pyjangle.event.event import VersionedEvent
-from pyjangle.logging.logging import LogToggles, log
-from pyjangle.saga.saga import Saga
-from pyjangle.saga.saga_repository import saga_repository_instance
-
-
-class SagaHandlerError(JangleError):
-    pass
+from pyjangle import (
+    DuplicateKeyError,
+    VersionedEvent,
+    LogToggles,
+    log,
+    Saga,
+    saga_repository_instance,
+    SagaNotFoundError,
+)
 
 
 async def handle_saga_event(
     saga_id: any, event: VersionedEvent, saga_type: type[Saga] | None
 ):
-    """Connects events to their respective sagas.
+    """Updates a saga's state with an event.
 
-    When an event handler for an event related
-    to a saga is called, this method facilitates
-    retrieving other related events from the saga
-    repository, checking that the saga isn't
-    already completed, and evaluating the new event
-    to progress the saga's state.  Once the saga
-    has processed the latest event, it is
-    recommited to the saga store.
+    This function does the following:
+    - Retrieve the saga with id `saga_id` from the registered saga repository.
+    - Returns if the saga is completed or timed out.
+    - Evaluates the event against the saga.
+    - If the saga is updated, commit the changes.
 
-    THROWS
-    ------
-    SagaHandlerError if event is empty and saga_id
-    has no corresponding events.
+    Args:
+        saga_id:
+            ID of the saga to evaluate `event` against.
+        event:
+            The event that is updating the saga's state.
+        saga_type:
+            The type of the saga with `saga_id`.
+
+    Raises:
+        SagaNotFoundError:
+            Saga with specified id not found.
     """
     saga_repository = saga_repository_instance()
     saga = await saga_repository.get_saga(saga_id)
-    # if _is_duplicate_event(event, saga_events=saga_events):
-    #     log(LogToggles.saga_duplicate_event, "Duplicate event received for saga.", {"saga_id": saga_id, "metadata":  saga_metadata.__dict__, "event": event.__dict__})
-    #     return
     if not saga and not event:
-        raise SagaHandlerError(
+        raise SagaNotFoundError(
             f"Tried to restore non-existant saga with id '{saga_id}' and apply no events to it."
         )
     if saga:
@@ -76,51 +76,6 @@ async def handle_saga_event(
                     "saga_type": str(type(saga)),
                     "saga": vars(saga),
                     "event": vars(event),
-                },
-            )
-            return
-        log(
-            LogToggles.saga_committed,
-            "Committed saga to saga store.",
-            {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": vars(saga)},
-        )
-    else:
-        log(
-            LogToggles.saga_nothing_happened,
-            "Saga state was not changed.",
-            {"saga_id": saga_id, "saga_type": str(type(saga)), "saga": vars(saga)},
-        )
-
-
-async def retry_saga(saga_id: any):
-    saga_repository = saga_repository_instance()
-    saga = await saga_repository.get_saga(saga_id)
-    # if _is_duplicate_event(event, saga_events=saga_events):
-    #     log(LogToggles.saga_duplicate_event, "Duplicate event received for saga.", {"saga_id": saga_id, "metadata":  saga_metadata.__dict__, "event": event.__dict__})
-    #     return
-    if not saga:
-        raise SagaHandlerError(
-            f"Attempted to retry non-existent saga with id '{saga_id}'."
-        )
-    log(
-        LogToggles.saga_retrieved,
-        "Retrieved saga",
-        {"saga_id": saga_id, "saga": vars(saga)},
-    )
-    if saga.is_complete or saga.is_timed_out:
-        return
-    await saga.evaluate()
-    if saga.is_dirty:
-        try:
-            await saga_repository.commit_saga(saga)
-        except DuplicateKeyError as e:
-            log(
-                LogToggles.saga_duplicate_key,
-                "Concurrent saga execution detected.  This is unlikely and could indicate an issue.",
-                {
-                    "saga_id": saga_id,
-                    "saga_type": str(type(saga)),
-                    "saga": vars(saga),
                 },
             )
             return

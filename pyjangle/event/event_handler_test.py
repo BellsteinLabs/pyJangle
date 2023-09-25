@@ -1,18 +1,17 @@
 from unittest import IsolatedAsyncioTestCase
-from unittest.mock import patch
 
 from pyjangle import (
     VersionedEvent,
     EventHandlerMissingError,
-    EventHandlerRegistrationError,
+    EventHandlerBadSignatureError,
     default_event_dispatcher,
     register_event_handler,
 )
 from pyjangle.test.events import EventA
-from pyjangle.test.registration_paths import EVENT_TYPE_TO_EVENT_HANDLER_MAP
+from pyjangle.test.reset import ResetPyJangleState
 
 
-@patch.dict(EVENT_TYPE_TO_EVENT_HANDLER_MAP)
+@ResetPyJangleState
 class TestEventHandler(IsolatedAsyncioTestCase):
     async def test_can_register_multiple_handlers_for_same_event(self, *_):
         self.calls = 0
@@ -37,21 +36,21 @@ class TestEventHandler(IsolatedAsyncioTestCase):
             )
 
     async def test_event_handler_wrong_parameter_count(self, *_):
-        with self.assertRaises(EventHandlerRegistrationError):
+        with self.assertRaises(EventHandlerBadSignatureError):
 
             @register_event_handler(EventA)
             async def foo(_, __):
                 pass
 
     async def test_event_handler_is_not_coroutine(self, *_):
-        with self.assertRaises(EventHandlerRegistrationError):
+        with self.assertRaises(EventHandlerBadSignatureError):
 
             @register_event_handler(EventA)
             def foo(_, __):
                 pass
 
     async def test_event_handler_is_not_callable(self, *_):
-        with self.assertRaises(EventHandlerRegistrationError):
+        with self.assertRaises(EventHandlerBadSignatureError):
 
             @register_event_handler(EventA)
             class Foo:

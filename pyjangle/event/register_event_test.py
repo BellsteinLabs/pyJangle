@@ -1,42 +1,42 @@
 from unittest import TestCase
-from unittest.mock import patch
 
-from pyjangle import (VersionedEvent, EventRegistrationError, RegisterEvent,
-                      get_event_name, get_event_type)
-from pyjangle.test.registration_paths import (EVENT_REPO,
-                                              EVENT_TYPE_TO_NAME_MAP,
-                                              NAME_TO_EVENT_TYPE_MAP)
-from pyjangle.test.transient_event_repository import TransientEventRepository
+from pyjangle import (
+    VersionedEvent,
+    EventRegistrationError,
+    DuplicateEventNameRegistrationError,
+    RegisterEvent,
+    get_event_name,
+    get_event_type,
+)
+from pyjangle.test.reset import ResetPyJangleState
 
 
-@patch.dict(NAME_TO_EVENT_TYPE_MAP)
-@patch.dict(EVENT_TYPE_TO_NAME_MAP)
-@patch(EVENT_REPO, new_callable=lambda: TransientEventRepository())
+@ResetPyJangleState
 class TestRegisterEvent(TestCase):
     def test_non_parenthesis_form(self, *_):
         @RegisterEvent
         class Foo(VersionedEvent):
             pass
 
-        self.assertEqual(get_event_name(
-            Foo), f"{Foo.__module__}.{Foo.__name__}")
+        self.assertEqual(get_event_name(Foo), f"{Foo.__module__}.{Foo.__name__}")
 
     def test_parenthesis_form(self, *_):
         @RegisterEvent()
         class Foo(VersionedEvent):
             pass
 
-        self.assertEqual(get_event_name(
-            Foo), f"{Foo.__module__}.{Foo.__name__}")
+        self.assertEqual(get_event_name(Foo), f"{Foo.__module__}.{Foo.__name__}")
 
     def test_exception_when_register_non_event(self, *_):
         with self.assertRaises(EventRegistrationError):
+
             @RegisterEvent
             class Foo:
                 pass
 
     def test_exception_when_event_name_already_registered(self, *_):
-        with self.assertRaises(EventRegistrationError):
+        with self.assertRaises(DuplicateEventNameRegistrationError):
+
             @RegisterEvent(name="books.HarryPotter.characters.Hermione")
             class Foo(VersionedEvent):
                 pass

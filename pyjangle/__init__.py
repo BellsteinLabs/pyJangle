@@ -12,10 +12,13 @@ from .snapshot.snapshot_repository import (
 from .snapshot.snapshottable import SnapshotError, Snapshottable
 
 from .event.register_event_id_factory import (
+    DuplicateEventIdFactoryRegistrationError,
+    EventIdRegistrationFactoryBadSignatureError,
+    default_event_id_factory,
     event_id_factory_instance,
     register_event_id_factory,
 )
-from .event.event import EventError, Event, VersionedEvent
+from .event.event import Event, VersionedEvent
 from .event.duplicate_key_error import DuplicateKeyError
 
 from .command.command_response import CommandResponse
@@ -33,7 +36,7 @@ from .event.event_repository import (
     RegisterEventRepository,
     EventRepository,
     event_repository_instance,
-    EventRepositoryError,
+    DuplicateEventRepositoryError,
     EventRepositoryMissingError,
 )
 
@@ -42,7 +45,7 @@ from .aggregate.aggregate import (
     EVENT_TYPE_ATTRIBUTE_NAME,
     Aggregate,
     ValidateCommandMethodMissingError,
-    CommandValidationRegistrationError,
+    CommandValidatorBadSignatureError,
     ReconstituteStateMethodMissingError,
     ReconstituteStateError,
     CommandValidationError,
@@ -60,6 +63,7 @@ from .aggregate.register_aggregate import (
 
 from .event.register_event import (
     EventRegistrationError,
+    DuplicateEventNameRegistrationError,
     RegisterEvent,
     get_event_name,
     get_event_type,
@@ -68,7 +72,7 @@ from .event.register_event import (
 from .event.event_handler import (
     EventHandlerError,
     EventHandlerMissingError,
-    EventHandlerRegistrationError,
+    EventHandlerBadSignatureError,
     register_event_handler,
     event_type_to_handler_instance,
     has_registered_event_handler,
@@ -90,27 +94,44 @@ from .command.command_handler import handle_command
 from .event.event_daemon import begin_retry_failed_events_loop, retry_failed_events
 
 from .query.handlers import (
-    QueryRegistrationError,
-    QueryError,
+    QueryHandlerRegistrationBadSignatureError,
+    DuplicateQueryRegistrationError,
+    QueryHandlerMissingError,
     register_query_handler,
     handle_query,
 )
 
+from .saga.saga_not_found_error import SagaNotFoundError
+from .saga.saga import (
+    ReconstituteSagaStateBadSignatureError,
+    EventReceiverBadSignatureError,
+    EventRceiverMissingError,
+    ReconstituteSagaStateMissingError,
+    reconstitute_saga_state,
+    event_receiver,
+    Saga,
+)
 from .saga.register_saga import (
     SagaRegistrationError,
+    DuplicateSagaNameError,
     RegisterSaga,
     get_saga_name,
     get_saga_type,
 )
-from .saga.saga_daemon import retry_sagas, begin_retry_sagas_loop
-from .saga.saga_handler import handle_saga_event, retry_saga, SagaHandlerError
 from .saga.saga_repository import (
-    SagaRepositoryError,
+    SagaRepositoryMissingError,
+    DuplicateSagaRepositoryError,
     RegisterSagaRepository,
     SagaRepository,
     saga_repository_instance,
 )
-from .saga.saga import SagaError, reconstitute_saga_state, event_receiver, Saga
+from .saga.saga_handler import handle_saga_event
+from .saga.saga_daemon import (
+    retry_sagas,
+    begin_retry_sagas_loop,
+    retry_saga,
+    SagaRetryError,
+)
 
 from .serialization.event_serialization_registration import (
     EventSerializerRegistrationError,

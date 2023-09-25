@@ -1,41 +1,42 @@
 from unittest import TestCase
-from unittest.mock import patch
 
-from pyjangle import (RegisterSaga, Saga, SagaRegistrationError, get_saga_name,
-                      get_saga_type)
-from pyjangle.test.registration_paths import (NAME_TO_SAGA_TYPE_MAP, SAGA_REPO,
-                                              SAGA_TYPE_TO_NAME_MAP)
-from pyjangle.test.transient_saga_repository import TransientSagaRepository
+from pyjangle import (
+    RegisterSaga,
+    Saga,
+    SagaRegistrationError,
+    get_saga_name,
+    get_saga_type,
+    DuplicateSagaNameError,
+)
+from pyjangle.test.reset import ResetPyJangleState
 
 
-@patch.dict(NAME_TO_SAGA_TYPE_MAP)
-@patch.dict(SAGA_TYPE_TO_NAME_MAP)
-@patch(SAGA_REPO, new_callable=lambda: TransientSagaRepository())
+@ResetPyJangleState
 class TestRegisterSaga(TestCase):
     def test_non_parenthesis_form(self, *_):
         @RegisterSaga
         class Foo(Saga):
             pass
 
-        self.assertEqual(get_saga_name(
-            Foo), f"{Foo.__module__}.{Foo.__name__}")
+        self.assertEqual(get_saga_name(Foo), f"{Foo.__module__}.{Foo.__name__}")
 
     def test_parenthesis_form(self, *_):
         @RegisterSaga()
         class Foo(Saga):
             pass
 
-        self.assertEqual(get_saga_name(
-            Foo), f"{Foo.__module__}.{Foo.__name__}")
+        self.assertEqual(get_saga_name(Foo), f"{Foo.__module__}.{Foo.__name__}")
 
     def test_exception_when_register_non_saga(self, *_):
         with self.assertRaises(SagaRegistrationError):
+
             @RegisterSaga
             class Foo:
                 pass
 
     def test_exception_when_saga_name_already_registered(self, *_):
-        with self.assertRaises(SagaRegistrationError):
+        with self.assertRaises(DuplicateSagaNameError):
+
             @RegisterSaga(name="books.HarryPotter.characters.Hermione")
             class Foo(Saga):
                 pass

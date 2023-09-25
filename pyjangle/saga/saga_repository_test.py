@@ -1,22 +1,29 @@
 import unittest
 from unittest.mock import patch
 
-from pyjangle import RegisterSagaRepository, SagaRepositoryError, saga_repository_instance
+from pyjangle import (
+    RegisterSagaRepository,
+    DuplicateSagaRepositoryError,
+    SagaRepositoryMissingError,
+    saga_repository_instance,
+)
 from pyjangle.test.registration_paths import SAGA_REPO
+from pyjangle.test.reset import ResetPyJangleState
 
 
 @patch(SAGA_REPO, None)
+@ResetPyJangleState
 class TestSagaRepository(unittest.TestCase):
-
-    def test_can_register_saga_repository(self):
+    def test_can_register_saga_repository(self, *_):
         @RegisterSagaRepository
         class A:
             pass
 
         self.assertIsNotNone(saga_repository_instance())
 
-    def test_exception_when_multiple_registered(self):
-        with self.assertRaises(SagaRepositoryError):
+    def test_exception_when_multiple_registered(self, *_):
+        with self.assertRaises(DuplicateSagaRepositoryError):
+
             @RegisterSagaRepository
             class A:
                 pass
@@ -25,11 +32,11 @@ class TestSagaRepository(unittest.TestCase):
             class B:
                 pass
 
-    def test_exception_when_none_registered(self):
-        with self.assertRaises(SagaRepositoryError):
+    def test_exception_when_none_registered(self, *_):
+        with self.assertRaises(SagaRepositoryMissingError):
             self.assertIsNotNone(saga_repository_instance())
 
-    def test_decorator_does_not_hide_class(self):
+    def test_decorator_does_not_hide_class(self, *_):
         @RegisterSagaRepository
         class A:
             pass
