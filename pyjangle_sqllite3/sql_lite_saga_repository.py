@@ -1,19 +1,48 @@
+from datetime import datetime
 import sqlite3
 from pyjangle import (
     DuplicateKeyError,
     Saga,
     SagaRepository,
-    get_saga_deserializer,
-    get_saga_serializer,
+    get_event_type,
+    get_saga_type,
+    get_saga_name,
+    get_event_name,
+    get_event_serializer,
+    get_event_deserializer,
 )
-from pyjangle_sqllite3.adapters import register_all
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH, FIELDS, TABLES
 from pyjangle_sqllite3.yield_results import yield_results
 
-register_all()
-
 
 class SqlLiteSagaRepository(SagaRepository):
+    """Sqlite3 implementation of `SagaRepository`.
+
+    Environment Variables:
+        Use the environment variable `JANGLE_SAGA_STORE_PATH` to specify a location for
+        the database.
+
+    Deserialization:
+        The registered deserializer should expect a tuple[dict, list[dict]].  The
+        first dict has keys and values corresponding to `symbols.FIELDS.SAGA_METADATA`.
+        The list of dicts in the second part of the tuple each correspond to
+        `symbols.FIELDS.SAGA_EVENTS`.
+
+    Sesrialization:
+        The registered serializer is expected to produce a tuple containing two
+        dictionaries.  The first dictionary's keys correspond to
+        `symbols.FIELDS.SAGA_METADATA`.  The keys of the second should correspond to
+        `symbols.FIELDS.SAGA_EVENTS`.
+
+    Adapters & Converters:
+        Register the appropriate adapter and converter for your desired datetime formate
+        *before* instantiating this class using `register_adapter` and
+        `register_converter` from the sqlite3 package.  See the `adapters` module for
+        examples.  As a convenience, use the function
+        `register_datetime_and_decimal_adapters_and_converters` to register pre-made
+        adapters and converters for decimal and datetime.
+    """
+
     def __init__(self) -> None:
         with open(
             "pyjangle_sqllite3/create_saga_store.sql", "r"
@@ -42,10 +71,7 @@ class SqlLiteSagaRepository(SagaRepository):
         """
         q_events = f"""
             SELECT 
-                {FIELDS.SAGA_EVENTS.SAGA_ID},
-                {FIELDS.SAGA_EVENTS.EVENT_ID},
                 {FIELDS.SAGA_EVENTS.DATA},
-                {FIELDS.SAGA_EVENTS.CREATED_AT},
                 {FIELDS.SAGA_EVENTS.TYPE}
             FROM 
                 {TABLES.SAGA_EVENTS}
@@ -71,8 +97,23 @@ class SqlLiteSagaRepository(SagaRepository):
 
         if not metadata_row:
             return None
-        serialized_saga = (metadata_row, event_rows)
-        return get_saga_deserializer()(serialized_saga)
+
+        events = [
+            get_event_type(r[FIELDS.SAGA_EVENTS.TYPE])(
+                **get_event_deserializer()(r[FIELDS.SAGA_EVENTS.DATA])
+            )
+            for r in event_rows
+        ]
+
+        saga_type = get_saga_type(metadata_row[FIELDS.SAGA_METADATA.SAGA_TYPE])
+        return saga_type(
+            saga_id=metadata_row[FIELDS.SAGA_METADATA.SAGA_ID],
+            events=events,
+            retry_at=metadata_row[FIELDS.SAGA_METADATA.RETRY_AT],
+            timeout_at=metadata_row[FIELDS.SAGA_METADATA.TIMEOUT_AT],
+            is_complete=bool(metadata_row[FIELDS.SAGA_METADATA.TIMEOUT_AT]),
+            is_timed_out=bool(metadata_row[FIELDS.SAGA_METADATA.IS_TIMED_OUT]),
+        )
 
     async def commit_saga(self, saga: Saga):
         q_upsert_metadata = f"""
@@ -106,29 +147,28 @@ class SqlLiteSagaRepository(SagaRepository):
                     {FIELDS.SAGA_EVENTS.TYPE}
                 ) VALUES (?,?,?,?,?)
         """
-        metadata_dict, event_dict_list = get_saga_serializer()(saga)
 
         data_metadata = (
-            metadata_dict[FIELDS.SAGA_METADATA.SAGA_ID],
-            metadata_dict[FIELDS.SAGA_METADATA.SAGA_TYPE],
-            metadata_dict[FIELDS.SAGA_METADATA.RETRY_AT],
-            metadata_dict[FIELDS.SAGA_METADATA.TIMEOUT_AT],
-            metadata_dict[FIELDS.SAGA_METADATA.IS_COMPLETE],
-            metadata_dict[FIELDS.SAGA_METADATA.IS_TIMED_OUT],
-            metadata_dict[FIELDS.SAGA_METADATA.RETRY_AT],
-            metadata_dict[FIELDS.SAGA_METADATA.TIMEOUT_AT],
-            metadata_dict[FIELDS.SAGA_METADATA.IS_COMPLETE],
-            metadata_dict[FIELDS.SAGA_METADATA.IS_TIMED_OUT],
+            saga.saga_id,
+            get_saga_name(type(saga)),
+            saga.retry_at,
+            saga.timeout_at,
+            saga.is_complete,
+            saga.is_timed_out,
+            saga.retry_at,
+            saga.timeout_at,
+            saga.is_complete,
+            saga.is_timed_out,
         )
         data_events = [
             (
-                event_dict[FIELDS.SAGA_EVENTS.SAGA_ID],
-                event_dict[FIELDS.SAGA_EVENTS.EVENT_ID],
-                event_dict[FIELDS.SAGA_EVENTS.DATA],
-                event_dict[FIELDS.SAGA_EVENTS.CREATED_AT],
-                event_dict[FIELDS.SAGA_EVENTS.TYPE],
+                saga.saga_id,
+                event.id,
+                get_event_serializer()(event),
+                event.created_at,
+                get_event_name(type(event)),
             )
-            for event_dict in event_dict_list
+            for event in saga.new_events
         ]
 
         try:
@@ -153,7 +193,10 @@ class SqlLiteSagaRepository(SagaRepository):
             WHERE 
                 {FIELDS.SAGA_METADATA.IS_COMPLETE} = 0 AND
                 {FIELDS.SAGA_METADATA.IS_TIMED_OUT} = 0 AND
-                ({FIELDS.SAGA_METADATA.TIMEOUT_AT} IS NULL OR {FIELDS.SAGA_METADATA.TIMEOUT_AT} > CURRENT_TIMESTAMP) AND
+                (
+                    {FIELDS.SAGA_METADATA.TIMEOUT_AT} IS NULL OR 
+                    {FIELDS.SAGA_METADATA.TIMEOUT_AT} > CURRENT_TIMESTAMP
+                ) AND
                 {FIELDS.SAGA_METADATA.RETRY_AT} IS NOT NULL AND
                 {FIELDS.SAGA_METADATA.RETRY_AT} < CURRENT_TIMESTAMP
         """
@@ -163,5 +206,5 @@ class SqlLiteSagaRepository(SagaRepository):
             batch_size=100,
             query=q_metadata,
             params=None,
-            deserializer=lambda x: x[FIELDS.SAGA_METADATA.SAGA_ID],
+            row_handler=lambda row: row[FIELDS.SAGA_METADATA.SAGA_ID],
         )

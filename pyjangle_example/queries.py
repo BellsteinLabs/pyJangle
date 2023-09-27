@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from pyjangle_example.validation.attributes import AccountId
+from pyjangle_example.validation.descriptors import AccountId
 
 
 class AccountsList:

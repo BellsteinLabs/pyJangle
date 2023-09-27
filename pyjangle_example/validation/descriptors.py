@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4
-from pyjangle import ImmutableAttributeValidator
+from pyjangle import ImmutableAttributeDescriptor
 
 
 def validate_type(value: any, t: type):
@@ -12,25 +12,33 @@ def validate_type(value: any, t: type):
 def validate_min(value: any, min, inclusive=True):
     if value < min or (not inclusive and value == min):
         raise ValueError(
-            f"Expected {str(value)} to be no less than {str(min)}" + ", inclusive" if inclusive else "")
+            f"Expected {str(value)} to be no less than {str(min)}" + ", inclusive"
+            if inclusive
+            else ""
+        )
 
 
 def validate_min_length(value: any, min_length):
     if len(value) < min_length:
         raise ValueError(
-            f"Expected length of {str(value)} to be more than {str(min_length)}")
+            f"Expected length of {str(value)} to be more than {str(min_length)}"
+        )
 
 
 def validate_max_length(value: any, max_length):
     if len(value) > max_length:
         raise ValueError(
-            f"Expected length of {str(value)} to be less than {str(max_length)}")
+            f"Expected length of {str(value)} to be less than {str(max_length)}"
+        )
 
 
 def validate_max(value: any, max, inclusive=True):
     if value > max or (not inclusive and value == max):
         raise ValueError(
-            f"Expected {str(value)} to be no more than {str(max)}" + ", inclusive" if inclusive else "")
+            f"Expected {str(value)} to be no more than {str(max)}" + ", inclusive"
+            if inclusive
+            else ""
+        )
 
 
 def validate_not_None(value):
@@ -38,7 +46,7 @@ def validate_not_None(value):
         raise ValueError(f"Expected {str(value)} to be set to a value")
 
 
-class AccountName(ImmutableAttributeValidator):
+class AccountName(ImmutableAttributeDescriptor):
     def validate(self, value):
         validate_type(value, str)
         validate_not_None(value)
@@ -46,7 +54,7 @@ class AccountName(ImmutableAttributeValidator):
         validate_max_length(value, 15)
 
 
-class Amount(ImmutableAttributeValidator):
+class Amount(ImmutableAttributeDescriptor):
     def __init__(self, can_be_none=False):
         self.can_be_none = can_be_none
 
@@ -59,13 +67,13 @@ class Amount(ImmutableAttributeValidator):
         validate_max(value, Decimal(1000000))
 
 
-class Balance(ImmutableAttributeValidator):
+class Balance(ImmutableAttributeDescriptor):
     def validate(self, value):
         validate_not_None(value)
         validate_type(value, Decimal)
 
 
-class AccountId(ImmutableAttributeValidator):
+class AccountId(ImmutableAttributeDescriptor):
     def validate(self, value):
         validate_type(value, str)
         validate_not_None(value)
@@ -73,14 +81,16 @@ class AccountId(ImmutableAttributeValidator):
         validate_max_length(value, 6)
 
 
-class TransactionId(ImmutableAttributeValidator):
+class TransactionId(ImmutableAttributeDescriptor):
     def __init__(self, create_id=False):
         self.create_id = create_id
 
     def __get__(self, instance, instance_type=None):
         if instance is None:
             return None
-        if not hasattr(instance, self.private_name) or (not getattr(instance, self.private_name) and self.create_id):
+        if not hasattr(instance, self.private_name) or (
+            not getattr(instance, self.private_name) and self.create_id
+        ):
             setattr(instance, self.private_name, str(uuid4()))
         return getattr(instance, self.private_name)
 
@@ -93,6 +103,6 @@ class TransactionId(ImmutableAttributeValidator):
         validate_max_length(value, 50)
 
 
-class Timeout(ImmutableAttributeValidator):
+class Timeout(ImmutableAttributeDescriptor):
     def validate(self, value):
         validate_type(value, (datetime, type(None)))

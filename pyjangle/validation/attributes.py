@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
-from decimal import Decimal
 
 
-class ImmutableAttributeValidator(ABC):
+class ImmutableAttributeDescriptor(ABC):
+    """Descriptor representing a readonly attribute that meets some criteria.
+
+    This descriptor is useful for enforcing the immutability constraint on Commands,
+    Queries, and Events.  It can also be used to implement input validation by
+    overriding `validate`."""
 
     def __set_name__(self, owner, name):
-        self.private_name = '_' + name
+        self.private_name = "_" + name
 
     def __get__(self, instance, instance_type=None):
         return getattr(instance, self.private_name, None)

@@ -7,17 +7,13 @@ class SnapshotError(JangleError):
 
 
 class Snapshottable(metaclass=abc.ABCMeta):
-    """Represents an aggregate that can be snapshotted.
+    """Interface for an aggregate that can be snapshotted.
 
-    Aggregates with long event histories can benefit 
-    from this interface.  Events are used to build 
-    aggregate state.  One could take a snapshot after
-    say 1000 events are applied.  Instead of later
-    retrieving those 1000 events, the snapshot
-    could be used to restore the state at that point
-    and then only the events newer than version 1000
-    would need to be retrieved from storage.  Saves
-    time, money, and CPU cycles."""
+    Aggregates with long event histories can benefit from this interface.  A snapshot 
+    captures an aggregate's state at a certain version.  A snapshot is the serialized 
+    state along with the version.  The number of events retrieved from storage will 
+    never be greater than the result of `get_snapshot_frequency`."""
+
     @abc.abstractmethod
     def apply_snapshot_hook(self, snapshot):
         """Updates the aggregate state based on snapshot."""
@@ -30,17 +26,15 @@ class Snapshottable(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_snapshot_frequency(self) -> int:
-        """Represents often should snapshots be taken?
+        """Represents the frequency at which snapshots are taken.
 
-        For a frequency of 10, a snapshot would be taken every 
-        10 events."""
+        Snapshots are taken if event_count % frequency == 0."""
         pass
 
     def apply_snapshot(self, version: int, snapshot: any):
         """Applied a snapshot to an aggregate.
 
-        Use apply_snapshot_hook to customize this 
-        method's behavior."""
+        Implement apply_snapshot_hook to customize this method's behavior."""
         try:
             self.apply_snapshot_hook(snapshot)
             self.version = version

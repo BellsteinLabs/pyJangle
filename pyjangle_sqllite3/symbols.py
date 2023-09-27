@@ -7,6 +7,8 @@ DB_SNAPSHOTS_PATH = os.getenv("JANGLE_SNAPSHOTS_PATH", DEFAULT_DB_PATH)
 
 
 class TABLES:
+    "Names of tables in DB schema."
+
     EVENT_STORE = "event_store"
     PENDING_EVENTS = "pending_events"
     SAGA_EVENTS = "saga_events"
@@ -15,7 +17,10 @@ class TABLES:
 
 
 class FIELDS:
+    "Names of Fields in DB schema."
+
     class EVENT_STORE:
+        "Names of event store fields."
         EVENT_ID = "event_id"
         AGGREGATE_ID = "aggregate_id"
         AGGREGATE_VERSION = "aggregate_version"
@@ -24,10 +29,13 @@ class FIELDS:
         TYPE = "type"
 
     class PENDING_EVENTS:
+        "Names of pending events fields."
         EVENT_ID = "event_id"
         PUBLISHED_AT = "published_at"
 
     class SAGA_EVENTS:
+        "Names of saga events fields."
+
         SAGA_ID = "saga_id"
         EVENT_ID = "event_id"
         DATA = "data"
@@ -35,6 +43,8 @@ class FIELDS:
         TYPE = "type"
 
     class SAGA_METADATA:
+        "Names of saga metadata fields."
+
         SAGA_ID = "saga_id"
         SAGA_TYPE = "saga_type"
         RETRY_AT = "retry_at"
@@ -43,6 +53,8 @@ class FIELDS:
         IS_TIMED_OUT = "is_timed_out"
 
     class SNAPSHOTS:
+        "Names of snapshots fields."
+
         AGGREGATE_ID = "aggregate_id"
         VERSION = "version"
         DATA = "data"

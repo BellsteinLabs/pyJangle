@@ -1,31 +1,27 @@
+from dataclasses import asdict
 from datetime import datetime
+from json import dumps, loads
 import os
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
 from pyjangle import DuplicateKeyError
-from pyjangle.saga.saga import Saga
 from pyjangle.test.events import (
     EventThatCausesDuplicateKeyError,
     EventThatContinuesSaga,
-    TestSagaEvent,
 )
 from pyjangle.test.registration_paths import (
-    EVENT_DESERIALIZER,
-    EVENT_DISPATCHER,
     EVENT_ID_FACTORY,
     EVENT_SERIALIZER,
-    SAGA_DESERIALIZER,
-    SAGA_SERIALIZER,
+    EVENT_DESERIALIZER,
 )
 from pyjangle.test.sagas import SagaForTesting
-from pyjangle.test.serialization import (
-    deserialize_event,
-    deserialize_saga,
-    serialize_event,
-    serialize_saga,
+from pyjangle_example.custom_json_encoder import CustomJSONDecoder, CustomJSONEncoder
+from pyjangle_sqllite3.adapters import (
+    register_datetime_and_decimal_adapters_and_converters,
 )
-from pyjangle_example.custom_json_encoder import CustomJSONEncoder
+
+register_datetime_and_decimal_adapters_and_converters()
 from pyjangle_sqllite3.sql_lite_saga_repository import SqlLiteSagaRepository
 from pyjangle_sqllite3.symbols import DB_SAGA_STORE_PATH
 
@@ -33,9 +29,13 @@ SAGA_ID = "42"
 
 
 @patch(EVENT_ID_FACTORY, new=lambda: str(uuid4()))
-@patch(SAGA_DESERIALIZER, new_callable=lambda: deserialize_saga)
 @patch(
-    SAGA_SERIALIZER, new_callable=lambda: lambda x: serialize_saga(x, CustomJSONEncoder)
+    EVENT_DESERIALIZER,
+    new_callable=lambda: lambda x: loads(x, cls=CustomJSONDecoder),
+)
+@patch(
+    EVENT_SERIALIZER,
+    new_callable=lambda: lambda e: dumps(asdict(e), cls=CustomJSONEncoder),
 )
 class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
@@ -75,7 +75,7 @@ class TestSqlLiteSagaRepository(unittest.IsolatedAsyncioTestCase):
     async def test_when_saga_not_found_then_return_none(self, *_):
         self.assertIsNone(await self.sql_lite_saga_repo.get_saga(SAGA_ID))
 
-    async def test_when_saga_needs_retry_then_is_returned_from_get_retry_saga_metadata_method(
+    async def test_when_saga_needs_retry_then_is_returned_from_get_retry_saga_metadata(
         self, *_
     ):
         saga_needs_retry = SagaForTesting(

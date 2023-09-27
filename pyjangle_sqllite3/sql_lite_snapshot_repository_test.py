@@ -1,13 +1,19 @@
+from dataclasses import asdict
+from json import dumps, loads
 import os
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
-from pyjangle.test.registration_paths import (SNAPSHOT_DESERIALIZER,
-                                              SNAPSHOT_SERIALIZER)
-from pyjangle.test.serialization import (deserialize_snapshot,
-                                         serialize_snapshot)
-from pyjangle_sqllite3.sql_lite_snapshot_repository import \
-    SqliteSnapshotRepository
+from pyjangle.test.registration_paths import EVENT_DESERIALIZER, EVENT_SERIALIZER
+from pyjangle.test.serialization import deserialize_snapshot, serialize_snapshot
+from pyjangle_example.custom_json_encoder import CustomJSONDecoder, CustomJSONEncoder
+from pyjangle_sqllite3.adapters import (
+    register_datetime_and_decimal_adapters_and_converters,
+)
+
+register_datetime_and_decimal_adapters_and_converters()
+
+from pyjangle_sqllite3.sql_lite_snapshot_repository import SqliteSnapshotRepository
 from pyjangle_sqllite3.symbols import DB_SNAPSHOTS_PATH
 
 SNAPSHOT = {"foo": 42, "bar": 84}
@@ -17,10 +23,15 @@ VERSION = 25
 UPDATED_VERSION = 28
 
 
-@patch(SNAPSHOT_DESERIALIZER, new_callable=lambda: deserialize_snapshot)
-@patch(SNAPSHOT_SERIALIZER, new_callable=lambda: serialize_snapshot)
+@patch(
+    EVENT_DESERIALIZER,
+    new_callable=lambda: lambda x: loads(x, cls=CustomJSONDecoder),
+)
+@patch(
+    EVENT_SERIALIZER,
+    new_callable=lambda: lambda e: dumps(e, cls=CustomJSONEncoder),
+)
 class TestSqliteSnapshotRepository(IsolatedAsyncioTestCase):
-
     def setUp(self) -> None:
         if os.path.exists(DB_SNAPSHOTS_PATH):  # pragma no cover
             os.remove(DB_SNAPSHOTS_PATH)  # pragma no cover
@@ -44,7 +55,9 @@ class TestSqliteSnapshotRepository(IsolatedAsyncioTestCase):
         version, snapshot = await self.snapshot_repo.get_snapshot(AGGREGATE_ID)
         self.assertEqual(VERSION, version)
         self.assertDictEqual(SNAPSHOT, snapshot)
-        await self.snapshot_repo.store_snapshot(AGGREGATE_ID, UPDATED_VERSION, UPDATED_SNAPSHOT)
+        await self.snapshot_repo.store_snapshot(
+            AGGREGATE_ID, UPDATED_VERSION, UPDATED_SNAPSHOT
+        )
         version, snapshot = await self.snapshot_repo.get_snapshot(AGGREGATE_ID)
         self.assertEqual(UPDATED_VERSION, version)
         self.assertDictEqual(UPDATED_SNAPSHOT, snapshot)
@@ -63,7 +76,9 @@ class TestSqliteSnapshotRepository(IsolatedAsyncioTestCase):
         await self.snapshot_repo.delete_snapshot(AGGREGATE_ID)
 
     async def test_when_try_commit_older_snapshot_then_not_committed(self, *_):
-        await self.snapshot_repo.store_snapshot(AGGREGATE_ID, UPDATED_VERSION, UPDATED_SNAPSHOT)
+        await self.snapshot_repo.store_snapshot(
+            AGGREGATE_ID, UPDATED_VERSION, UPDATED_SNAPSHOT
+        )
         version, snapshot = await self.snapshot_repo.get_snapshot(AGGREGATE_ID)
         self.assertEqual(UPDATED_VERSION, version)
         self.assertDictEqual(UPDATED_SNAPSHOT, snapshot)

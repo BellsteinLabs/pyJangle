@@ -3,6 +3,8 @@ import os
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
+from json import dumps, loads
+from dataclasses import asdict
 from pyjangle import DuplicateKeyError
 from pyjangle.test.events import EventA
 from pyjangle.test.registration_paths import (
@@ -10,16 +12,14 @@ from pyjangle.test.registration_paths import (
     EVENT_ID_FACTORY,
     EVENT_REPO,
     EVENT_SERIALIZER,
-    SAGA_DESERIALIZER,
-    SAGA_SERIALIZER,
-)
-from pyjangle.test.serialization import (
-    deserialize_event,
-    deserialize_saga,
-    serialize_event,
-    serialize_saga,
 )
 from pyjangle_example.custom_json_encoder import CustomJSONDecoder, CustomJSONEncoder
+from pyjangle_sqllite3.adapters import (
+    register_datetime_and_decimal_adapters_and_converters,
+)
+
+
+register_datetime_and_decimal_adapters_and_converters()
 from pyjangle_sqllite3.sql_lite_event_repository import SqlLiteEventRepository
 from pyjangle_sqllite3.symbols import DB_EVENT_STORE_PATH
 
@@ -27,11 +27,11 @@ from pyjangle_sqllite3.symbols import DB_EVENT_STORE_PATH
 @patch(EVENT_ID_FACTORY, new=lambda: str(uuid4()))
 @patch(
     EVENT_DESERIALIZER,
-    new_callable=lambda: lambda x: deserialize_event(x, CustomJSONDecoder),
+    new_callable=lambda: lambda x: loads(x, cls=CustomJSONDecoder),
 )
 @patch(
     EVENT_SERIALIZER,
-    new_callable=lambda: lambda x: serialize_event(x, CustomJSONEncoder),
+    new_callable=lambda: lambda e: dumps(asdict(e), cls=CustomJSONEncoder),
 )
 @patch(EVENT_REPO, new_callable=lambda: SqlLiteEventRepository())
 class TestSqlLiteEventRepository(unittest.IsolatedAsyncioTestCase):

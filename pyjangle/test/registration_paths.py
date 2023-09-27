@@ -12,22 +12,22 @@ QUERY_TYPE_TO_QUERY_HANDLER_MAP = (
     "pyjangle.query.handlers._query_type_to_query_handler_map"
 )
 EVENT_SERIALIZER = (
-    "pyjangle.serialization.event_serialization_registration.__event_serializer"
+    "pyjangle.serialization.event_serialization_registration._event_serializer"
 )
 EVENT_DESERIALIZER = (
-    "pyjangle.serialization.event_serialization_registration.__event_deserializer"
+    "pyjangle.serialization.event_serialization_registration._event_deserializer"
 )
 SNAPSHOT_SERIALIZER = (
-    "pyjangle.serialization.snapshot_serialization_registration.__snapshot_serializer"
+    "pyjangle.serialization.snapshot_serialization_registration._snapshot_serializer"
 )
 SNAPSHOT_DESERIALIZER = (
-    "pyjangle.serialization.snapshot_serialization_registration.__snapshot_deserializer"
+    "pyjangle.serialization.snapshot_serialization_registration._snapshot_deserializer"
 )
 SAGA_SERIALIZER = (
-    "pyjangle.serialization.saga_serialization_registration.__saga_serializer"
+    "pyjangle.serialization.saga_serialization_registration._saga_serializer"
 )
 SAGA_DESERIALIZER = (
-    "pyjangle.serialization.saga_serialization_registration.__saga_deserializer"
+    "pyjangle.serialization.saga_serialization_registration._saga_deserializer"
 )
 SAGA_REPO = "pyjangle.saga.saga_repository._registered_saga_repository"
 NAME_TO_SAGA_TYPE_MAP = "pyjangle.saga.register_saga.__name_to_saga_type_map"

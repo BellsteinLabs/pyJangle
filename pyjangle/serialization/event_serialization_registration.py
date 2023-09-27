@@ -1,50 +1,58 @@
 import inspect
 from typing import Callable
-from pyjangle import JangleError
-from pyjangle import LogToggles, log
+from pyjangle import JangleError, LogToggles, log
 
-__event_serializer = None
-__event_deserializer = None
+_event_serializer = None
+_event_deserializer = None
 
 
-class EventSerializerRegistrationError(JangleError):
+class EventSerializerBadSignatureError(JangleError):
+    "Event serializer signature is invalid."
     pass
 
 
-class EventDeserializerRegistrationError(JangleError):
+class EventSerializerMissingError(JangleError):
+    "Event serializer not registered."
+    pass
+
+
+class EventDeserializerBadSignatureError(JangleError):
+    "Event deserializer signature is invalid."
+    pass
+
+
+class EventDeserializerMissingError(JangleError):
+    "Event deserializer not registered."
     pass
 
 
 def register_event_serializer(wrapped: Callable[[any], None]):
     """Registers an event serializer.
 
-    Wraps a function that can serialize events.  The
-    output should be in the format expected by the
-    registered persistence mechanisms (event store,
-    saga store, etc.)
+    Wraps a function that can serialize events.  The wrapped function's output should be 
+    in the format expected by the registered event repository.
 
-    SIGNATURE
-    ---------
-    def func_name(event: Event) -> any:
+    Signature:
+        def func_name(event: Event) -> any:
 
-    THROWS
-    ------
-    EventSerializerRegistrationError when decorated
-    function is not a function, has the wrong signature,
-    or if a serializer is already registered."""
+    Raises:
+        EventSerializerBadSignatureError:
+            Event serializer signature is invalid.
+    """
 
-    global __event_serializer
+    global _event_serializer
     if not inspect.isfunction(wrapped):
-        raise EventSerializerRegistrationError("Decorated member is not a function")
+        raise EventSerializerBadSignatureError("Decorated member is not a function")
     if len(inspect.signature(wrapped).parameters) != 1:
-        raise EventSerializerRegistrationError(
-            "@register_event_serializer must decorate a method with 1 parameters: event: Event"
+        raise EventSerializerBadSignatureError(
+            """@register_event_serializer must decorate a method with 1 parameters: 
+            event: Event"""
         )
-    if __event_serializer:
-        raise EventSerializerRegistrationError(
-            f"A serializer is already registered: {str(__event_serializer)}"
+    if _event_serializer:
+        raise EventSerializerBadSignatureError(
+            f"A serializer is already registered: {str(_event_serializer)}"
         )
-    __event_serializer = wrapped
+    _event_serializer = wrapped
     log(
         LogToggles.serializer_registered,
         "Serializer registered",
@@ -56,34 +64,32 @@ def register_event_serializer(wrapped: Callable[[any], None]):
 def register_event_deserializer(wrapped: Callable[[any], None]):
     """Registers an event deserializer.
 
-    Wraps a function that can deserialize events.  This
-    will typically be used by the event repository.  The
-    fields parameter will contain whatever is provided
-    from your persistence mechanism (event store,
-    saga store, etc.)
+    Wraps a function that can deserialize events.  This will typically be used by the
+    event repository.  The `serialized_event` parameter will contain whatever is
+    provided from the event repository.  See the event repository documentation for 
+    details.
 
-    SIGNATURE
-    ---------
-    def func_name(serialized_event: any) -> Event:
+    Signature:
+        def func_name(serialized_event: any) -> Event:
 
-    THROWS
-    ------
-    EventDeserializerRegistrationError when decorated
-    function is not a function, has the wrong signature,
-    or if a deserializer is already registered"""
+    Raises:
+        EventDeserializerBadSignatureError:
+            Event deserializer signature is invalid.
+    """
 
-    global __event_deserializer
+    global _event_deserializer
     if not inspect.isfunction(wrapped):
-        raise EventDeserializerRegistrationError("Decorated member is not a function")
+        raise EventDeserializerBadSignatureError("Decorated member is not a function")
     if len(inspect.signature(wrapped).parameters) != 1:
-        raise EventDeserializerRegistrationError(
-            "@register_event_deserializer must decorate a method with 1 parameters: serialized_event: any"
+        raise EventDeserializerBadSignatureError(
+            """@register_event_deserializer must decorate a method with 1 parameters: 
+            serialized_event: any"""
         )
-    if __event_deserializer:
-        raise EventDeserializerRegistrationError(
-            f"A deserializer is already registered: {str(type(__event_deserializer))}"
+    if _event_deserializer:
+        raise EventDeserializerBadSignatureError(
+            f"A deserializer is already registered: {str(type(_event_deserializer))}"
         )
-    __event_deserializer = wrapped
+    _event_deserializer = wrapped
     log(
         LogToggles.deserializer_registered,
         "Deserializer registered",
@@ -95,26 +101,29 @@ def register_event_deserializer(wrapped: Callable[[any], None]):
 def get_event_serializer():
     """Returns event serializer that was registered with @register_event_serializer
 
-    THROWS
-    ------
-    EventSerializerRegistrationError if no serializer is registered."""
+    Raises:
+        EventSerializerMissingError:
+            Event serializer not registered.
+    """
 
-    if not __event_serializer:
-        raise EventSerializerRegistrationError(
+    if not _event_serializer:
+        raise EventSerializerMissingError(
             "Event serializer has not been registered with @register_event_serializer"
         )
-    return __event_serializer
+    return _event_serializer
 
 
 def get_event_deserializer():
     """Returns event deserializer that was registered with @register_event_deserializer
 
-    THROWS
-    ------
-    EventDeserializerRegistrationError if no deserializer is registered."""
+    Raises:
+        EventDeserializerMissingError:
+            Event deserializer not registered.
+    """
 
-    if not __event_deserializer:
-        raise EventDeserializerRegistrationError(
-            "Event deserializer has not been registered with @register_event_deserializer"
+    if not _event_deserializer:
+        raise EventDeserializerMissingError(
+            """Event deserializer has not been registered with 
+            @register_event_deserializer"""
         )
-    return __event_deserializer
+    return _event_deserializer

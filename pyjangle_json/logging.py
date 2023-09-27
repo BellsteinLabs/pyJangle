@@ -1,12 +1,36 @@
+"""Tools to utilize more readable JSON logging.
+
+Use `initialize_jangle_logging` to easily configure logging.  
+`LogFormatter` can also be used directly.
+"""
+
 import json
 from logging import Formatter, LogRecord
 import logging
 from typing import List, Mapping
-from pyjangle.logging.logging import NAME, LEVELNO, LEVELNAME, PATHNAME, FILENAME, MODULE, LINENO, FUNCNAME, CREATED, ASCTIME, MSECS, RELATIVE_CREATED, THREAD, THREADNAME, PROCESS, MESSAGE
+from pyjangle import (
+    NAME,
+    LEVELNO,
+    LEVELNAME,
+    PATHNAME,
+    FILENAME,
+    MODULE,
+    LINENO,
+    FUNCNAME,
+    CREATED,
+    ASCTIME,
+    MSECS,
+    RELATIVE_CREATED,
+    THREAD,
+    THREADNAME,
+    PROCESS,
+    MESSAGE,
+)
 from colorama import Fore, Style
 
 
 class LogFormatter(Formatter):
+    "Formats log entries as JSON."
 
     _color_mapping = {
         logging.NOTSET: Fore.WHITE,
@@ -15,7 +39,7 @@ class LogFormatter(Formatter):
         logging.WARNING: Fore.YELLOW,
         logging.ERROR: Fore.RED,
         logging.CRITICAL: Fore.RED,
-        logging.FATAL: Fore.RED
+        logging.FATAL: Fore.RED,
     }
 
     _field_mappings = {
@@ -34,7 +58,7 @@ class LogFormatter(Formatter):
         THREAD: "thread",
         THREADNAME: "threadName",
         PROCESS: "process",
-        MESSAGE: "message"
+        MESSAGE: "message",
     }
 
     def set_included_fields(self, *fields: List[int]):
@@ -58,19 +82,18 @@ class LogFormatter(Formatter):
             PROCESS = 15
             MESSAGE = 16
 
-        The fields will show in the order you provide them.  A 
+        The fields will show in the order you provide them.  A
         special 'detail' field will include args[0] from your log
-        message assuming that args[0] is a dict().  If an 
+        message assuming that args[0] is a dict().  If an
         exception is logged or a stacktract is included, they will
         use the special fields 'exception' and 'stack' respectively.
-        'detail', 'exception', and 'stack' are always tacked on the 
+        'detail', 'exception', and 'stack' are always tacked on the
         the end of the log entry.
         """
         self.fields = list(fields)
         self.include_asc_time = ASCTIME in self.fields
 
     def formatMessage(self, record: LogRecord):
-
         # only add asctime if it's been included
         if hasattr(self, "include_asc_time") and self.include_asc_time:
             record.asctime = self.formatTime(record, self.datefmt)
@@ -78,7 +101,7 @@ class LogFormatter(Formatter):
         for x in self.fields:
             label = LogFormatter._field_mappings[x]
             log_dict[label] = getattr(record, label)
-        if (isinstance(record.args, Mapping)):
+        if isinstance(record.args, Mapping):
             log_dict["detail"] = record.args
         if record.exc_info:
             if not record.exc_text:
@@ -91,12 +114,18 @@ class LogFormatter(Formatter):
         record.exc_text = None
         record.stack_info = None
 
-        return LogFormatter._color_mapping[record.levelno] + json.dumps(recursively_remove_dunder_keys(log_dict), indent=4, default=str) + Style.RESET_ALL
+        return (
+            LogFormatter._color_mapping[record.levelno]
+            + json.dumps(
+                recursively_remove_dunder_keys(log_dict), indent=4, default=str
+            )
+            + Style.RESET_ALL
+        )
 
 
 def recursively_remove_dunder_keys(dictionary: dict) -> dict:
-    dictionary = {key: dictionary[key]
-                  for key in dictionary if not key.startswith("_")}
+    "Removes keys in a dictionary that being with an underscore."
+    dictionary = {key: dictionary[key] for key in dictionary if not key.startswith("_")}
     for key in dictionary:
         if isinstance(dictionary[key], dict):
             dictionary[key] = recursively_remove_dunder_keys(dictionary[key])
@@ -104,52 +133,67 @@ def recursively_remove_dunder_keys(dictionary: dict) -> dict:
     return dictionary
 
 
-def initialize_jangle_logging(*included_fields: int, logging_module: str | None = None, logging_level: int = logging.DEBUG):
+def initialize_jangle_logging(
+    *included_fields: int,
+    logging_module: str | None = None,
+    logging_level: int = logging.DEBUG
+):
     """Initializes pyJangle JSON logging.
 
-    PARAMETERS
-    ----------
-    logging_module
-        Set the logging module that you'd like to configure.  
-        Typically, you'll just configure the root module 
-        which is the default.
+    `included_fields` will display in the order provided.  A special 'detail' field will
+    include args[0] from your log message assuming that args[0] is a dict().  If an
+    exception is logged or a stacktrace is included, they will use the special fields
+    'exception' and 'stack' respectively. When included, 'detail', 'exception', and
+    'stack' will be the last fields in the log entry.
 
-    logging_level
-        Specify the logging level as defined in the logging 
-        package.
+    Args:
+        logging_module:
+            Set the logging module that you'd like to configure.  Typically, the root
+            module is configured.
 
-    included_fields
-        These will be logged in the order you specify them.
+        logging_level:
+            Specify the logging level as defined in the logging package.
 
-        Possible options are:
-            NAME = 1
-            LEVELNO = 2
-            LEVELNAME = 3
-            PATHNAME = 4
-            FILENAME = 5
-            MODULE = 6
-            LINENO = 7
-            FUNCNAME = 8
-            CREATED = 9
-            ASCTIME = 10
-            MSECS = 11
-            RELATIVE_CREATED = 12
-            THREAD = 13
-            THREADNAME = 14
-            PROCESS = 15
-            MESSAGE = 16
+        included_fields:
+            These will be logged in the order you specify them.
 
-        The fields will show in the order you provide them.  A 
-        special 'detail' field will include args[0] from your log
-        message assuming that args[0] is a dict().  If an 
-        exception is logged or a stacktract is included, they will
-        use the special fields 'exception' and 'stack' respectively.
-        'detail', 'exception', and 'stack' are always tacked on the 
-        the end of the log entry.
+            Possible options are:
+                NAME = 1
+                LEVELNO = 2
+                LEVELNAME = 3
+                PATHNAME = 4
+                FILENAME = 5
+                MODULE = 6
+                LINENO = 7
+                FUNCNAME = 8
+                CREATED = 9
+                ASCTIME = 10
+                MSECS = 11
+                RELATIVE_CREATED = 12
+                THREAD = 13
+                THREADNAME = 14
+                PROCESS = 15
+                MESSAGE = 16
     """
     if not included_fields:
-        included_fields = (NAME, LEVELNO, LEVELNAME, PATHNAME, FILENAME, MODULE, LINENO, FUNCNAME,
-                           CREATED, ASCTIME, MSECS, RELATIVE_CREATED, THREAD, THREADNAME, PROCESS, MESSAGE)
+        included_fields = (
+            NAME,
+            LEVELNO,
+            LEVELNAME,
+            PATHNAME,
+            FILENAME,
+            MODULE,
+            LINENO,
+            FUNCNAME,
+            CREATED,
+            ASCTIME,
+            MSECS,
+            RELATIVE_CREATED,
+            THREAD,
+            THREADNAME,
+            PROCESS,
+            MESSAGE,
+        )
     formatter = LogFormatter()
     formatter.set_included_fields(*included_fields)
     logger = logging.getLogger(logging_module)

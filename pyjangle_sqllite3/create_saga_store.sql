@@ -2,8 +2,8 @@
 CREATE TABLE IF NOT EXISTS "saga_metadata" (
     "saga_id"           TEXT NOT NULL UNIQUE,
     "saga_type"         TEXT NOT NULL,
-    "retry_at"          TEXT,
-    "timeout_at"        TEXT,
+    "retry_at"          DATETIME,
+    "timeout_at"        DATETIME,
     "is_complete"       INTEGER NOT NULL,
 	"is_timed_out"  	INTEGER NOT NULL,
     PRIMARY KEY("saga_id")
@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS "saga_events" (
     "saga_id"           TEXT NOT NULL,
 	"event_id"		    TEXT NOT NULL UNIQUE,
 	"data"	 		    TEXT NOT NULL,
-	"created_at"	    TEXT NOT NULL,
+	"created_at"	    DATETIME NOT NULL,
 	"type"			    TEXT NOT NULL,
 	PRIMARY KEY("event_id"),
 	FOREIGN KEY(saga_id) REFERENCES saga_metadata(saga_id)

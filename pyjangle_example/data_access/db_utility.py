@@ -4,9 +4,13 @@ from pyjangle.event.event import VersionedEvent
 from pyjangle_example.data_access.db_schema import COLUMNS, TABLES
 
 from pyjangle_example.data_access.db_settings import BATCH_SIZE, DB_JANGLE_BANKING_PATH
-from pyjangle_sqllite3.dict_row_factory import dict_row_factory
 from pyjangle_sqllite3.event_handler_query_builder import SqlLite3QueryBuilder as q_bldr
 
+def dict_row_factory(cursor: sqlite3.Cursor, row: tuple):
+    d = dict()
+    for i, col in enumerate(cursor.description):
+        d[col[0]] = row[i]
+    return d
 
 def fetch_multiple_rows(wrapped):
     async def wrapper(query):

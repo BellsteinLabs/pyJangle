@@ -253,39 +253,3 @@ class CreditSendFundsSucceeded(Event):
 class CreditSendFundsFailed(Event):
     def deserialize(data: any) -> any:
         pass
-
-
-# class SendFundsToAnotherAccountSaga(Saga):
-
-#     @event_receiver(TransferDebited)
-#     async def on_send_funds_debited(self):
-#         await self.dispatch_command(
-#             command=self._make_credit_send_funds_command,
-#             on_success_event=CreditSendFundsSucceeded,
-#             on_failure_event=CreditSendFundsFailed)
-#         if self.flags_has_any(CreditSendFundsFailed):
-#             await self.dispatch_command(self._make_rollback_send_funds_debit_command)
-#         self.set_complete()
-
-#     @reconstitute_saga_state(TransferDebited)
-#     def from_send_funds_debited(self, event: TransferDebited):
-#         self.amount = event.amount
-#         self.funded_account_id = event.funded_account_id
-#         self.funding_account_id = event.funding_account_id
-#         self.transaction_id = event.transaction_id
-
-#     @reconstitute_saga_state(CreditSendFundsSucceeded)
-#     def from_credit_send_funds_succeeded(self, event: CreditSendFundsSucceeded):
-#         pass
-
-#     @reconstitute_saga_state(CreditSendFundsFailed)
-#     def from_credit_send_funds_failed(self, event: CreditSendFundsFailed):
-#         pass
-
-#     def _make_credit_send_funds_command(self):
-#         return CreditTransfer(funding_account_id=self.funding_account_id,
-#                               funded_account_id=self.funded_account_id, amount=self.amount, transaction_id=self.transaction_id)
-
-#     def _make_rollback_send_funds_debit_command(self):
-#         return RollbackTransferDebit(
-#             funding_account_id=self.funding_account_id, amount=self.amount, transaction_id=self.transaction_id)

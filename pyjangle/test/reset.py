@@ -24,39 +24,18 @@ from pyjangle.test.transient_snapshot_repository import TransientSnapshotReposit
 
 
 def ResetPyJangleState(cls):
-    return patch(SAGA_REPO, new_callable=lambda: TransientSagaRepository())( patch.dict(SAGA_TYPE_TO_NAME_MAP)(
-        patch.dict(NAME_TO_SAGA_TYPE_MAP)(
-            patch.dict(QUERY_TYPE_TO_QUERY_HANDLER_MAP)(
-                patch.dict(EVENT_TYPE_TO_EVENT_HANDLER_MAP)(
-                    patch.dict(EVENT_TYPE_TO_NAME_MAP)(
-                        patch.dict(NAME_TO_EVENT_TYPE_MAP)(
-                            patch(EVENT_ID_FACTORY, new=default_event_id_factory)(
-                                patch(COMMAND_DISPATCHER, None)(
-                                    patch(
-                                        COMMITTED_EVENT_QUEUE,
-                                        new_callable=lambda: Queue(),
-                                    )(
-                                        patch(EVENT_DISPATCHER, None)(
-                                            patch(
-                                                EVENT_REPO,
-                                                new_callable=lambda: TransientEventRepository(),
-                                            )(
-                                                patch(
-                                                    SNAPSHOT_REPO,
-                                                    new_callable=lambda: TransientSnapshotRepository(),
-                                                )(
-                                                    patch.dict(
-                                                        COMMAND_TO_AGGREGATE_MAP
-                                                    )(cls)
-                                                )
-                                            )
-                                        )
-                                    )
-                                )
-                            ))
-                        )
-                    )
-                )
-            )
-        )
-    )
+    cls = patch(SAGA_REPO, new_callable=lambda: TransientSagaRepository())(cls)
+    cls = patch.dict(SAGA_TYPE_TO_NAME_MAP)(cls)
+    cls = patch(EVENT_REPO, new_callable=lambda: TransientEventRepository())(cls)
+    cls = patch.dict(NAME_TO_SAGA_TYPE_MAP)(cls)
+    cls = patch.dict(QUERY_TYPE_TO_QUERY_HANDLER_MAP)(cls)
+    cls = patch.dict(EVENT_TYPE_TO_EVENT_HANDLER_MAP)(cls)
+    cls = patch.dict(EVENT_TYPE_TO_NAME_MAP)(cls)
+    cls = patch.dict(NAME_TO_EVENT_TYPE_MAP)(cls)
+    cls = patch(EVENT_ID_FACTORY, new=default_event_id_factory)(cls)
+    cls = patch(COMMAND_DISPATCHER, None)(cls)
+    cls = patch(COMMITTED_EVENT_QUEUE, new_callable=lambda: Queue())(cls)
+    cls = patch(EVENT_DISPATCHER, None)(cls)
+    cls = patch(SNAPSHOT_REPO, new_callable=lambda: TransientSnapshotRepository())(cls)
+    cls = patch.dict(COMMAND_TO_AGGREGATE_MAP)(cls)
+    return cls

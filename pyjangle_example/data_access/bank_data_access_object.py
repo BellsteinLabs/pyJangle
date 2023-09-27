@@ -1,9 +1,32 @@
 import abc
-from pyjangle_example.events import AccountCreated, AccountDeleted, DebtForgiven, FundsDeposited, FundsWithdrawn, RequestReceived, RequestRejectionReceived, RequestApproved, RequestCredited, RequestDebited, RequestDebitRolledBack, RequestRejected, RequestCreated, TransferCredited, TransferDebited, TransferDebitRolledBack
-from pyjangle_example.query_responses import AccountResponse, AccountSummaryResponse, BankStatsResponse, TransactionResponse
+from pyjangle_example.events import (
+    AccountCreated,
+    AccountDeleted,
+    DebtForgiven,
+    FundsDeposited,
+    FundsWithdrawn,
+    RequestReceived,
+    RequestRejectionReceived,
+    RequestApproved,
+    RequestCredited,
+    RequestDebited,
+    RequestDebitRolledBack,
+    RequestRejected,
+    RequestCreated,
+    TransferCredited,
+    TransferDebited,
+    TransferDebitRolledBack,
+)
+from pyjangle_example.query_responses import (
+    AccountResponse,
+    AccountSummaryResponse,
+    BankStatsResponse,
+    TransactionResponse,
+)
 
 
 class BankDataAccessObject(metaclass=abc.ABCMeta):
+    """Bank query interface."""
 
     @staticmethod
     @abc.abstractmethod
