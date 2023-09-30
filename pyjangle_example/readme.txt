@@ -116,7 +116,7 @@ Something that's been glossed over so far is the resilience this architecture ha
 
 It may not be obvious that we CANNOT assume that events will be dispatched in order.  On a distributed system, this literally makes no sense to assume, so we bake in accomodations from the beginning.  This primarily happens in the event handlers which must be resilient to both out of order and duplicated events.  My favorite example involves an application that was running in production.  A new feature was added that necessitated a new UI for the web application.  While the appication was running, we swapped in the updated instances and replayed the events on a live server.  This processed all the historical events through the event handlers (one of which was new to accomodate the new views that we added) and in a few minutes the new screen was up and running.  All the while, the app was handling new requests.  As a test, we once replayed all historical data in random order times three to verify that the application state was exactly the same as when we started.
 
-A good question is 'how exactly do you do this?'  The simple answer is what we call atomic versioned table updates.  Here's an example of one written in a style of SQL that should worked with maybe minor tweaks on postgres and sqllite:
+A good question is 'how exactly do you do this?'  The simple answer is what we call atomic versioned table updates.  Here's an example of one written in a style of SQL that should worked with maybe minor tweaks on postgres and sqlite:
 
 Assume a table called accounts with
 
@@ -134,9 +134,9 @@ We'll assume there's an atomic update that needs to happen from some event that 
 
 That query will only update each field if its corresponding version suggests that the information is out of date.  This way, if events are played out of order or duplicated, the table will still be accurate.  There's more to it than this, but this is enough to get you started in understanding the general pattern.  See if you can figure out why, when a soft delete event received out of order as the first event would CREATE a new entry in a table with a delete flag set.
 
-It's also worth mentioning that you never have to write this query.  In the SQLLite module, the code would look like this...
+It's also worth mentioning that you never have to write this query.  In the Sqlite module, the code would look like this...
 
-tuple_query_and_params = SqlLite3QueryBuilder("accounts")\
+tuple_query_and_params = Sqlite3QueryBuilder("accounts")\
     .at(column_name="id", value="0001")\
     .at(column_name="id2", value="352")\
     .upsert(column_name="name", value="Tiffany", version_column_name="name_version",version_column_value=4)\

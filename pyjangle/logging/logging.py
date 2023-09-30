@@ -8,7 +8,7 @@ WARNING = "warning"
 ERROR = "error"
 FATAL = "fatal"
 
-# Fields that can be included in a log message.
+# Potential constituent fields of a log message.
 NAME = 1
 LEVELNO = 2
 LEVELNAME = 3

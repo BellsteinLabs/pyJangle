@@ -26,7 +26,10 @@ from pyjangle_example.query_responses import (
 
 
 class BankDataAccessObject(metaclass=abc.ABCMeta):
-    """Bank query interface."""
+    """Bank query interface.
+
+    Methods prefixed with 'handle' add event data to the application-specific views, and
+    all other methods are for responding to queries."""
 
     @staticmethod
     @abc.abstractmethod

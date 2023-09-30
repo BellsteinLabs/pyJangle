@@ -13,6 +13,7 @@ from pyjangle import (
     event_repository_instance,
     event_dispatcher_instance,
     enqueue_committed_event_for_dispatch,
+    get_batch_size,
     ERROR,
 )
 
@@ -78,7 +79,9 @@ async def handle_command(command: Command) -> CommandResponse:
             event_repository = event_repository_instance()
             # Get events between snapshot and current
             events = list(
-                await event_repository.get_events(aggregate_id, aggregate.version)
+                await event_repository.get_events(
+                    aggregate_id, aggregate.version, get_batch_size()
+                )
             )
             log(
                 LogToggles.retrieved_aggregate_events,
@@ -272,8 +275,7 @@ async def _dispatch_events_locally(events: list[VersionedEvent]):
             "Events queued for local dispatch.",
             {
                 "events": [
-                    {"event_type": str(type(e)), "event_data": vars(e)}
-                    for e in events
+                    {"event_type": str(type(e)), "event_data": vars(e)} for e in events
                 ]
             },
         )

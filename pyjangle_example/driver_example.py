@@ -1,13 +1,10 @@
-import logging
-import sqlite3
-import uuid
-from typing import Callable
-from asyncio import Queue, create_task, wait, wait_for, run
+from asyncio import Queue, wait, wait_for, run
 from pyjangle.command.command_dispatcher import (
     RegisterCommandDispatcher,
     command_dispatcher_instance,
 )
 from pyjangle.command.command_response import CommandResponse
+from pyjangle import background_tasks
 from pyjangle.saga.saga_daemon import begin_retry_sagas_loop
 
 import pyjangle_example.aggregates.account_aggregate
@@ -17,7 +14,7 @@ from pyjangle import default_event_dispatcher, has_registered_event_handler
 from pyjangle import RegisterEventRepository
 from pyjangle.logging import MESSAGE
 from pyjangle import RegisterSagaRepository
-from pyjangle.test.transient_saga_repository import TransientSagaRepository
+from pyjangle.saga.in_memory_transient_saga_repository import InMemorySagaRepository
 from pyjangle_example.commands import (
     AcceptRequest,
     CreateAccount,
@@ -29,8 +26,8 @@ from pyjangle_example.commands import (
     WithdrawFunds,
 )
 
-from pyjangle import VersionedEvent, RegisterEventDispatcher, handle_command, tasks
-from pyjangle.test.transient_event_repository import TransientEventRepository
+from pyjangle import VersionedEvent, RegisterEventDispatcher, handle_command
+from pyjangle.event.in_memory_event_repository import InMemoryEventRepository
 from pyjangle_example.commands import DepositFunds
 from pyjangle_example.events import (
     AccountCreated,
@@ -52,7 +49,7 @@ from pyjangle_example.events import (
     TransferDebitRolledBack,
 )
 import pyjangle_example.event_handlers
-from pyjangle_json.logging import initialize_jangle_logging
+from pyjangle_json_logging.logging import initialize_logging
 
 event_queue = Queue(maxsize=1)
 
@@ -312,7 +309,7 @@ async def main():
 
     print("Waiting...")
 
-    await wait(tasks.background_tasks)
+    await wait(background_tasks.background_tasks)
 
     print("Done!")
 
@@ -330,9 +327,9 @@ async def receive_event(event: VersionedEvent):
     await event_queue.put(event)
 
 
-initialize_jangle_logging(MESSAGE)
-RegisterEventRepository(TransientEventRepository)
-RegisterSagaRepository(TransientSagaRepository)
+initialize_logging(MESSAGE)
+RegisterEventRepository(InMemoryEventRepository)
+RegisterSagaRepository(InMemorySagaRepository)
 RegisterEventDispatcher(receive_event)
 RegisterCommandDispatcher(handle_command)
 # TODO: Register defaults

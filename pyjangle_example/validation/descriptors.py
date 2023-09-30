@@ -1,3 +1,9 @@
+"""Descriptors for query, event, and command fields.
+
+Queries, events, and commands must be immutable, and these descriptors ensure that each
+field is both validated and read-only to ensure that the aforementioned classes are 
+always consistent and valid."""
+
 from datetime import datetime
 from decimal import Decimal
 from uuid import uuid4

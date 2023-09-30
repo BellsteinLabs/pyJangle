@@ -5,28 +5,22 @@ from typing import Awaitable, Callable, List
 
 from pyjangle import (
     JangleError,
-    tasks,
     VersionedEvent,
     EventHandlerMissingError,
     LogToggles,
     log,
     event_repository_instance,
     event_type_to_handler_instance,
+    get_events_ready_for_dispatch_queue_size,
 )
-
-# When events are committed, and if there is a registered event dispatcher, events are
-# put onto an in-memory queue pending an eventual dequeue prior to being dispatched.
-# This value represents the maximum size of the queue.
-EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE = int(
-    os.getenv("EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE", "200")
-)
+from pyjangle import background_tasks
 
 # Registered event dispatcher singleton.
 _event_dispatcher = None
 
 # Queue of events that have been committed to the event store and are ready to
 # dispatched elsewhere within the current process.
-_committed_event_queue = Queue(maxsize=EVENTS_READY_FOR_DISPATCH_QUEUE_SIZE)
+_committed_event_queue = Queue(maxsize=get_events_ready_for_dispatch_queue_size())
 
 
 class EventDispatcherBadSignatureError(JangleError):
@@ -73,7 +67,7 @@ def begin_processing_committed_events() -> Task:
             await _invoke_registered_event_dispatcher(event)
 
     task = create_task(_task())
-    tasks.background_tasks.append(task)
+    background_tasks.append(task)
     return task
 
 

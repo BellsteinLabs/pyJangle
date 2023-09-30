@@ -6,9 +6,12 @@ from pyjangle import (
     event_repository_instance,
     LogToggles,
     JangleError,
+    get_batch_size,
+    get_failed_events_retry_interval,
     log,
-    tasks,
+    get_failed_events_max_age,
 )
+from pyjangle.registration import background_tasks
 
 
 class RetryFailedEventsError(JangleError):
@@ -17,7 +20,8 @@ class RetryFailedEventsError(JangleError):
 
 
 async def retry_failed_events(
-    batch_size: int = 100, max_age_time_delta: timedelta = timedelta(seconds=30)
+    batch_size: int = get_batch_size(),
+    max_age_time_delta: timedelta = timedelta(seconds=30),
 ):
     """Retries failed events.
 
@@ -61,7 +65,9 @@ async def retry_failed_events(
             LogToggles.retrying_failed_events,
             f"Retrying failed events...",
         )
+        count = 0
         async for event in unhandled_events:
+            count += 1
             event_repo = event_repository_instance()
             event_dispatcher = event_dispatcher_instance()
             try:
@@ -78,7 +84,7 @@ async def retry_failed_events(
                 )
         log(
             LogToggles.retrying_failed_events,
-            f"Finished retrying failed events",
+            f"Finished retrying {count} failed events",
         )
     except Exception as e:
         log(
@@ -90,9 +96,9 @@ async def retry_failed_events(
 
 
 def begin_retry_failed_events_loop(
-    frequency_in_seconds: float,
-    batch_size: int = 100,
-    max_age_time_delta: timedelta = timedelta(seconds=30),
+    frequency_in_seconds: float = get_failed_events_retry_interval(),
+    batch_size: int = get_batch_size(),
+    max_age_time_delta: timedelta = timedelta(seconds=get_failed_events_max_age()),
 ) -> Task:
     """Calls `retry_failed_events` at a specified interval.
 
@@ -144,5 +150,5 @@ def begin_retry_failed_events_loop(
                     log(LogToggles.cancel_retry_event_loop, "Ending retry event loop.")
 
     task = create_task(_task())
-    tasks.background_tasks.append(task)
+    background_tasks.background_tasks.append(task)
     return task

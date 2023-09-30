@@ -1,5 +1,13 @@
 import os
 
 DEFAULT_DB_PATH = "DELETE_ME_JANGLE_BANKING_DB_PATH_NOT_SET.db"
-DB_JANGLE_BANKING_PATH = os.getenv("DB_JANGLE_BANKING_PATH", DEFAULT_DB_PATH)
-BATCH_SIZE = int(os.getenv("DB_JANGLE_BANKING_BATCH_SIZE", "100"))
+_db_jangle_banking_path = os.getenv("DB_JANGLE_BANKING_PATH", DEFAULT_DB_PATH)
+
+
+def get_db_jangle_banking_path():
+    return _db_jangle_banking_path
+
+
+def set_db_jangle_banking_path(path: str):
+    global _db_jangle_banking_path
+    _db_jangle_banking_path = path

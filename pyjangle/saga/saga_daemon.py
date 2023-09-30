@@ -1,13 +1,15 @@
-from asyncio import create_task, events, sleep
+from asyncio import create_task, sleep
 import asyncio
 from pyjangle import (
     LogToggles,
     log,
     JangleError,
     saga_repository_instance,
-    tasks,
     DuplicateKeyError,
     SagaNotFoundError,
+    get_batch_size,
+    background_tasks,
+    get_saga_retry_interval,
 )
 
 
@@ -16,7 +18,7 @@ class SagaRetryError(JangleError):
     pass
 
 
-async def retry_sagas(max_batch_size: int):
+async def retry_sagas(max_batch_size: int = get_batch_size()):
     """Retries eligible sagas.
 
     There are many reasons why a saga would need to be retried such as a network or
@@ -38,12 +40,13 @@ async def retry_sagas(max_batch_size: int):
     """
     repo = saga_repository_instance()
     saga_ids = await repo.get_retry_saga_ids(max_batch_size)
-    count = len(saga_ids)
     log(
         LogToggles.retrying_sagas,
-        f"Retrying {count} sagas." if count else "Retryable sagas not found.",
+        f"Retrying sagas.",
     )
+    count = 0
     for id in saga_ids:
+        count += 1
         try:
             await retry_saga(id)
         except Exception as e:
@@ -52,9 +55,13 @@ async def retry_sagas(max_batch_size: int):
                 f"Error retrying saga with id '{id}'",
                 exc_info=e,
             )
+    log(LogToggles.retrying_sagas, f"Finished retrying {count} sagas.")
 
 
-def begin_retry_sagas_loop(frequency_in_seconds: float, batch_size: int = 100):
+def begin_retry_sagas_loop(
+    frequency_in_seconds: float = get_saga_retry_interval(),
+    batch_size: int = get_batch_size(),
+):
     """Calls `retry_sagas` at a specified interval.
 
     Calling this method is roughly equivalent to using an external daemon to
@@ -89,7 +96,7 @@ def begin_retry_sagas_loop(frequency_in_seconds: float, batch_size: int = 100):
             log(LogToggles.cancel_retry_saga_loop, "Ended retry saga loop.")
 
     task = create_task(_task())
-    tasks.background_tasks.append(task)
+    background_tasks.append(task)
     return task
 
 

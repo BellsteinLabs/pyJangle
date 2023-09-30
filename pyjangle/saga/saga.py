@@ -16,6 +16,7 @@ from pyjangle import (
     CommandResponse,
     CommandDispatcherNotRegisteredError,
     command_dispatcher_instance,
+    get_saga_retry_interval,
 )
 
 # Name of the attribute used to tag saga methods decorated with `event_receiver.` This
@@ -35,28 +36,9 @@ _STATE_RECONSTITUTOR_EVENT_TYPE = "_state_reconstitutor_event_type"
 _EVENT_TYPE_TO_STATE_RECONSTITUTORS_INSTANCE_METHOD = (
     "_event_type_to_state_reconstitutor_instance_method"
 )
-# Name of the environment variable used to specify the saga retry interval.
-_SAGA_RETRY_INTERVAL_ENV_VAR = "SAGA_RETRY_INTERVAL"
 
 
-def get_saga_retry_wait_interval_in_seconds():
-    """Gets the saga retry interval.
 
-    Defaults to 30 seconds unless the environment variable is set.
-    """
-    default = 30
-    try:
-        raw = os.getenv(_SAGA_RETRY_INTERVAL_ENV_VAR, default)
-        return int(raw)
-    except ValueError as e:
-        log(
-            logging.ERROR,
-            f"Specify an integer for {_SAGA_RETRY_INTERVAL_ENV_VAR}. '{raw}' is invalid",
-        )
-        raise
-
-
-DEFAULT_SAGA_RETRY_WAIT_INTERVAL = get_saga_retry_wait_interval_in_seconds()
 
 
 class ReconstituteSagaStateBadSignatureError(JangleError):
@@ -206,7 +188,7 @@ def event_receiver(
                     self.set_retry(
                         default_retry_interval_in_seconds
                         if default_retry_interval_in_seconds
-                        else DEFAULT_SAGA_RETRY_WAIT_INTERVAL
+                        else get_saga_retry_interval()
                     )
 
         return wrapper

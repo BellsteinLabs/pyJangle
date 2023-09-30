@@ -1,3 +1,5 @@
+# batch_size
+
 from .error.error import JangleError
 from .logging.logging import (
     log,
@@ -24,7 +26,20 @@ from .logging.logging import (
     PROCESS,
     MESSAGE,
 )
+from .settings import (
+    get_batch_size,
+    set_batch_size,
+    set_events_ready_for_dispatch_queue_size,
+    get_events_ready_for_dispatch_queue_size,
+    set_saga_retry_interval,
+    get_saga_retry_interval,
+    get_failed_events_retry_interval,
+    set_failed_events_retry_interval,
+    get_failed_events_max_age,
+    set_failed_events_max_age,
+)
 from .registration.utility import find_decorated_method_names, register_instance_methods
+from .registration.background_tasks import background_tasks
 
 from .snapshot.snapshot_repository import (
     DuplicateSnapshotRepositoryError,
@@ -35,6 +50,8 @@ from .snapshot.snapshot_repository import (
 )
 
 from .snapshot.snapshottable import SnapshotError, Snapshottable
+
+from .snapshot.in_memory_snapshot_repository import InMemorySnapshotRepository
 
 from .event.register_event_id_factory import (
     DuplicateEventIdFactoryRegistrationError,
@@ -117,6 +134,7 @@ from .event.event_dispatcher import (
 from .command.command_handler import handle_command
 
 from .event.event_daemon import begin_retry_failed_events_loop, retry_failed_events
+from .event.in_memory_event_repository import InMemoryEventRepository
 
 from .query.handlers import (
     QueryHandlerRegistrationBadSignatureError,
@@ -150,6 +168,7 @@ from .saga.saga_repository import (
     SagaRepository,
     saga_repository_instance,
 )
+from .saga.in_memory_transient_saga_repository import InMemorySagaRepository
 from .saga.saga_handler import handle_saga_event
 from .saga.saga_daemon import (
     retry_sagas,
@@ -158,16 +177,18 @@ from .saga.saga_daemon import (
     SagaRetryError,
 )
 
-from .serialization.event_serialization_registration import (
-    EventSerializerBadSignatureError,
-    EventSerializerMissingError,
-    EventDeserializerBadSignatureError,
-    EventDeserializerMissingError,
-    register_event_serializer,
-    register_event_deserializer,
-    get_event_serializer,
-    get_event_deserializer,
+from .serialization.serialization_registration import (
+    SerializerBadSignatureError,
+    SerializerMissingError,
+    DeserializerBadSignatureError,
+    DeserializerMissingError,
+    register_serializer,
+    register_deserializer,
+    get_serializer,
+    get_deserializer,
 )
 
 
 from .validation.attributes import ImmutableAttributeDescriptor
+
+from .initialize import initialize_pyjangle, init_background_tasks

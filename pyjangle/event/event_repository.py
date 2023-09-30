@@ -2,7 +2,7 @@ import abc
 from datetime import datetime
 from typing import Iterator
 
-from pyjangle import JangleError, VersionedEvent, LogToggles, log
+from pyjangle import JangleError, VersionedEvent, LogToggles, log, get_batch_size
 
 # Holds a singleton instance of an event repository.
 # Access this via event_repository_instance.
@@ -63,7 +63,7 @@ class EventRepository(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def get_events(
-        self, aggregate_id: any, current_version=0, batch_size: int = 100
+        self, aggregate_id: any, current_version=0, batch_size: int = get_batch_size()
     ) -> Iterator[VersionedEvent]:
         """Returns events for a particular aggregate.
 
