@@ -1,7 +1,7 @@
 from asyncio import run
 from dataclasses import asdict
 from json import dumps, loads
-from logging import DEBUG
+from logging import INFO
 from uuid import uuid4
 
 from pyjangle import (
@@ -26,7 +26,7 @@ from pyjangle_sqlite3 import (
 
 print("Jangle Banking terminal initializing...")
 
-initialize_logging(MESSAGE, logging_level=DEBUG)
+initialize_logging(MESSAGE, logging_level=INFO)
 initialize_pyjangle_sqlite3(default_db_path="example.db")
 initialize_pyjangle(
     event_repository_type=SqliteEventRepository,

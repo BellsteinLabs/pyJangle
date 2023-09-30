@@ -210,6 +210,6 @@ def default_event_dispatcher_with_blacklist(
     async def wrapper(event: VersionedEvent, completed_callback):
         await default_event_dispatcher(event, completed_callback) if not type(
             event
-        ) in blacklisted_event_types else None
+        ) in blacklisted_event_types else await completed_callback(event.id)
 
     return wrapper
