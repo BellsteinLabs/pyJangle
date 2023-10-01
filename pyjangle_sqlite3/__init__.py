@@ -1,10 +1,10 @@
-"""Sqlite3 implementations of persistence-related types.
+"""Sqlite3 implementations of persistence-related pyjangle types.
 
-    Use `initialize` to register components needed by this package.  Requires that 
-    serializers are registered using `register_serializer` and `register_deserializer` 
-    decorators in the `pyjangle` package.  Additionally, the event and saga repositories 
-    require that an event ID factory is registered with the `register_event_id_factory` 
-    decorator.
+    Use the `initialize` module, specifically, `initialize_pyjangle_sqlite3` to register 
+    components needed by this package.  Requires that serializers are registered using 
+    `register_serializer` and `register_deserializer` decorators in the `pyjangle` 
+    package.  Additionally, the event and saga repositories require that an event ID 
+    factory is registered with the `register_event_id_factory` decorator.
 
 Classes:
     SqliteEventRepository

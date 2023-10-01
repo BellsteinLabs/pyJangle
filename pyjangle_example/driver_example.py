@@ -1,6 +1,6 @@
 from asyncio import Queue, wait, wait_for, run
 from pyjangle.command.command_dispatcher import (
-    RegisterCommandDispatcher,
+    register_command_dispatcher,
     command_dispatcher_instance,
 )
 from pyjangle.command.command_response import CommandResponse
@@ -26,7 +26,7 @@ from pyjangle_example.commands import (
     WithdrawFunds,
 )
 
-from pyjangle import VersionedEvent, RegisterEventDispatcher, handle_command
+from pyjangle import VersionedEvent, register_event_dispatcher, handle_command
 from pyjangle.event.in_memory_event_repository import InMemoryEventRepository
 from pyjangle_example.commands import DepositFunds
 from pyjangle_example.events import (
@@ -330,7 +330,7 @@ async def receive_event(event: VersionedEvent):
 initialize_logging(MESSAGE)
 RegisterEventRepository(InMemoryEventRepository)
 RegisterSagaRepository(InMemorySagaRepository)
-RegisterEventDispatcher(receive_event)
-RegisterCommandDispatcher(handle_command)
+register_event_dispatcher(receive_event)
+register_command_dispatcher(handle_command)
 # TODO: Register defaults
 run(main())

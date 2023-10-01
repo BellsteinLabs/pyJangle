@@ -89,7 +89,7 @@ async def enqueue_committed_event_for_dispatch(event: VersionedEvent):
     await _committed_event_queue.put(event)
 
 
-def RegisterEventDispatcher(wrapped: Callable):
+def register_event_dispatcher(wrapped: Callable):
     """Decorates a function that dispatches events.
 
     The process of dispatching an event involves moving an event to where it needs to be

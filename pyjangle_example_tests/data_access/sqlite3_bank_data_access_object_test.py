@@ -1,11 +1,13 @@
 from datetime import datetime, timedelta
 from decimal import Decimal
+import os
 from unittest import IsolatedAsyncioTestCase
 from unittest.mock import Mock, patch
 import uuid
 from pyjangle.event.event import Event, VersionedEvent
 from pyjangle import default_event_dispatcher
 from pyjangle.query.handlers import handle_query
+from pyjangle_example.data_access.db_settings import get_db_jangle_banking_path
 from test_helpers.registration_paths import EVENT_ID_FACTORY
 from pyjangle_example.events import (
     AccountCreated,
@@ -40,6 +42,7 @@ from pyjangle_example.query_responses import (
 )
 from pyjangle_example.data_access.sqlite3_bank_data_access_object import (
     Sqlite3BankDataAccessObject,
+    create_database,
 )
 
 ACCOUNT_ID = "000005"
@@ -59,14 +62,14 @@ datetime_mock.now = Mock(return_value=datetime.min)
 @patch(f"{Event.__module__}.datetime", new=datetime_mock)
 class TestSqlite3BankDataAccessObjectTest(IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        # if os.path.exists(DB_JANGLE_BANKING_PATH):  # pragma no cover
-        #     os.remove(DB_JANGLE_BANKING_PATH)  # pragma no cover
-        self.dao = Sqlite3BankDataAccessObject.clear()
+        if os.path.exists(get_db_jangle_banking_path()):  # pragma no cover
+            Sqlite3BankDataAccessObject.clear()  # pragma no cover
+        else:
+            create_database()
 
     def tearDown(self) -> None:
-        pass
-        # if os.path.exists(DB_JANGLE_BANKING_PATH):  # pragma no cover
-        #     os.remove(DB_JANGLE_BANKING_PATH)
+        if os.path.exists(get_db_jangle_banking_path()):  # pragma no cover
+            os.remove(get_db_jangle_banking_path())
 
     async def test_when_no_events_then_queries_are_empty(self, *_):
         bank_summary_response: list[AccountResponse] = await handle_query(

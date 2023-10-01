@@ -1,4 +1,3 @@
-from datetime import datetime
 from functools import reduce
 import sqlite3
 from pyjangle.event.event_handler import register_event_handler
@@ -52,9 +51,10 @@ from pyjangle_example.data_access.db_utility import (
 )
 
 with open("pyjangle_example/data_access/create_tables.sql", "r") as create_tables_file:
-        create_tables_sql_script = create_tables_file.read()
+    create_tables_sql_script = create_tables_file.read()
 with open("pyjangle_example/data_access/clear_tables.sql", "r") as clear_tables_file:
     clear_tables_sql_script = clear_tables_file.read()
+
 
 def create_database():
     with sqlite3.connect(
@@ -63,6 +63,7 @@ def create_database():
         conn.executescript(create_tables_sql_script)
         conn.commit()
     conn.close()
+
 
 class Sqlite3BankDataAccessObject(BankDataAccessObject):
     @staticmethod

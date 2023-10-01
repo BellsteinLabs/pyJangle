@@ -22,7 +22,7 @@ class CommandDispatcherNotRegisteredError(JangleError):
     pass
 
 
-def RegisterCommandDispatcher(wrapped: Callable[[any], CommandResponse]):
+def register_command_dispatcher(wrapped: Callable[[any], CommandResponse]):
     """Decorates a function that forwards commands originating from the current process.
 
     When commands originate within this process, as opposed to external commands, this

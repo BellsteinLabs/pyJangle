@@ -9,7 +9,7 @@ from pyjangle import (
     VersionedEvent,
     EventRepositoryMissingError,
     EventDispatcherMissingError,
-    RegisterEventDispatcher,
+    register_event_dispatcher,
     begin_processing_committed_events,
     begin_retry_failed_events_loop,
     event_repository_instance,
@@ -32,7 +32,7 @@ class TestEventDaemon(IsolatedAsyncioTestCase):
         q = Queue()
         event_repo = event_repository_instance()
 
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def foo(
             event: VersionedEvent, completed_callback: Callable[[any], Awaitable[None]]
         ):
@@ -78,7 +78,7 @@ class TestEventDaemon(IsolatedAsyncioTestCase):
         self.assertEqual(foo.count, 2)  # The dispatcher should have been called twice.
 
     async def test_when_no_event_repository_then_exception(self, *_):
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def foo(
             event: VersionedEvent, completed_callback: Callable[[any], Awaitable[None]]
         ):

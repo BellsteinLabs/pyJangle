@@ -5,7 +5,7 @@ from pyjangle import (
     CommandDispatcherNotRegisteredError,
     CommandDispatcherBadSignatureError,
     CommandResponse,
-    RegisterCommandDispatcher,
+    register_command_dispatcher,
     command_dispatcher_instance,
 )
 from test_helpers.reset import ResetPyJangleState
@@ -14,25 +14,25 @@ from test_helpers.reset import ResetPyJangleState
 @ResetPyJangleState
 class TestCommandDispatcher(unittest.IsolatedAsyncioTestCase):
     async def test_register_multiple_command_dispatcher(self, *_):
-        @RegisterCommandDispatcher
+        @register_command_dispatcher
         async def command_dispatcher1(command) -> CommandResponse:
             pass
 
         with self.assertRaises(DuplicateCommandDispatcherError):
 
-            @RegisterCommandDispatcher
+            @register_command_dispatcher
             async def command_dispatcher2(command) -> CommandResponse:
                 pass
 
     async def test_bad_signature(self, *_):
         with self.assertRaises(CommandDispatcherBadSignatureError):
 
-            @RegisterCommandDispatcher
+            @register_command_dispatcher
             def command_dispatcher2(command) -> CommandResponse:
                 pass
 
     async def test_register_aggregate_dispatcher(self, *_):
-        @RegisterCommandDispatcher
+        @register_command_dispatcher
         async def command_dispatcher(command) -> CommandResponse:
             pass
 

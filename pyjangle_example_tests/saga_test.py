@@ -5,7 +5,7 @@ from unittest import IsolatedAsyncioTestCase, TestCase
 import unittest
 from unittest.mock import patch
 from uuid import uuid4
-from pyjangle.command.command_dispatcher import RegisterCommandDispatcher
+from pyjangle.command.command_dispatcher import register_command_dispatcher
 from pyjangle.command.command_response import CommandResponse
 from pyjangle import Saga
 from pyjangle import Event, VersionedEvent

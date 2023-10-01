@@ -1,6 +1,7 @@
 """A reference implementation of pyjangle classes.
 
 The example scenario defined in this project is an implementation of a banking scenario.
+To run the example, see the `driver_example` and `main` modules below.
 
 Ubiquitous Language:
     Account:
@@ -72,10 +73,4 @@ Config:
             Configures the file location of the application-specific database.  It is 
             optional whether this is the same database as JANGLE_EVENTS_PATH, 
             JANGLE_SNAPSHOTS_PATH, and/or JANGLE_SAGAS_PATH.
-        DB_JANGLE_BANKING_BATCH_SIZE:
-            The amount of records to concurrently buffer in memory in reponse to 
-            database queries.
-        
-            
 """
-

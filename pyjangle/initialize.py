@@ -1,3 +1,19 @@
+"""Bootstrapping methods to quickly configure a pyjangle application.
+
+`initialize_pyjangle` 
+    Facilitates the registration of all necessary components to get an 
+    application running.  Defaults are provided for necessary components, however, 
+    the `InMemoryEventRepository`, `InMemorySagaRepository`, and the 
+    `InMemorySnapshotRepository` are not suitable for production code.  They are not 
+    durable, and will only persist data for as long as the process is running.  
+
+`init_background_tasks`
+    Begins several background tasks that may be needed depending on the architecture of
+    the system being implemented.  For example, if there is an external process that is 
+    processing committed events, set `process_committed_events` to False.  This method 
+    *MUST* be called where an active event loop is running.
+"""
+
 import asyncio
 from datetime import timedelta
 from typing import Awaitable, Callable
@@ -10,8 +26,8 @@ from pyjangle import (
     handle_command,
     CommandResponse,
     Command,
-    RegisterCommandDispatcher,
-    RegisterEventDispatcher,
+    register_command_dispatcher,
+    register_event_dispatcher,
     register_deserializer,
     register_serializer,
     RegisterEventRepository,
@@ -48,6 +64,28 @@ def init_background_tasks(
     failed_events_retry_interval_seconds: int = get_failed_events_retry_interval(),
     failed_events_age: int = get_failed_events_max_age(),
 ):
+    """Begins background tasks that may be useful depending on the system architecture.
+
+    Args:
+        process committed_events:
+            Begins a task that processes committed events through the registered event
+            dispatcher.
+        retry_sagas:
+            Begins a task that retries sagas that meet the retry criteria.
+        saga_retry_interval_in_seconds:
+            Specifies a frequency to run the `retry_sagas` daemon.
+        saga_batch_size:
+            The number of sagas that can be concurrently buffered in memory.
+        retry_failed_events:
+            Begins a task that retries events that failed during dispatch.
+        failed_events_batch_size:
+            The number of failed events that can be concurrently buffered in memory.
+        failed_events_retry_interval_seconds:
+            Specifies a frequency to run the `retry_failed_events` daemon.
+        failed_events_age:
+            An age, after which, an event is considered to be failed if not marked
+            completed.
+    """
     try:
         asyncio.get_running_loop()
     except RuntimeError as e:
@@ -82,9 +120,40 @@ def initialize_pyjangle(
     saga_retry_interval_seconds: int = None,
     dispatch_queue_size: int = None,
 ):
-    """Registers all necessary components."""
-    RegisterCommandDispatcher(command_dispatcher_func)
-    RegisterEventDispatcher(event_dispatcher_func)
+    """Registers all necessary components.
+
+    Calling this method is not necessary to bootstrap an application.  Each component
+    can instead be registered separately.  In fact, the implementation of this function
+    merely calls those manual registration methods with reasonable defaults.
+
+    Args:
+        command_dispatcher_func:
+            See the `register_command_dispatcher` decorator.
+        event_dispatcher_func:
+            See the `register_event_dispatcher` decorator.
+        deserializer:
+            See the `register_deserializer` decorator.  This component is not necessary
+            when using an 'InMemory' saga, event, and snapshot repositories.
+        serializer:
+            See the `register_serializer` decorator.  This component is not necessary
+            when using an 'InMemory' saga, event, and snapshot repositories.
+        event_id_factory:
+            See the `register_event_id_factory` decorator.
+        event_repository_type:
+            See the `RegisterEventRepository` decorator.
+        saga_repository_type:
+            See the `RegisterSagaRepository` decorator.
+        snapshot_repository_type:
+            See the `RegisterSnapshotRepository` decorator.
+        batch_size:
+            See `set_batch_size`.
+        saga_retry_interval_seconds:
+            See `set_saga_retry_interval`.
+        dispatch_queue_size:
+            See `set_events_ready_for_dispatch_queue_size`.
+    """
+    register_command_dispatcher(command_dispatcher_func)
+    register_event_dispatcher(event_dispatcher_func)
     if deserializer:
         register_deserializer(deserializer)
     if serializer:

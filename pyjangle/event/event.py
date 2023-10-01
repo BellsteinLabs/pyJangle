@@ -13,7 +13,8 @@ class Event(metaclass=abc.ABCMeta):
     """Represents a state change in a domain.
     
     NameUpdated, AccountCreated, EmployeeHired, WidgetsOrdered, etc are all examples of 
-    events.  All state changes should have a corresponding event.
+    events.  All state changes should have a corresponding event.  It is required that 
+    all events are registered with the `register_event` decorator.
     """
 
     @classmethod

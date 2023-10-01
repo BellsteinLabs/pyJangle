@@ -8,7 +8,7 @@ from pyjangle import (
     EventDispatcherMissingError,
     DuplicateEventDispatcherError,
     EventDispatcherBadSignatureError,
-    RegisterEventDispatcher,
+    register_event_dispatcher,
     begin_processing_committed_events,
     event_dispatcher_instance,
     event_repository_instance,
@@ -23,13 +23,13 @@ from test_helpers.reset import ResetPyJangleState
 @ResetPyJangleState
 class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
     async def test_register_multiple_event_dispatcher(self, *_):
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def Event_dispatcher1(_, __):
             pass
 
         with self.assertRaises(DuplicateEventDispatcherError):
 
-            @RegisterEventDispatcher
+            @register_event_dispatcher
             async def Event_dispatcher2(_, __):
                 pass
 
@@ -38,19 +38,19 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
     ):
         with self.assertRaises(EventDispatcherBadSignatureError):
 
-            @RegisterEventDispatcher
+            @register_event_dispatcher
             async def Event_dispatcher():
                 pass
 
     async def test_register_event_dispatcher_not_coroutine_then_error(self, *_):
         with self.assertRaises(EventDispatcherBadSignatureError):
 
-            @RegisterEventDispatcher
+            @register_event_dispatcher
             def Event_dispatcher():
                 pass
 
     async def test_register_event_dispatcher(self, *_):
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def Event_dispatcher(event: VersionedEvent, callback):
             pass
 
@@ -61,7 +61,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
     async def test_process_committed_events(self, *_):
         q = Queue()
 
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def foo(
             event: VersionedEvent, completed_callback: Callable[[any], Awaitable[None]]
         ):
@@ -87,7 +87,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
     ):
         q = Queue()
 
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def foo(
             event: VersionedEvent, completed_callback: Callable[[any], Awaitable[None]]
         ):
@@ -107,7 +107,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
         q = Queue()
         event_repo = event_repository_instance()
 
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def foo(
             event: VersionedEvent, completed_callback: Callable[[any], Awaitable[None]]
         ):
@@ -134,7 +134,7 @@ class TestEventDispatcher(unittest.IsolatedAsyncioTestCase):
     ):
         q = Queue()
 
-        @RegisterEventDispatcher
+        @register_event_dispatcher
         async def foo(
             event: VersionedEvent, completed_callback: Callable[[any], Awaitable[None]]
         ):
