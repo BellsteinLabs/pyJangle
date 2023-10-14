@@ -1,5 +1,5 @@
-from example.data_access.db_settings import set_db_jangle_banking_path
-from example.data_access.sqlite3_bank_data_access_object import (
+from data_access.db_settings import set_db_jangle_banking_path
+from data_access.sqlite3_bank_data_access_object import (
     Sqlite3BankDataAccessObject,
     create_database,
 )

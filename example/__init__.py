@@ -74,4 +74,3 @@ Config:
             optional whether this is the same database as JANGLE_EVENTS_PATH, 
             JANGLE_SNAPSHOTS_PATH, and/or JANGLE_SAGAS_PATH.
 """
-

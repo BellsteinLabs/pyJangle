@@ -60,7 +60,7 @@ from events import (
 )
 import event_handlers
 
-# from pyjangle_json_logging.logging import initialize_logging
+from pyjangle_json_logging import initialize_logging
 
 event_queue = Queue(maxsize=1)
 
@@ -338,5 +338,5 @@ async def dispatch_event(event: VersionedEvent, completed_callback):
 
 
 initialize_pyjangle(event_dispatcher_func=dispatch_event)
-# initialize_logging(MESSAGE)
+initialize_logging(MESSAGE)
 run(main())

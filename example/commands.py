@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from dataclasses import dataclass
 from pyjangle import Command
-from .validation.descriptors import (
+from validation.descriptors import (
     AccountId,
     AccountName,
     Amount,

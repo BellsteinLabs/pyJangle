@@ -8,7 +8,7 @@ from asyncio import get_event_loop
 from colorama import Fore, Style
 from pyjangle.command.command_handler import handle_command
 from pyjangle.query.handlers import handle_query
-from example.commands import (
+from commands import (
     AcceptRequest,
     CreateAccount,
     DeleteAccount,
@@ -20,7 +20,7 @@ from example.commands import (
     WithdrawFunds,
 )
 
-from example.queries import (
+from queries import (
     AccountLedger,
     AccountSummary,
     BankStats,

@@ -2,9 +2,9 @@ import functools
 import sqlite3
 from pyjangle import get_batch_size
 from pyjangle.event.event import VersionedEvent
-from example.data_access.db_schema import COLUMNS, TABLES
+from data_access.db_schema import COLUMNS, TABLES
 
-from example.data_access.db_settings import get_db_jangle_banking_path
+from data_access.db_settings import get_db_jangle_banking_path
 from pyjangle_sqlite3.event_handler_query_builder import Sqlite3QueryBuilder as q_bldr
 
 

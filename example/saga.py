@@ -5,8 +5,8 @@ from typing import List
 from pyjangle import command_dispatcher_instance
 from pyjangle import RegisterSaga
 from pyjangle.event.register_event import RegisterEvent
-from .commands import *
-from .events import (
+from commands import *
+from events import (
     RequestApproved,
     RequestDebitRolledBack,
     RequestRejected,

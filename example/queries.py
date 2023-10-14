@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from example.validation.descriptors import AccountId
+from validation.descriptors import AccountId
 
 
 class AccountsList:

@@ -3,7 +3,7 @@ from datetime import timedelta, datetime
 from decimal import Decimal
 import functools
 
-from ..commands import (
+from commands import (
     AcceptRequest,
     CreditRequest,
     CreditTransfer,
@@ -20,7 +20,7 @@ from ..commands import (
     Transfer,
     WithdrawFunds,
 )
-from ..events import (
+from events import (
     AccountCreated,
     AccountDeleted,
     DebtForgiven,

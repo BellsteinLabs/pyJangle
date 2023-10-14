@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from ..commands import CreateAccount
-from ..events import AccountCreated, AccountIdProvisioned, FundsDeposited
+from commands import CreateAccount
+from events import AccountCreated, AccountIdProvisioned, FundsDeposited
 
 from pyjangle import (
     Aggregate,

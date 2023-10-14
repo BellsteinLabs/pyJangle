@@ -1,5 +1,5 @@
 import abc
-from example.events import (
+from events import (
     AccountCreated,
     AccountDeleted,
     DebtForgiven,
@@ -17,7 +17,7 @@ from example.events import (
     TransferDebited,
     TransferDebitRolledBack,
 )
-from example.query_responses import (
+from query_responses import (
     AccountResponse,
     AccountSummaryResponse,
     BankStatsResponse,

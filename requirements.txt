@@ -1,0 +1,2 @@
+pyjangle_json_logging >= 0.*
+pyjangle_sqlite3 >= 0.*

@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from pyjangle import VersionedEvent
 from pyjangle.event.register_event import RegisterEvent
-from .validation.descriptors import (
+from validation.descriptors import (
     AccountId,
     AccountName,
     Amount,
