@@ -11,12 +11,15 @@ PyJangle is a framework that enables you to build event-driven applications.  It
 
 The [pyjangle package's docstring][pyjangle] contains all the relevant bits you will need to get started.  There is a reference implementation of the framework in the example package which also has a detailed [docstring][example].  The [pyjangle_sqlite3][pyjangle_sqlite3] package shows how you would go about persisting data in your chosen technology (postgres, mongo, mysql, kafka, etc.).  The interfaces are pretty lightweight and minimal, so it shouldn't be too much effort.  The [pyjangle_json_logging][pyjangle_json_logging] package is recommended to use right off the bat--it's easier to read than the default python logging.
 
+## Installation
+
+```pip install pyjangle```
+
 ## Framework Primer
 
 It's best to start this section off with a diagram showing potential interactions within the framework.  Your architecture and implementation may differ, but this is a decent reference to begin modeling from.  This primer will sometimes refer to the [reference implementation][example], so it may be useful to familiarize yourself with it in addition to the diagram.  It's recommended that you at least review the [scenario and ubiquitous language][example] before proceeding. (it's pretty short)
 
-![Potential interactions in the PyJangle Framework](https://github.com/BellsteinLabs/pyJangle/blob/main/images/pyjangle_diagram.png)
-
+![Potential interactions in the PyJangle Framework](https://i.imgur.com/z6lKjMM.png)
 
 ### Commands and the Command Handler
 
