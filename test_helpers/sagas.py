@@ -28,7 +28,9 @@ class SagaForTestingRetryLogic(Saga):
         is_complete: bool = False,
         is_timed_out: bool = False,
     ):
-        super().__init__(saga_id, events, retry_at, timeout_at, is_complete)
+        super().__init__(
+            saga_id, events, retry_at, timeout_at, is_complete, is_timed_out
+        )
 
     @event_receiver(
         EventThatContinuesSaga, skip_if_any_flags_set=[EventThatCompletesACommand]

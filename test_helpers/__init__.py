@@ -1,5 +1,13 @@
 """Simple concrete implementations that are used in many test scenarios."""
 
+import os
+import sys
+
+PROJECT_PATH = os.getcwd()
+SOURCE_PATH = os.path.join(PROJECT_PATH, "src")
+sys.path.append(SOURCE_PATH)
+
+
 from .aggregates import SnapshottableTestAggregate, NotSnapshottableTestAggregate
 from .commands import (
     CommandThatShouldSucceedA,

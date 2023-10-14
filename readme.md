@@ -9,11 +9,11 @@ PyJangle is a framework that enables you to build event-driven applications.  It
 - [Event Sourcing][event_sourcing]
 - [Eventual Consistency][eventual_consistency]
 
-The [pyjangle package's docstring][pyjangle] contains all the relevant bits you will need to get started.  There is a reference implementation of the framework in the pyjangle_example package which also has a detailed [docstring][pyjangle_example].  The [pyjangle_sqlite3][pyjangle_sqlite3] package shows how you would go about persisting data in your chosen technology (postgres, mongo, mysql, kafka, etc.).  The interfaces are pretty lightweight and minimal, so it shouldn't be too much effort.  The [pyjangle_json_logging][pyjangle_json_logging] package is recommended to use right off the bat--it's easier to read than the default python logging.
+The [pyjangle package's docstring][pyjangle] contains all the relevant bits you will need to get started.  There is a reference implementation of the framework in the example package which also has a detailed [docstring][example].  The [pyjangle_sqlite3][pyjangle_sqlite3] package shows how you would go about persisting data in your chosen technology (postgres, mongo, mysql, kafka, etc.).  The interfaces are pretty lightweight and minimal, so it shouldn't be too much effort.  The [pyjangle_json_logging][pyjangle_json_logging] package is recommended to use right off the bat--it's easier to read than the default python logging.
 
 ## Framework Primer
 
-It's best to start this section off with a diagram showing potential interactions within the framework.  Your architecture and implementation may differ, but this is a decent reference to begin modeling from.  This primer will sometimes refer to the [reference implementation][pyjangle_example], so it may be useful to familiarize yourself with it in addition to the diagram.  It's recommended that you at least review the [scenario and ubiquitous language][pyjangle_example] before proceeding. (it's pretty short)
+It's best to start this section off with a diagram showing potential interactions within the framework.  Your architecture and implementation may differ, but this is a decent reference to begin modeling from.  This primer will sometimes refer to the [reference implementation][example], so it may be useful to familiarize yourself with it in addition to the diagram.  It's recommended that you at least review the [scenario and ubiquitous language][example] before proceeding. (it's pretty short)
 
 ![Potential interactions in the PyJangle Framework](/images/pyjangle_diagram.png)
 
@@ -44,7 +44,7 @@ Finally, let's assume you're creating a new project, and aren't interested in se
 
 The simplest case is probably that of an event handlerupdating an application database that users will query via some mechanism such as an API, CLI, mobile application, etc to get the current state of the application.  To do this in an idempotent manner, look at the query_builder in the [`pyjangle_sqlite3`][query_builder] package for inspiration.  It boils down to using atomic conditional updates to populate application view tables.
 
-Another case would be when you need your event handler to fire off a command such as the [TransferDebited][transfer_event_handler] event handler in the [reference project][pyjangle_example].  This is a narrow use case in between a simple event handler and an event handler that instantiates a saga.  This case doesn't require a full-blown saga, but you need some guarantee that if the command fails, the event will be handled again at some point [until it succeeds][event_daemon].
+Another case would be when you need your event handler to fire off a command such as the [TransferDebited][transfer_event_handler] event handler in the [reference project][example].  This is a narrow use case in between a simple event handler and an event handler that instantiates a saga.  This case doesn't require a full-blown saga, but you need some guarantee that if the command fails, the event will be handled again at some point [until it succeeds][event_daemon].
 
 Another class of event handlers, as was previously mentioned, are those that instantiate a saga.  PyJanlge makes these cases relatively simple.  Sometimes, the event that's emitted is the first in a chain of events and commands known as a [`saga`][saga].  In the reference project, take a look at the [`RequestSaga`][example_saga] feature for a situation where this is warranted.  It is because the request involves coordination across multiple aggregates that a saga becomes relevant.  In this case, the event handler would simply defer to [`handle_saga`][saga_handler], and assuming that the [`Saga`][saga] has been created and registered, the framework will take care of the rest.
 
@@ -84,7 +84,7 @@ It's really up to you how to handle eventual consistency.  The alternative appro
 
 ### Event Replay
 
-It might already be obvious to you that one of the key benefits of this framework is that the only really important data in the application is the event store and saga store.  In fact, you really only need to back up the event store and saga store which makes things pretty simple.  If this sounds strange, let's do a thought experiment (you can also do this using the interactive example in [pyjangle_example][pyjangle_example]).  Let's assume your bank application has been running for a while and someone accidentally deletes everything from the database.  The recovery process would be as follows:
+It might already be obvious to you that one of the key benefits of this framework is that the only really important data in the application is the event store and saga store.  In fact, you really only need to back up the event store and saga store which makes things pretty simple.  If this sounds strange, let's do a thought experiment (you can also do this using the interactive example in [example][example]).  Let's assume your bank application has been running for a while and someone accidentally deletes everything from the database.  The recovery process would be as follows:
 
 1. Create a new database with the appropriate tables and indexes, etc. (The assumption is that you have your schema lying around in source control)  It's blank at this point with no data.
 2. Restore your event store and saga store tables from backup.
@@ -115,36 +115,36 @@ With a little practice, you'll be writing code that is resiliant to out-of-order
 4. Run an event replay, but shuffle all of the events into random order, and process them through the event handlers three times. (You can do this as many times as you'd like, but the 'Triple Shuffle' has a nice ring to it.)  
 5. Repeat step 2 and compare your results to the previous measurement.
 
-[sagas]: <https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga>
-[ddd]: <https://en.wikipedia.org/wiki/Domain-driven_design>
-[event_sourcing]: <https://martinfowler.com/eaaDev/EventSourcing.html>
-[eventual_consistency]: <https://en.wikipedia.org/wiki/Eventual_consistency>
-[commands]: <pyjangle_example/commands.py>
-[handle_command]: <pyjangle/command/command_handler.py>
-[register_event_dispatcher]: </pyjangle/event/event_dispatcher.py>
-[kafka]: <https://kafka.apache.org/>
-[event_dispatcher]: </pyjangle/event/event_dispatcher.py>
-[EventRepository]: </pyjangle/event/event_repository.py>
-[message_delivery]: <https://docs.confluent.io/kafka/design/delivery-semantics.html>
-[event_handler]: </pyjangle/event/event_handler.py>
-[initialize]: </pyjangle/initialize.py>
-[CommandResponse]: <pyjangle/command/command_response.py>
-[RegisterAggregate]: <pyjangle/aggregate/register_aggregate.py>
-[validate_command]: <pyjangle/aggregate/aggregate.py>
-[apply_events]: <pyjangle/aggregate/aggregate.py>
-[reconstitute_aggregate_state]: <pyjangle/aggregate/aggregate.py>
-[etag]: <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag>
-[query_builder]: </pyjangle_sqlite3/event_handler_query_builder.py>
-[saga]: </pyjangle/saga/saga.py>
-[pyjangle]: </pyjangle/__init__.py>
-[pyjangle_example]: </pyjangle_example/__init__.py>
-[pyjangle_sqlite3]: </pyjangle_sqlite3/__init__.py>
-[pyjangle_json_logging]: </pyjangle_json_logging/__init__.py>
-[cqrs]: <https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs>
-[transfer_event_handler]: </pyjangle_example/event_handlers.py>
-[example_saga]: </pyjangle_example/saga.py>
-[event_daemon]: </pyjangle/event/event_daemon.py>
-[saga_handler]: </pyjangle/saga/saga_handler.py>
-[saga_daemon]: </pyjangle/saga/saga_daemon.py>
-[SagaRepository]: </pyjangle/saga/saga_repository.py>
-[query_handler]: </pyjangle/query/query_handler.py>
+[sagas]:                        <https://learn.microsoft.com/en-us/azure/architecture/reference-architectures/saga/saga>
+[ddd]:                          <https://en.wikipedia.org/wiki/Domain-driven_design>
+[event_sourcing]:               <https://martinfowler.com/eaaDev/EventSourcing.html>
+[eventual_consistency]:         <https://en.wikipedia.org/wiki/Eventual_consistency>
+[kafka]:                        <https://kafka.apache.org/>
+[message_delivery]:             <https://docs.confluent.io/kafka/design/delivery-semantics.html>
+[etag]:                         <https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag>
+[cqrs]:                         <https://learn.microsoft.com/en-us/azure/architecture/patterns/cqrs>
+[transfer_event_handler]:       </example/event_handlers.py>
+[example_saga]:                 </example/saga.py>
+[example]:                      </example/__init__.py>
+[commands]:                     </example/commands.py>
+[event_daemon]:                 </src/pyjangle/event/event_daemon.py>
+[saga_handler]:                 </src/pyjangle/saga/saga_handler.py>
+[saga_daemon]:                  </src/pyjangle/saga/saga_daemon.py>
+[SagaRepository]:               </src/pyjangle/saga/saga_repository.py>
+[query_handler]:                </src/pyjangle/query/query_handler.py>
+[pyjangle_sqlite3]:             </src/pyjangle_sqlite3/__init__.py>
+[pyjangle_json_logging]:        </src/pyjangle_json_logging/__init__.py>
+[query_builder]:                </src/pyjangle_sqlite3/event_handler_query_builder.py>
+[saga]:                         </src/pyjangle/saga/saga.py>
+[pyjangle]:                     </src/pyjangle/__init__.py>
+[event_handler]:                </src/pyjangle/event/event_handler.py>
+[initialize]:                   </src/pyjangle/initialize.py>
+[CommandResponse]:              </src/pyjangle/command/command_response.py>
+[RegisterAggregate]:            </src/pyjangle/aggregate/register_aggregate.py>
+[validate_command]:             </src/pyjangle/aggregate/aggregate.py>
+[apply_events]:                 </src/pyjangle/aggregate/aggregate.py>
+[reconstitute_aggregate_state]: </src/pyjangle/aggregate/aggregate.py>
+[handle_command]:               </src/pyjangle/command/command_handler.py>
+[register_event_dispatcher]:    </src/pyjangle/event/event_dispatcher.py>
+[event_dispatcher]:             </src/pyjangle/event/event_dispatcher.py>
+[EventRepository]:              </src/pyjangle/event/event_repository.py>

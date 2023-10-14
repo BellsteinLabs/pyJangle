@@ -5,33 +5,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Console App",
-            "type": "python",
-            "request": "launch",
-            "module": "pyjangle_example.main",
-            "justMyCode": true,
-            "env": {
-                "DB_JANGLE_BANKING_PATH": "jangle.db",
-                "JANGLE_EVENT_STORE_PATH": "jangle.db",
-                "JANGLE_SAGA_STORE_PATH": "jangle.db",
-                "JANGLE_SNAPSHOTS_PATH": "jangle.db"
-            }
-        },
-        {
-            "name": "Dart: Attach to Process",
-            "type": "dart",
-            "request": "attach"
-        },
-        {
             "name": "Python: Current File",
             "type": "python",
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "env": {
-                "PYTHONPATH": "./"
-            }
+            "justMyCode": true
         }
     ]
 }
