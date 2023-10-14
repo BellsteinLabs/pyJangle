@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "PyJangle"
-version = "0.1.0"
+version = "0.1.0-beta"
 description = "Framework for developing event-based applications."
 readme = "readme.md"
 authors = [{ name = "Bellstein Labs LLC", email = "bellstein.labs@gmail.com" }]

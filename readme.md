@@ -135,9 +135,6 @@ With a little practice, you'll be writing code that is resiliant to out-of-order
 [saga_daemon]:                  <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/saga/saga_daemon.py>
 [SagaRepository]:               <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/saga/saga_repository.py>
 [query_handler]:                <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/query/query_handler.py>
-[pyjangle_sqlite3]:             <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle_sqlite3/__init__.py>
-[pyjangle_json_logging]:        <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle_json_logging/__init__.py>
-[query_builder]:                <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle_sqlite3/event_handler_query_builder.py>
 [saga]:                         <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/saga/saga.py>
 [pyjangle]:                     <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/__init__.py>
 [event_handler]:                <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/event/event_handler.py>
@@ -151,3 +148,6 @@ With a little practice, you'll be writing code that is resiliant to out-of-order
 [register_event_dispatcher]:    <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/event/event_dispatcher.py>
 [event_dispatcher]:             <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/event/event_dispatcher.py>
 [EventRepository]:              <https://github.com/BellsteinLabs/pyJangle/tree/main/src/pyjangle/event/event_repository.py>
+[pyjangle_json_logging]:        <https://github.com/BellsteinLabs/pyjangle_json_logging/tree/main>
+[pyjangle_sqlite3]:             <https://github.com/BellsteinLabs/pyangle_sqlite3/blob/main/src/pyjangle_sqlite3/__init__.py>
+[query_builder]:                <https://github.com/BellsteinLabs/pyangle_sqlite3/blob/main/src/pyjangle_sqlite3/event_handler_query_builder.py>
